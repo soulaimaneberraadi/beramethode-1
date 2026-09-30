@@ -375,7 +375,10 @@ const trouverOrphelins = (companyId: number | string): OrphelinRow[] =>
         FROM st_stock_entries e
         LEFT JOIN subcontract_orders o ON o.id = e.order_id AND o.owner_id = e.owner_id
         LEFT JOIN st_achats a ON a.id = e.order_id AND a.owner_id = e.owner_id
-        WHERE e.owner_id = ? AND o.id IS NULL AND a.id IS NULL
+        -- Un inventaire n'a ni commande ni achat pour parent — c'est normal,
+        -- son parent est st_inventaires. Sans cette exclusion, chaque écart
+        -- d'inventaire remontait comme orphelin et la réparation l'effaçait.
+        WHERE e.owner_id = ? AND o.id IS NULL AND a.id IS NULL AND (e.source IS NULL OR e.source != 'INVENTAIRE')
         GROUP BY e.order_id, e.modelId
         ORDER BY quantite DESC
     `).all(companyId) as OrphelinRow[];

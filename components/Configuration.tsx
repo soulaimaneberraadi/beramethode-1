@@ -861,6 +861,33 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                 })}
                             </p>
                         </div>
+
+                        {/* Remise max caisse — le propriétaire/admin reste toujours illimité */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">
+                                {tx(lang, { fr: 'Remise max (%) pour un vendeur', ar: 'أقصى تخفيض (%) للبائع', en: 'Max discount (%) for a seller', es: 'Descuento máximo (%) para un vendedor', pt: 'Desconto máximo (%) para um vendedor', tr: 'Satıcı için azami indirim (%)' })}
+                            </label>
+                            <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={draft.remiseMaxVendeur ?? ''}
+                                placeholder={tx(lang, { fr: 'Aucune limite', ar: 'بلا حد', en: 'No limit', es: 'Sin límite', pt: 'Sem limite', tr: 'Sınırsız' })}
+                                onChange={e => setDraft(prev => ({ ...prev, remiseMaxVendeur: e.target.value === '' ? null : Math.min(100, Math.max(0, Number(e.target.value))) }))}
+                                className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-slate-700 dark:text-dk-text-soft transition-all text-sm"
+                            />
+                            <p className="text-xs text-slate-500 dark:text-dk-muted">
+                                {tx(lang, {
+                                    fr: 'À la caisse, au-delà de ce pourcentage de remise le vendeur est bloqué. Le propriétaire et les admins ne sont jamais limités. Vide = aucune limite.',
+                                    ar: 'فالصندوق، فوق هاد النسبة البائع كيتحجب. المالك والأدمين ما عندهمش حد. فارغ = بلا حد.',
+                                    en: 'At the till, beyond this discount percentage the seller is blocked. The owner and admins are never limited. Empty = no limit.',
+                                    es: 'En caja, más allá de este porcentaje de descuento el vendedor queda bloqueado. El propietario y los admins nunca están limitados. Vacío = sin límite.',
+                                    pt: 'Na caixa, além desta percentagem de desconto o vendedor fica bloqueado. O proprietário e os admins nunca são limitados. Vazio = sem limite.',
+                                    tr: 'Kasada, bu indirim yüzdesinin üzerinde satıcı engellenir. Sahip ve adminler asla sınırlanmaz. Boş = sınır yok.',
+                                })}
+                            </p>
+                        </div>
                     </div>
 
                     {/* Vocabulaire client — chaque atelier nomme ses types de clients à sa façon */}

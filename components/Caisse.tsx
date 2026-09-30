@@ -56,6 +56,10 @@ export interface CaisseTicket {
   factureId: string | null;
   factureNumero: string | null;
   factureStatut: string | null;
+  /** Caissier qui a tenu la vente — absent sur les ventes antérieures à
+   *  l'attribution par caissier. */
+  vendeurId: string | null;
+  vendeurNom: string | null;
   pieces: number;
   total: number;
   lignes: Array<{
@@ -66,6 +70,9 @@ export interface CaisseTicket {
     taille: string | null;
     quantite: number;
     prixUnitaire: number;
+    /** true : cette ligne est un RETOUR (quantité négative) rattaché à une
+     *  autre ligne, pas une vente. */
+    retour?: boolean;
   }>;
 }
 
@@ -73,7 +80,40 @@ export interface CaisseJournal {
   date: string;
   tickets: CaisseTicket[];
   parMode: Record<string, { pieces: number; total: number; tickets: number }>;
+  /** Totaux du jour, par caissier puis par mode DANS ce caissier — la
+   *  question exacte de la clôture à plusieurs postes. Clé 'NON_ATTRIBUE'
+   *  pour les ventes antérieures à l'attribution par caissier. */
+  parVendeur: Record<string, {
+    nom: string; pieces: number; total: number; tickets: number;
+    parMode: Record<string, { pieces: number; total: number; tickets: number }>;
+  }>;
   totaux: { tickets: number; pieces: number; total: number };
+}
+
+/** Une ligne d'origine d'un ticket, avec ce qu'il en reste à retourner —
+ *  réponse de `GET /api/subcontract/caisse/ticket/:ticket`, valable pour
+ *  n'importe quel jour (contrairement au journal, borné à une journée). */
+export interface CaisseTicketLigne {
+  sortieId: string;
+  modelId: string;
+  modelNom: string;
+  couleur: string | null;
+  taille: string | null;
+  quantite: number;
+  prixUnitaire: number;
+  dejaRetourne: number;
+  restant: number;
+}
+
+export interface CaisseTicketDetail {
+  ticket: string;
+  clientId: string | null;
+  clientNom: string | null;
+  modePaiement: string | null;
+  typeVente: string | null;
+  vendeurNom: string | null;
+  dateSortie: string | null;
+  lignes: CaisseTicketLigne[];
 }
 
 export type CaissePaiement = 'ESPECES' | 'CARTE' | 'CHEQUE' | 'VIREMENT';
@@ -107,6 +147,10 @@ export interface CaisseProps {
      *  d'impression apres l'encaissement (le ticket reste consultable et
      *  reimprimable depuis la Journee). */
     imprimerTicket: boolean;
+    /** Remise totale du panier, en % du sous-total — rejouée côté serveur
+     *  (limite « remise max vendeur »). L'écran a déjà bloqué au-delà de la
+     *  limite ; ce chiffre permet au serveur de refuser un appel direct. */
+    remisePercent: number;
   }) => Promise<string | null>;
   /** Mode statique : aucune API, la caisse ne peut pas enregistrer. */
   isStatic?: boolean;
@@ -127,6 +171,21 @@ export interface CaisseProps {
    *  l'ecran appelant doit relire ses mouvements. Sans ca, la caisse
    *  continuerait de croire la marchandise vendue. */
   onTicketAnnule?: () => void | Promise<void>;
+  /** Un retour vient d'etre enregistre : imprime le ticket de retour (le
+   *  parent seul connait la marque/l'identite entreprise) et relit les
+   *  mouvements de stock — les pieces retournees redeviennent vendables. */
+  onRetourEffectue?: (payload: {
+    ticketRef: string;
+    clientNom: string | null;
+    motif: string | null;
+    montant: number;
+    lignes: Array<{ modelId: string; couleur: string | null; taille: string | null; quantite: number; prixUnitaire: number }>;
+    imprimer: boolean;
+  }) => void | Promise<void>;
+  /** Remise max (%) qu'un vendeur peut accorder seul. `null` = aucune limite. */
+  remiseMaxVendeur?: number | null;
+  /** Propriétaire/admin : jamais limité par `remiseMaxVendeur`. */
+  remisePrivilegiee?: boolean;
 }
 
 const FACTURE_AUTO_KEY = 'bera_caisse_facture_auto';
@@ -288,6 +347,7 @@ const Vignette: React.FC<{ model: ModelData; className?: string }> = ({ model, c
 const Caisse: React.FC<CaisseProps> = ({
   open, onClose, candidats, clients, stockMatrix, currency, lang, onEncaisser, isStatic,
   initialRecherche, pendingScan, onCreateClient, onTicketAnnule, onClientsChanged,
+  onRetourEffectue, remiseMaxVendeur = null, remisePrivilegiee = false,
 }) => {
   const [lignes, setLignes] = useState<CaisseLigne[]>([]);
   const [clientId, setClientId] = useState<string>('');
@@ -347,6 +407,8 @@ const Caisse: React.FC<CaisseProps> = ({
   /** Modèle ouvert : le comptoir choisit un vêtement, PUIS sa couleur et sa
    *  taille. Tant qu'aucun n'est ouvert, on montre le rayon. */
   const [modeleOuvert, setModeleOuvert] = useState<ModelData | null>(null);
+  /** Multiplicateur du bouton « Série » : combien de séries d'un coup. */
+  const [serieMultiplicateur, setSerieMultiplicateur] = useState(1);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -509,6 +571,25 @@ const Caisse: React.FC<CaisseProps> = ({
    *  travers ne doit pas defaire une vente encaissee. */
   const [ticketAConfirmer, setTicketAConfirmer] = useState<string | null>(null);
   const [annulEnCours, setAnnulEnCours] = useState<string | null>(null);
+  /** Filtre « par caissier » de la journee : NULL = tous. */
+  const [journalVendeurFiltre, setJournalVendeurFiltre] = useState<string | null>(null);
+
+  /* ── Retour / echange ─────────────────────────────────────────────────────
+   *  Deux portes d'entree pour le meme panneau : depuis un ticket de la
+   *  journee (le jour est deja connu), ou en tapant/scannant une reference —
+   *  un client peut revenir un autre jour que celui de l'achat. */
+  const [retourRefSaisie, setRetourRefSaisie] = useState('');
+  const [retourTicket, setRetourTicket] = useState<CaisseTicketDetail | null>(null);
+  const [retourChargement, setRetourChargement] = useState(false);
+  const [retourErreur, setRetourErreur] = useState<string | null>(null);
+  /** sortieId → quantite choisie (0 = pas retournee). */
+  const [retourQtes, setRetourQtes] = useState<Record<string, number>>({});
+  const [retourMotif, setRetourMotif] = useState('');
+  const [retourSaving, setRetourSaving] = useState(false);
+  /** Avoir issu d'un echange : le retour est deja enregistre, le panier en
+   *  cours sert a choisir la piece de remplacement. Purement informatif —
+   *  aucune ecriture ne depend de ce champ, voir `validerRetour`. */
+  const [avoirEnCours, setAvoirEnCours] = useState<{ montant: number; ticketRef: string } | null>(null);
 
   /** Reglage « Ticket » : imprimer ou non a chaque encaissement. Un poste sans
    *  imprimante thermique n'a rien a faire d'une fenetre about:blank a chaque
@@ -526,12 +607,14 @@ const Caisse: React.FC<CaisseProps> = ({
     try { localStorage.setItem('beramethode_caisse_ticket', v ? '1' : '0'); } catch {}
   }, []);
 
-  const chargerJournal = useCallback(async (jour: string) => {
+  const chargerJournal = useCallback(async (jour: string, vendeurId?: string | null) => {
     if (isStatic) { setJournal(null); setJournalErreur(null); return; }
     setJournalCharge(true);
     setJournalErreur(null);
     try {
-      const res = await fetch(`/api/subcontract/caisse/journal?date=${encodeURIComponent(jour)}`, { credentials: 'include' });
+      const qs = new URLSearchParams({ date: jour });
+      if (vendeurId) qs.set('vendeurId', vendeurId);
+      const res = await fetch(`/api/subcontract/caisse/journal?${qs.toString()}`, { credentials: 'include' });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
       setJournal(body as CaisseJournal);
@@ -545,8 +628,8 @@ const Caisse: React.FC<CaisseProps> = ({
 
   useEffect(() => {
     if (!open || !journeeOuverte) return;
-    void chargerJournal(journalJour);
-  }, [open, journeeOuverte, journalJour, chargerJournal]);
+    void chargerJournal(journalJour, journalVendeurFiltre);
+  }, [open, journeeOuverte, journalJour, journalVendeurFiltre, chargerJournal]);
 
   /** Annule un ticket : les pieces reviennent au stock cote serveur, et
    *  l'ecran appelant relit ses mouvements pour que le rayon suive. */
@@ -561,14 +644,99 @@ const Caisse: React.FC<CaisseProps> = ({
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
       setTicketAConfirmer(null);
-      await chargerJournal(journalJour);
+      await chargerJournal(journalJour, journalVendeurFiltre);
       await onTicketAnnule?.();
     } catch (err: any) {
       setJournalErreur(err?.message || String(err));
     } finally {
       setAnnulEnCours(null);
     }
-  }, [chargerJournal, journalJour, onTicketAnnule]);
+  }, [chargerJournal, journalJour, journalVendeurFiltre, onTicketAnnule]);
+
+  /** Charge un ticket pour le retour, quel que soit son jour — depuis une
+   *  reference saisie/scannee, ou depuis une carte de la journee. */
+  const chargerTicketRetour = useCallback(async (ticket: string) => {
+    const ref = ticket.trim();
+    if (!ref || isStatic) return;
+    setRetourChargement(true);
+    setRetourErreur(null);
+    setRetourTicket(null);
+    setRetourQtes({});
+    try {
+      const res = await fetch(`/api/subcontract/caisse/ticket/${encodeURIComponent(ref)}`, { credentials: 'include' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+      setRetourTicket(body as CaisseTicketDetail);
+    } catch (err: any) {
+      setRetourErreur(err?.message || String(err));
+    } finally {
+      setRetourChargement(false);
+    }
+  }, [isStatic]);
+
+  /** Montant du retour tel que compose a l'ecran : c'est ce chiffre, et lui
+   *  seul, qui part a l'impression et dans le bandeau d'avoir. */
+  const retourMontant = useMemo(() => {
+    if (!retourTicket) return 0;
+    return retourTicket.lignes.reduce((a, l) => a + (Number(retourQtes[l.sortieId]) || 0) * l.prixUnitaire, 0);
+  }, [retourTicket, retourQtes]);
+
+  const fermerRetour = useCallback(() => {
+    setRetourTicket(null);
+    setRetourQtes({});
+    setRetourMotif('');
+    setRetourErreur(null);
+    setRetourRefSaisie('');
+  }, []);
+
+  /** Enregistre le retour choisi. `echange` laisse le comptoir sur le rayon
+   *  avec un avoir affiche, au lieu de refermer la journee — c'est le seul
+   *  chemin qui pose vraiment une piece de remplacement dans le panier. */
+  const validerRetour = useCallback(async (echange: boolean) => {
+    if (!retourTicket || isStatic) return;
+    const lignes = retourTicket.lignes
+      .map(l => ({ sortie_id: l.sortieId, quantite: Number(retourQtes[l.sortieId]) || 0 }))
+      .filter(l => l.quantite > 0);
+    if (lignes.length === 0) return;
+    setRetourSaving(true);
+    setRetourErreur(null);
+    try {
+      const res = await fetch('/api/subcontract/caisse/retour', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ticket_ref: retourTicket.ticket, lignes, motif: retourMotif.trim() || null }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+
+      await onRetourEffectue?.({
+        ticketRef: retourTicket.ticket,
+        clientNom: retourTicket.clientNom,
+        motif: retourMotif.trim() || null,
+        montant: Number(body?.montant) || retourMontant,
+        lignes: (body?.lignes || []).map((l: any) => ({
+          modelId: l.modelId, couleur: l.couleur ?? null, taille: l.taille ?? null,
+          quantite: Number(l.quantite) || 0, prixUnitaire: Number(l.prixUnitaire) || 0,
+        })),
+        imprimer: ticketActif,
+      });
+
+      if (echange) {
+        setAvoirEnCours({ montant: Number(body?.montant) || retourMontant, ticketRef: retourTicket.ticket });
+        fermerRetour();
+        setVoletMobile('rayon');
+      } else {
+        fermerRetour();
+        await chargerJournal(journalJour, journalVendeurFiltre);
+      }
+      setFlash({ ok: true, msg: tx(lang, { fr: 'Retour enregistré.', ar: 'تسجّل الرجوع.', en: 'Return recorded.', es: 'Devolución registrada.', pt: 'Devolução registada.', tr: 'İade kaydedildi.' }) });
+    } catch (err: any) {
+      setRetourErreur(err?.message || String(err));
+    } finally {
+      setRetourSaving(false);
+    }
+  }, [retourTicket, retourQtes, retourMotif, retourMontant, isStatic, onRetourEffectue, ticketActif, fermerRetour, chargerJournal, journalJour, journalVendeurFiltre, lang]);
 
   const client = clients.find(c => c.id === clientId) || null;
   /** Segments SECONDAIRES d'un client. Le principal vit dans `type` ; ceux-ci
@@ -757,16 +925,16 @@ const Caisse: React.FC<CaisseProps> = ({
    *  normale, et celle d'un tiki dont la case a ete renommee — refuser cette
    *  derniere renverrait le vendeur au depot pour une piece qu'il tient
    *  deja dans la main. */
-  const ajouterLigne = useCallback((model: ModelData, couleur: string, taille: string, horsStock: boolean) => {
+  const ajouterLigne = useCallback((model: ModelData, couleur: string, taille: string, horsStock: boolean, qte = 1) => {
     const key = `${model.id}::${cellKey(couleur, taille)}`;
     setLignes(prev => {
       const i = prev.findIndex(l => l.key === key);
       if (i >= 0) {
         const copy = [...prev];
-        copy[i] = { ...copy[i], qte: copy[i].qte + 1, horsStock: copy[i].horsStock || horsStock };
+        copy[i] = { ...copy[i], qte: copy[i].qte + qte, horsStock: copy[i].horsStock || horsStock };
         return copy;
       }
-      return [...prev, { key, model, couleur, taille, qte: 1, prix: 0, horsStock: horsStock || undefined }];
+      return [...prev, { key, model, couleur, taille, qte, prix: 0, horsStock: horsStock || undefined }];
     });
   }, []);
 
@@ -808,6 +976,42 @@ const Caisse: React.FC<CaisseProps> = ({
     pip(true);
     setFlash({ ok: true, msg: `${nom || model.id} ${couleur} ${taille}`.trim() });
   }, [restantDe, stockMatrix, pip, lang, ajouterLigne]);
+
+  /** Vente par série (assortiment) : une pièce de chaque taille EN STOCK pour
+   *  cette couleur, `multiplicateur` fois. Chaque taille est plafonnée à son
+   *  propre restant — une série incomplète pose ce qu'il y a, jamais plus,
+   *  et le dit plutôt que de le passer sous silence. */
+  const ajouterSerie = useCallback((model: ModelData, couleur: string, multiplicateur: number) => {
+    // Toutes les tailles CONNUES pour cette couleur (même à 0 pièce à
+    // l'instant T) : `restantDe` en dessous fait le vrai tri, cellule par
+    // cellule, panier compris.
+    const cellules = stockMatrix.get(model.id);
+    const tailles = new Set<string>();
+    cellules?.forEach((_qte, k) => {
+      const sep = k.indexOf('|');
+      const c = k.slice(0, sep);
+      const t = k.slice(sep + 1);
+      if (c === couleur && t) tailles.add(t);
+    });
+    let poseesAuMoins1 = 0;
+    let limitees = 0;
+    for (const taille of tailles) {
+      const reste = restantDe(model.id, couleur, taille);
+      if (reste <= 0) continue;
+      const qte = Math.min(multiplicateur, reste);
+      if (qte < multiplicateur) limitees++;
+      ajouterLigne(model, couleur, taille, false, qte);
+      poseesAuMoins1++;
+    }
+    if (poseesAuMoins1 === 0) { pip(false); return; }
+    pip(true);
+    setFlash({
+      ok: true,
+      msg: limitees > 0
+        ? tx(lang, { fr: `Série posée (${limitees} taille(s) limitée(s) par le stock).`, ar: `تصفيفة متزادة (${limitees} مقاس محدود بالستوك).`, en: `Series added (${limitees} size(s) limited by stock).`, es: `Serie añadida (${limitees} talla(s) limitada(s) por el stock).`, pt: `Série adicionada (${limitees} tamanho(s) limitado(s) pelo stock).`, tr: `Seri eklendi (${limitees} beden stokla sinirli).` })
+        : tx(lang, { fr: 'Série posée.', ar: 'تزادت التصفيفة.', en: 'Series added.', es: 'Serie añadida.', pt: 'Série adicionada.', tr: 'Seri eklendi.' }),
+    });
+  }, [restantDe, ajouterLigne, pip, lang, stockMatrix]);
 
   /** Le tarif « Ma boutique » vient du serveur, comme partout ailleurs : la
    *  caisse ne recalcule aucun prix, elle demande celui qui fait foi. */
@@ -1045,6 +1249,7 @@ const Caisse: React.FC<CaisseProps> = ({
   const reset = () => {
     setLignes([]); setRemiseGlobale(''); setEncaisse(''); setClientId('');
     setClientLibre(''); setErreur(null); setRecherche(''); setClientQuery('');
+    setAvoirEnCours(null);
   };
 
   const valider = async () => {
@@ -1059,6 +1264,24 @@ const Caisse: React.FC<CaisseProps> = ({
       setErreur(tx(lang, { fr: 'Choisissez un client : une facture ne peut pas etre anonyme.', ar: 'اختر زبوناً: الفاتورة ما تكونش مجهولة.', en: 'Pick a customer: an invoice cannot be anonymous.', es: 'Elija un cliente: una factura no puede ser anonima.', pt: 'Escolha um cliente: uma fatura nao pode ser anonima.', tr: 'Bir musteri secin: fatura anonim olamaz.' }));
       return;
     }
+    // Remise max vendeur : le proprietaire/admin n'est jamais limite. Sous ce
+    // pourcentage la vente est refusee ICI, avant tout appel reseau — c'est
+    // le seul endroit qui connait a la fois le sous-total et la remise totale
+    // du panier en cours.
+    if (!remisePrivilegiee && remiseMaxVendeur != null && sousTotal > 0) {
+      const remisePct = (remise / sousTotal) * 100;
+      if (remisePct > remiseMaxVendeur) {
+        setErreur(tx(lang, {
+          fr: `Remise de ${remisePct.toFixed(1)} % refusée : la limite pour un vendeur est de ${remiseMaxVendeur} %. Demandez à un responsable.`,
+          ar: `تخفيض ${remisePct.toFixed(1)}% مرفوض: الحد الأقصى للبائع هو ${remiseMaxVendeur}%. اطلب من مسؤول.`,
+          en: `Discount of ${remisePct.toFixed(1)}% refused: the limit for a seller is ${remiseMaxVendeur}%. Ask a manager.`,
+          es: `Descuento de ${remisePct.toFixed(1)}% rechazado: el límite para un vendedor es ${remiseMaxVendeur}%. Pida a un responsable.`,
+          pt: `Desconto de ${remisePct.toFixed(1)}% recusado: o limite para um vendedor é ${remiseMaxVendeur}%. Peça a um responsável.`,
+          tr: `%${remisePct.toFixed(1)} indirim reddedildi: satıcı için sınır %${remiseMaxVendeur}. Bir sorumluya danışın.`,
+        }));
+        return;
+      }
+    }
     setSaving(true); setErreur(null);
     const msg = await onEncaisser({
       lignes,
@@ -1072,6 +1295,7 @@ const Caisse: React.FC<CaisseProps> = ({
       recu: paiement === 'ESPECES' && encaisse !== '' ? Number(encaisse) : null,
       rendu: paiement === 'ESPECES' && rendu != null ? rendu : null,
       imprimerTicket: ticketActif,
+      remisePercent: sousTotal > 0 ? Number(((remise / sousTotal) * 100).toFixed(2)) : 0,
     });
     setSaving(false);
     if (msg) { setErreur(msg); pip(false); return; }
@@ -1208,6 +1432,30 @@ const Caisse: React.FC<CaisseProps> = ({
                 </div>
               ); })()}
 
+              {/* Multiplicateur de série : « x3 » pose 3 pièces de chaque
+                  taille en stock d'un seul clic sur « Série ». */}
+              {grilleModele.length > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">
+                    {tx(lang, { fr: 'Séries', ar: 'التصفيفات', en: 'Series', es: 'Series', pt: 'Séries', tr: 'Seriler' })}
+                  </span>
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-elevated rounded-full p-0.5 border border-slate-200 dark:border-dk-border">
+                    <button
+                      onClick={() => setSerieMultiplicateur(v => Math.max(1, v - 1))}
+                      className="w-6 h-6 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="w-6 text-center text-xs font-black text-slate-800 dark:text-dk-text">×{serieMultiplicateur}</span>
+                    <button
+                      onClick={() => setSerieMultiplicateur(v => Math.min(20, v + 1))}
+                      className="w-6 h-6 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="space-y-3">
                 {grilleModele.map(g => (
                   <div key={g.couleur} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border p-3">
@@ -1217,6 +1465,14 @@ const Caisse: React.FC<CaisseProps> = ({
                         style={teinteDe(g.couleur) ? { backgroundColor: teinteDe(g.couleur)! } : undefined}
                       />
                       <span className="text-xs font-extrabold text-slate-800 dark:text-dk-text">{g.couleur || '—'}</span>
+                      <span className="flex-1" />
+                      <button
+                        onClick={() => ajouterSerie(modeleOuvert, g.couleur, serieMultiplicateur)}
+                        title={tx(lang, { fr: 'Une pièce de chaque taille en stock', ar: 'قطعة من كل مقاس متوفر', en: 'One piece of each size in stock', es: 'Una pieza de cada talla en stock', pt: 'Uma peça de cada tamanho em stock', tr: 'Stoktaki her bedenden bir parça' })}
+                        className="px-2 py-1 rounded-lg text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-950/50"
+                      >
+                        {tx(lang, { fr: 'Série', ar: 'تصفيفة', en: 'Series', es: 'Serie', pt: 'Série', tr: 'Seri' })}
+                      </button>
                     </span>
                     <div className="flex flex-wrap gap-2">
                       {g.tailles.map(t => {
@@ -2133,6 +2389,27 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
       )}
 
+      {/* Avoir d'un échange en cours : le retour est déjà enregistré, il ne
+          reste qu'à sonner la pièce de remplacement — ce bandeau rappelle le
+          crédit tant que le panier n'est pas encaissé. */}
+      {avoirEnCours && (
+        <div className="px-3 sm:px-5 py-2 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 flex items-center gap-2 shrink-0">
+          <ArrowLeftRight className="w-4 h-4 shrink-0" />
+          <span className="truncate flex-1">
+            {tx(lang, { fr: `Avoir échange : ${fmt(avoirEnCours.montant)} ${currency} (retour ${avoirEnCours.ticketRef})`, ar: `رصيد التبديل: ${fmt(avoirEnCours.montant)} ${currency} (رجوع ${avoirEnCours.ticketRef})`, en: `Exchange credit: ${fmt(avoirEnCours.montant)} ${currency} (return ${avoirEnCours.ticketRef})`, es: `Crédito de cambio: ${fmt(avoirEnCours.montant)} ${currency} (devolución ${avoirEnCours.ticketRef})`, pt: `Crédito de troca: ${fmt(avoirEnCours.montant)} ${currency} (devolução ${avoirEnCours.ticketRef})`, tr: `Değişim kredisi: ${fmt(avoirEnCours.montant)} ${currency} (iade ${avoirEnCours.ticketRef})` })}
+            {' — '}
+            {total - avoirEnCours.montant > 0.009
+              ? tx(lang, { fr: `reste à payer ${fmt(total - avoirEnCours.montant)} ${currency}`, ar: `باقي يتخلص ${fmt(total - avoirEnCours.montant)} ${currency}`, en: `remaining to pay ${fmt(total - avoirEnCours.montant)} ${currency}`, es: `queda por pagar ${fmt(total - avoirEnCours.montant)} ${currency}`, pt: `falta pagar ${fmt(total - avoirEnCours.montant)} ${currency}`, tr: `ödenecek ${fmt(total - avoirEnCours.montant)} ${currency}` })
+              : (avoirEnCours.montant - total > 0.009
+                ? tx(lang, { fr: `à rembourser ${fmt(avoirEnCours.montant - total)} ${currency}`, ar: `يترجّع ${fmt(avoirEnCours.montant - total)} ${currency}`, en: `to refund ${fmt(avoirEnCours.montant - total)} ${currency}`, es: `a devolver ${fmt(avoirEnCours.montant - total)} ${currency}`, pt: `a reembolsar ${fmt(avoirEnCours.montant - total)} ${currency}`, tr: `iade edilecek ${fmt(avoirEnCours.montant - total)} ${currency}` })
+                : tx(lang, { fr: 'soldé', ar: 'متسوّى', en: 'settled', es: 'saldado', pt: 'saldado', tr: 'kapandı' }))}
+          </span>
+          <button onClick={() => setAvoirEnCours(null)} className="p-1 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-950/50 shrink-0" aria-label="Fermer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* La journee de caisse. Elle REMPLACE l'ecran de vente au lieu de le
           recouvrir a moitie : au comptoir, deux ecrans a moitie visibles font
           scanner un article dans le vide. */}
@@ -2197,6 +2474,137 @@ const Caisse: React.FC<CaisseProps> = ({
             </div>
           )}
 
+          {/* Par caissier : la meme question que le fond de caisse, mais
+              posee poste par poste quand le comptoir est tenu a plusieurs.
+              Cliquer un caissier filtre la liste sur lui — un second clic
+              l'enleve. */}
+          {journal && Object.keys(journal.parVendeur || {}).length > 1 && (
+            <div className="flex flex-wrap gap-2 px-3 sm:px-5 pb-3 shrink-0">
+              {Object.entries(journal.parVendeur).map(([vid, agg]) => (
+                <button
+                  key={vid}
+                  onClick={() => setJournalVendeurFiltre(v => (v === vid ? null : vid))}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-left transition-colors ${
+                    journalVendeurFiltre === vid
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                      : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] font-bold truncate max-w-[120px]">{agg.nom}</span>
+                  <span className="text-[11px] font-black tabular-nums">{fmt(agg.total)} {currency}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Retour / echange — un seul panneau, alimente soit par « Retour »
+              sur un ticket de la journee, soit par une reference tapee/
+              scannee (utile pour un retour d'un autre jour). */}
+          <div className="px-3 sm:px-5 pb-3 shrink-0 space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                value={retourRefSaisie}
+                onChange={e => setRetourRefSaisie(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && retourRefSaisie.trim()) void chargerTicketRetour(retourRefSaisie); }}
+                placeholder={tx(lang, { fr: 'Référence du ticket (autre jour)…', ar: 'مرجع التيكي (نهار آخر)…', en: 'Ticket reference (another day)…', es: 'Referencia del ticket (otro día)…', pt: 'Referência do talão (outro dia)…', tr: 'Fiş referansı (başka gün)…' })}
+                className="flex-1 min-w-0 px-3 py-2 rounded-xl text-xs bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+              />
+              <button
+                onClick={() => retourRefSaisie.trim() && chargerTicketRetour(retourRefSaisie)}
+                disabled={!retourRefSaisie.trim() || retourChargement || isStatic}
+                className="shrink-0 px-3 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated disabled:opacity-40 flex items-center gap-1.5"
+              >
+                {retourChargement ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                {tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Return', es: 'Devolución', pt: 'Devolução', tr: 'İade' })}
+              </button>
+            </div>
+
+            {retourErreur && (
+              <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">{retourErreur}</p>
+            )}
+
+            {retourTicket && (
+              <div className="rounded-xl bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800/50 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-dk-border bg-indigo-50/60 dark:bg-indigo-950/20">
+                  <span className="font-mono text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">{retourTicket.ticket}</span>
+                  {retourTicket.clientNom && <span className="text-[11px] font-bold text-slate-700 dark:text-dk-text truncate">{retourTicket.clientNom}</span>}
+                  <span className="flex-1" />
+                  <button onClick={fermerRetour} className="p-1 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-surface" aria-label="Fermer">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="divide-y divide-slate-50 dark:divide-dk-border/50">
+                  {retourTicket.lignes.length === 0 && (
+                    <p className="p-4 text-center text-[11px] text-slate-400 dark:text-dk-muted">
+                      {tx(lang, { fr: 'Plus rien à retourner sur ce ticket.', ar: 'مافقاش شي حاجة ترجع فهاد التيكي.', en: 'Nothing left to return on this ticket.', es: 'Nada más que devolver en este ticket.', pt: 'Nada mais a devolver neste talão.', tr: 'Bu fişte iade edilecek bir şey kalmadı.' })}
+                    </p>
+                  )}
+                  {retourTicket.lignes.map(l => (
+                    <div key={l.sortieId} className="flex items-center gap-2 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-[11px] font-bold text-slate-700 dark:text-dk-text truncate">{l.modelNom}</span>
+                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                          {[l.couleur, l.taille].filter(Boolean).join(' / ') || '—'} · {fmt(l.prixUnitaire)} {currency}
+                          {l.dejaRetourne > 0 ? ` · ${l.dejaRetourne} déjà retournée(s)` : ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-elevated rounded-full p-0.5 border border-slate-200 dark:border-dk-border shrink-0">
+                        <button
+                          onClick={() => setRetourQtes(prev => ({ ...prev, [l.sortieId]: Math.max(0, (prev[l.sortieId] || 0) - 1) }))}
+                          className="w-6 h-6 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="w-6 text-center text-xs font-black text-slate-800 dark:text-dk-text">{retourQtes[l.sortieId] || 0}</span>
+                        <button
+                          onClick={() => setRetourQtes(prev => ({ ...prev, [l.sortieId]: Math.min(l.restant, (prev[l.sortieId] || 0) + 1) }))}
+                          disabled={(retourQtes[l.sortieId] || 0) >= l.restant}
+                          className="w-6 h-6 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft disabled:opacity-30"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <span className="w-10 text-right text-[10px] font-bold text-slate-400 dark:text-dk-muted shrink-0">/{l.restant}</span>
+                    </div>
+                  ))}
+                </div>
+                {retourTicket.lignes.length > 0 && (
+                  <div className="px-3 py-2.5 border-t border-slate-100 dark:border-dk-border bg-slate-50/60 dark:bg-dk-elevated/40 space-y-2">
+                    <input
+                      value={retourMotif}
+                      onChange={e => setRetourMotif(e.target.value)}
+                      placeholder={tx(lang, { fr: 'Motif (facultatif)', ar: 'السبب (اختياري)', en: 'Reason (optional)', es: 'Motivo (opcional)', pt: 'Motivo (opcional)', tr: 'Gerekçe (opsiyonel)' })}
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-black text-slate-800 dark:text-dk-text tabular-nums">
+                        {tx(lang, { fr: 'Avoir', ar: 'الرصيد', en: 'Credit', es: 'Crédito', pt: 'Crédito', tr: 'Kredi' })} : {fmt(retourMontant)} {currency}
+                      </span>
+                      <span className="flex-1" />
+                      <button
+                        onClick={() => validerRetour(false)}
+                        disabled={retourSaving || retourMontant <= 0}
+                        className="px-3 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border hover:bg-white dark:hover:bg-dk-surface disabled:opacity-40 flex items-center gap-1.5"
+                      >
+                        {retourSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {tx(lang, { fr: 'Retour simple', ar: 'رجوع بسيط', en: 'Simple return', es: 'Devolución simple', pt: 'Devolução simples', tr: 'Basit iade' })}
+                      </button>
+                      <button
+                        onClick={() => validerRetour(true)}
+                        disabled={retourSaving || retourMontant <= 0}
+                        className="px-3 py-2 rounded-xl text-[11px] font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 flex items-center gap-1.5"
+                      >
+                        {retourSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {tx(lang, { fr: 'Échange', ar: 'تبديل', en: 'Exchange', es: 'Cambio', pt: 'Troca', tr: 'Değişim' })}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Chaque ticket est une carte : sur telephone, une ligne unique
               melangeait reference, client, mode et total jusqu'a deborder de
               l'ecran. Empiler « en-tete / articles / total+action » garde
@@ -2223,9 +2631,14 @@ const Caisse: React.FC<CaisseProps> = ({
                         {t.factureNumero}
                       </span>
                     )}
+                    {t.vendeurNom && (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-[10px] font-bold text-slate-500 dark:text-dk-muted shrink-0">
+                        {t.vendeurNom}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between gap-2 sm:ml-auto sm:justify-end sm:shrink-0">
-                    <span className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums whitespace-nowrap">{fmt(t.total)} {currency}</span>
+                    <span className={`text-sm font-black tabular-nums whitespace-nowrap ${t.total < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-dk-text'}`}>{fmt(t.total)} {currency}</span>
                     {ticketAConfirmer === t.ticket ? (
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
@@ -2246,27 +2659,37 @@ const Caisse: React.FC<CaisseProps> = ({
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setTicketAConfirmer(t.ticket)}
-                        disabled={isStatic}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 disabled:opacity-40 transition-colors shrink-0"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">{T.annuler}</span>
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => void chargerTicketRetour(t.ticket)}
+                          disabled={isStatic || retourChargement}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-40 transition-colors"
+                        >
+                          <ArrowLeftRight className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">{tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Return', es: 'Devolución', pt: 'Devolução', tr: 'İade' })}</span>
+                        </button>
+                        <button
+                          onClick={() => setTicketAConfirmer(t.ticket)}
+                          disabled={isStatic}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 disabled:opacity-40 transition-colors"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">{T.annuler}</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
                 <div className="divide-y divide-slate-50 dark:divide-dk-border/50">
                   {t.lignes.map(l => (
-                    <div key={l.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-1.5 text-[11px] min-w-0">
+                    <div key={l.id} className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-1.5 text-[11px] min-w-0 ${l.retour ? 'bg-rose-50/50 dark:bg-rose-950/10' : ''}`}>
                       <span className="font-bold text-slate-700 dark:text-dk-text truncate min-w-0 max-w-full">{l.modelNom}</span>
                       <span className="text-slate-400 dark:text-dk-muted truncate min-w-0 shrink">
                         {[l.couleur, l.taille].filter(Boolean).join(' / ') || '—'}
                       </span>
                       <div className="flex-1 min-w-0 basis-0" />
-                      <span className="text-slate-500 dark:text-dk-muted tabular-nums whitespace-nowrap shrink-0">{l.quantite} x {fmt(l.prixUnitaire)}</span>
-                      <span className="font-bold text-slate-700 dark:text-dk-text tabular-nums w-16 sm:w-20 text-right shrink-0 whitespace-nowrap">
+                      <span className={`tabular-nums whitespace-nowrap shrink-0 ${l.retour ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-500 dark:text-dk-muted'}`}>{l.quantite} x {fmt(l.prixUnitaire)}</span>
+                      <span className={`font-bold tabular-nums w-16 sm:w-20 text-right shrink-0 whitespace-nowrap ${l.retour ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-dk-text'}`}>
                         {fmt(l.quantite * l.prixUnitaire)}
                       </span>
                     </div>

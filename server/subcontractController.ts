@@ -738,3 +738,130 @@ export const deleteSubcontractExpense = (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error deleting subcontract expense' });
     }
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// MATIÈRE ENVOYÉE / RETOURNÉE AU SOUS-TRAITANT (subcontract_material_moves)
+// ════════════════════════════════════════════════════════════════════════════
+// Uniquement utile en mode Façon (c'est nous qui fournissons la matière) :
+// permet de vérifier que ce qui est parti moins ce qui est revenu correspond
+// au besoin théorique de la fiche modèle, au prorata des pièces contrôlées.
+
+const SENS_VALUES = ['ENVOI', 'RETOUR', 'CHUTE'] as const;
+
+/** Projection camelCase renvoyée par toutes les routes de mouvements matière. */
+const MATERIAL_MOVE_COLUMNS = `
+    id,
+    order_id AS orderId,
+    materiau,
+    unite,
+    sens,
+    quantite,
+    date,
+    note,
+    created_at
+`;
+
+/** Valide le payload d'un mouvement matière. Retourne un message d'erreur, ou null. */
+const validateMaterialMovePayload = (body: any): string | null => {
+    const materiau = body.materiau;
+    if (typeof materiau !== 'string' || !materiau.trim()) {
+        return 'materiau est requis et ne peut pas être vide';
+    }
+    const sens = body.sens;
+    if (!SENS_VALUES.includes(sens)) {
+        return `sens invalide : attendu l'une de ${SENS_VALUES.join(', ')}`;
+    }
+    if (!isNum(body.quantite) || Number(body.quantite) <= 0) {
+        return 'quantite doit être un nombre strictement positif';
+    }
+    return null;
+};
+
+// GET /api/subcontract/materials/:orderId
+export const getMaterialMoves = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { orderId } = req.params;
+
+    try {
+        if (!findOwnedOrder(orderId, companyId)) {
+            return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+        }
+
+        const rows = db.prepare(
+            `SELECT ${MATERIAL_MOVE_COLUMNS} FROM subcontract_material_moves WHERE order_id = ? ORDER BY date ASC, created_at ASC`
+        ).all(orderId) as any[];
+
+        res.json(rows);
+    } catch (error) {
+        console.error('Get subcontract material moves error:', error);
+        res.status(500).json({ message: 'Error fetching subcontract material moves' });
+    }
+};
+
+// POST /api/subcontract/materials/:orderId
+export const createMaterialMove = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { orderId } = req.params;
+    const { materiau, unite, sens, quantite, date, note } = req.body;
+
+    try {
+        if (!findOwnedOrder(orderId, companyId)) {
+            return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+        }
+
+        const validationError = validateMaterialMovePayload(req.body);
+        if (validationError) {
+            return res.status(400).json({ message: validationError });
+        }
+
+        const id = randomUUID();
+        db.prepare(`
+            INSERT INTO subcontract_material_moves
+                (id, owner_id, order_id, materiau, unite, sens, quantite, date, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            id,
+            companyId,
+            orderId,
+            String(materiau).trim(),
+            unite ? String(unite).trim() : null,
+            sens,
+            Number(quantite),
+            date ? String(date).trim() : new Date().toISOString().split('T')[0],
+            note ? String(note).trim() : null,
+        );
+
+        const move = db.prepare(`SELECT ${MATERIAL_MOVE_COLUMNS} FROM subcontract_material_moves WHERE id = ?`).get(id);
+        res.status(201).json({ message: 'Material move created successfully', id, move });
+    } catch (error) {
+        console.error('Create subcontract material move error:', error);
+        res.status(500).json({ message: 'Error creating subcontract material move' });
+    }
+};
+
+// DELETE /api/subcontract/materials/move/:id
+export const deleteMaterialMove = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    try {
+        // Propriété vérifiée par jointure : un mouvement n'est accessible que via
+        // la commande porteuse, elle-même filtrée sur owner_id.
+        const existing = db.prepare(`
+            SELECT m.id
+            FROM subcontract_material_moves m
+            JOIN subcontract_orders o ON o.id = m.order_id
+            WHERE m.id = ? AND o.owner_id = ?
+        `).get(id, companyId) as any;
+
+        if (!existing) {
+            return res.status(404).json({ message: 'Material move not found or unauthorized' });
+        }
+
+        db.prepare('DELETE FROM subcontract_material_moves WHERE id = ?').run(id);
+        res.json({ message: 'Material move deleted successfully' });
+    } catch (error) {
+        console.error('Delete subcontract material move error:', error);
+        res.status(500).json({ message: 'Error deleting subcontract material move' });
+    }
+};

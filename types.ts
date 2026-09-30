@@ -511,6 +511,8 @@ export interface AppSettings {
   venteSousCoutPolicy?: 'BLOCK' | 'CONFIRM' | 'ALLOW';
   /** Masque le prix de revient / la marge aux rôles non autorisés (vendeurs). Défaut false pour ne rien casser dans les installations existantes. */
   masquerCoutRevient?: boolean;
+  /** Remise maximale (%) qu'un vendeur (non propriétaire/admin) peut accorder seul à la caisse. `null`/absent = aucune limite — comportement historique inchangé. */
+  remiseMaxVendeur?: number | null;
 }
 
 export interface PdfSettings {
@@ -1605,6 +1607,7 @@ export const DEFAULT_COMMERCIAL_SETTINGS: Required<Pick<AppSettings,
   | 'stockDormantJours'
   | 'venteSousCoutPolicy'
   | 'masquerCoutRevient'
+  | 'remiseMaxVendeur'
 >> = {
   /** 15 % : seuil d'alerte usuel dans la confection marocaine (façon + complet). */
   margeMinimale: 15,
@@ -1622,4 +1625,6 @@ export const DEFAULT_COMMERCIAL_SETTINGS: Required<Pick<AppSettings,
   venteSousCoutPolicy: 'CONFIRM',
   /** false : comportement historique — tout le monde voit le coût de revient. */
   masquerCoutRevient: false,
+  /** null : aucune limite — comportement historique, personne n'est bloqué. */
+  remiseMaxVendeur: null,
 };

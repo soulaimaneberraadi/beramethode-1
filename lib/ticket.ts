@@ -27,6 +27,17 @@ export type TicketData = {
   rendu?: number | null;
   clientNom?: string | null;
   currency: string;
+  /** VENTE (défaut) ou RETOUR : un retour s'imprime avec un bandeau dédié et
+   *  des lignes/montants négatifs — sans ce type, un ticket de remboursement
+   *  serait indiscernable d'une vente à l'œil. */
+  type?: 'VENTE' | 'RETOUR';
+  /** Identité légale de l'émetteur, imprimée sous la marque — comme sur une
+   *  facture. `marque` reste l'enseigne commerciale (peut différer de la
+   *  raison sociale) : les deux coexistent, ils ne se remplacent pas. */
+  entreprise?: { adresse?: string | null; tel?: string | null; ice?: string | null } | null;
+  /** Le caissier qui a tenu la vente — utile dès que la caisse est tenue à
+   *  plusieurs, pour retrouver qui a encaissé (ou remboursé) quoi. */
+  caissier?: string | null;
 };
 
 const esc = (s: string) => String(s ?? '')
@@ -62,10 +73,20 @@ export function buildTicketHtml(t: TicketData): string {
     + '.p { width: 28%; text-align: right; white-space: nowrap; }'
     + '.v { display: block; font-size: 8pt; }'
     + '.tot { font-size: 13pt; font-weight: 800; }'
+    + '.id { font-size: 8pt; }'
+    + '.ret { font-size: 11pt; font-weight: 800; letter-spacing: 1px; border: 1px solid #000; padding: 1mm 0; margin: 1mm 0; }'
     + '</style></head><body>'
     + '<div class="c mk">' + esc(t.marque || '') + '</div>'
+    // Identité légale : sous la marque, comme sur une facture — l'enseigne et
+    // la raison sociale ne coïncident pas toujours.
+    + (t.entreprise?.adresse ? '<div class="c id">' + esc(t.entreprise.adresse) + '</div>' : '')
+    + ([t.entreprise?.tel ? 'Tél : ' + t.entreprise.tel : '', t.entreprise?.ice ? 'ICE : ' + t.entreprise.ice : ''].filter(Boolean).length
+      ? '<div class="c id">' + esc([t.entreprise?.tel ? 'Tél : ' + t.entreprise.tel : '', t.entreprise?.ice ? 'ICE : ' + t.entreprise.ice : ''].filter(Boolean).join(' · ')) + '</div>'
+      : '')
+    + (t.type === 'RETOUR' ? '<div class="c ret">RETOUR / AVOIR</div>' : '')
     + '<div class="c">' + esc(t.numero) + ' · ' + esc(t.date) + '</div>'
     + (t.clientNom ? '<div class="c">' + esc(t.clientNom) + '</div>' : '')
+    + (t.caissier ? '<div class="c id">Caissier : ' + esc(t.caissier) + '</div>' : '')
     + '<div class="sep"></div>'
     + '<table>' + lignes + '</table>'
     + '<div class="sep"></div>'
@@ -74,13 +95,13 @@ export function buildTicketHtml(t: TicketData): string {
       ? '<tr><td>Sous-total</td><td class="p">' + money(t.sousTotal) + '</td></tr>'
         + '<tr><td>Remise</td><td class="p">-' + money(t.remise) + '</td></tr>'
       : '')
-    + '<tr><td class="tot">TOTAL</td><td class="p tot">' + money(t.total) + ' ' + esc(t.currency) + '</td></tr>'
+    + '<tr><td class="tot">' + (t.type === 'RETOUR' ? 'AVOIR' : 'TOTAL') + '</td><td class="p tot">' + money(t.total) + ' ' + esc(t.currency) + '</td></tr>'
     + '<tr><td>' + esc(t.paiement) + '</td><td class="p">'
     + (t.recu != null ? money(t.recu) : '') + '</td></tr>'
     + (t.rendu != null && t.rendu > 0 ? '<tr><td>Rendu</td><td class="p">' + money(t.rendu) + '</td></tr>' : '')
     + '</table>'
     + '<div class="sep"></div>'
-    + '<div class="c">Merci et à bientôt</div>'
+    + '<div class="c">' + (t.type === 'RETOUR' ? 'Retour enregistré' : 'Merci et à bientôt') + '</div>'
     + '<script>window.print();<\/script></body></html>';
 }
 
@@ -107,8 +128,13 @@ export function buildTicketZpl(t: TicketData, dpi = 203): string {
   const trait = () => { out.push('^FO' + L + ',' + y + '^GB' + (R - L) + ',1,1^FS'); y += dots(2); };
 
   line(t.marque || '', dots(5), true);
+  if (t.entreprise?.adresse) line(t.entreprise.adresse);
+  const idLigne = [t.entreprise?.tel ? 'Tel : ' + t.entreprise.tel : '', t.entreprise?.ice ? 'ICE : ' + t.entreprise.ice : ''].filter(Boolean).join(' - ');
+  if (idLigne) line(idLigne);
+  if (t.type === 'RETOUR') line('RETOUR / AVOIR', dots(4), true);
   line(t.numero + ' ' + t.date);
   if (t.clientNom) line(t.clientNom);
+  if (t.caissier) line('Caissier : ' + t.caissier);
   trait();
   for (const l of t.lignes) {
     const detail = [l.couleur, l.taille].filter(Boolean).join(' ');
@@ -117,7 +143,7 @@ export function buildTicketZpl(t: TicketData, dpi = 203): string {
   }
   trait();
   if (t.remise > 0) { line('Remise'); droite('-' + money(t.remise)); }
-  line('TOTAL', dots(5), true);
+  line(t.type === 'RETOUR' ? 'AVOIR' : 'TOTAL', dots(5), true);
   droite(money(t.total) + ' ' + t.currency, dots(5));
   line(t.paiement);
   if (t.rendu != null && t.rendu > 0) { line('Rendu'); droite(money(t.rendu)); }

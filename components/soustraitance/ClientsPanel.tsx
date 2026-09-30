@@ -33,6 +33,10 @@ export interface AtelierClient {
      *  client (CIN, RC, contrat…) — même usage que la fiche sous-traitant. */
     docRecto?: string | null;
     docVerso?: string | null;
+    /** Plafond de credit (MAD), pertinent seulement pour un role CLIENT/LES_DEUX.
+     *  `null`/absent = aucune limite — une sortie de stock ne le verifie que si
+     *  ce champ est renseigne. */
+    plafondCredit?: number | null;
 }
 
 const EMPTY: AtelierClient = { id: '', nom: '', type: 'DETAIL', role: 'CLIENT' };
@@ -791,6 +795,24 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+                            )}
+
+                            {/* Le plafond de credit n'a de sens que pour qui nous achete. */}
+                            {(form.role || 'CLIENT') !== 'FOURNISSEUR' && (
+                            <div>
+                                <label className={label}>{tx(lang, { fr: 'Plafond de crédit (MAD)', ar: 'سقف الائتمان (درهم)', en: 'Credit limit (MAD)', es: 'Límite de crédito (MAD)', pt: 'Limite de crédito (MAD)', tr: 'Kredi limiti (MAD)' })}</label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={form.plafondCredit ?? ''}
+                                    placeholder={tx(lang, { fr: 'Aucune limite', ar: 'بلا حد', en: 'No limit', es: 'Sin límite', pt: 'Sem limite', tr: 'Sınırsız' })}
+                                    onChange={e => setForm({ ...form, plafondCredit: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0) })}
+                                    className={field}
+                                />
+                                <p className="mt-1 text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                                    {tx(lang, { fr: 'Au-delà de ce montant impayé, la sortie de stock demande une confirmation supplémentaire.', ar: 'فوق هاد المبلغ الما تخلصش، إخراج المخزون كيطلب تأكيد زائد.', en: 'Beyond this unpaid amount, a stock exit requires an extra confirmation.', es: 'Más allá de este importe impagado, la salida de stock requiere una confirmación adicional.', pt: 'Acima deste valor em dívida, a saída de stock exige confirmação extra.', tr: 'Bu ödenmemiş tutarın ötesinde, stok çıkışı ek onay gerektirir.' })}
+                                </p>
                             </div>
                             )}
 

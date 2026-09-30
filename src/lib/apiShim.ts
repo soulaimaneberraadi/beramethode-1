@@ -288,10 +288,11 @@ const readCompany = () => {
 
 const SOUS_RESSOURCES_SERVEUR = new Set([
   'clients', 'stock-entries', 'stock-sorties', 'commandes', 'articles', 'achats',
-  'expenses', 'caisse', 'ventes', 'stock',
+  'expenses', 'caisse', 'ventes', 'stock', 'inventaire', 'seuils', 'materials',
+  'stock-integrity',
 ]);
 
-const PREFIXES_SERVEUR = ['/api/facturation', '/api/prix', '/api/clients'];
+const PREFIXES_SERVEUR = ['/api/facturation', '/api/prix', '/api/clients', '/api/ventes'];
 
 const routeServeurSeulement = (pathname: string): boolean => {
   const r = resolveTypeAndId(pathname);

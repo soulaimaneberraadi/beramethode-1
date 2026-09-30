@@ -81,14 +81,18 @@ import {
   createSubcontractExpense,
   updateSubcontractExpense,
   deleteSubcontractExpense,
+  getMaterialMoves,
+  createMaterialMove,
+  deleteMaterialMove,
 } from './server/subcontractController';
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
-import { getCaisseJournal, annulerTicketCaisse } from './server/caisseController';
-import { getVentesDashboard, getVentesEncours, getClientHistorique, getRecuPaiement } from './server/ventesDashboardController';
+import { getCaisseJournal, annulerTicketCaisse, getCaisseTicket, retournerTicketCaisse } from './server/caisseController';
+import { getVentesDashboard, getVentesEncours, getVentesEncoursClient, getClientHistorique, getRecuPaiement } from './server/ventesDashboardController';
 import { getVentesAxe } from './server/ventesAxeController';
 import { getGaranties, saveGarantie, changerStatutGarantie, deleteGarantie } from './server/garantiesController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
+import { getInventaires, createInventaire, deleteInventaire, getSeuils, saveSeuil } from './server/inventaireController';
 import { sendZpl } from './server/printBridge';
 import { deposerTrace, lireDossierTraceur } from './server/traceurBridge';
 import {
@@ -806,6 +810,9 @@ async function startServer() {
   // Le detail de l'encours : qui doit, sur quelle facture, et depuis combien de jours.
   app.get('/api/ventes/axe', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesAxe);
   app.get('/api/ventes/encours', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesEncours);
+  // Encours d'UN client (plafond de credit sous-traitance) — meme formule, sans
+  // recharger tout le detail des impayes de l'atelier.
+  app.get('/api/ventes/encours/:clientId', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesEncoursClient);
   // Historique complet d'un client : toutes ses factures et tous ses reglements.
   // Recu de versement : le reste a payer se calcule dans la base, jamais dans l ecran.
   // Cheques et effets laisses en garantie : ce ne sont pas des encaissements.
@@ -817,6 +824,11 @@ async function startServer() {
   app.get('/api/ventes/clients/:id/historique', authenticateToken, requirePermission('page', 'facturation', 'view'), getClientHistorique);
   app.get('/api/subcontract/caisse/journal', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseJournal);
   app.delete('/api/subcontract/caisse/ticket/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), annulerTicketCaisse);
+  // Retour caisse : lecture d'un ticket (n'importe quel jour) puis retour
+  // partiel/total de ses lignes. Deux routes distinctes de la journee, qui
+  // reste bornee a un seul jour.
+  app.get('/api/subcontract/caisse/ticket/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseTicket);
+  app.post('/api/subcontract/caisse/retour', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), retournerTicketCaisse);
   // Facture de VENTE construite à partir de sorties déjà réalisées — c'est ce
   // qui relie enfin « ce qui est sorti » à « ce qui est payé ».
   app.post('/api/subcontract/clients/facturer', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createClientInvoice);
@@ -854,6 +866,15 @@ async function startServer() {
   // l'achat parent n'existe plus, et permet de les retirer.
   app.get('/api/subcontract/stock-integrity', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), checkStockIntegrity);
   app.post('/api/subcontract/stock-integrity/repair', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), repairStockIntegrity);
+  // Inventaire (comptage physique) : compare le theorique au compte reel et
+  // ecrit les ecarts comme des entrees de stock source 'INVENTAIRE'.
+  // Declarees AVANT /api/subcontract/:id pour la meme raison que « articles ».
+  app.get('/api/subcontract/inventaire', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getInventaires);
+  app.post('/api/subcontract/inventaire', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createInventaire);
+  app.delete('/api/subcontract/inventaire/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_inventaires', 'owner_id'), deleteInventaire);
+  // Seuils de stock bas, a la maille modele ou modele x couleur x taille.
+  app.get('/api/subcontract/seuils', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSeuils);
+  app.post('/api/subcontract/seuils', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSeuil);
   app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
   app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
   app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);
@@ -902,6 +923,13 @@ async function startServer() {
   app.delete('/api/subcontract/expenses/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteSubcontractExpense);
   app.get('/api/subcontract/:orderId/expenses', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractExpenses);
   app.post('/api/subcontract/:orderId/expenses', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createSubcontractExpense);
+
+  // Matière ENVOYÉE/RETOURNÉE/CHUTE avec le sous-traitant (mode Façon).
+  // ⚠️ /materials/move/:id (préfixe littéral) déclarée avant /materials/:orderId
+  // par prudence, même si les deux ont un nombre de segments différent.
+  app.delete('/api/subcontract/materials/move/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteMaterialMove);
+  app.get('/api/subcontract/materials/:orderId', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getMaterialMoves);
+  app.post('/api/subcontract/materials/:orderId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createMaterialMove);
 
   app.get('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'view'), getSuiviData);
   app.post('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'edit'), saveSuiviData);

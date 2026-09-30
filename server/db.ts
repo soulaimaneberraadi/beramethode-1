@@ -1104,6 +1104,11 @@ try { db.exec("ALTER TABLE st_clients ADD COLUMN types TEXT"); } catch { /* alre
 // son dossier fiscal : les deux figurent sur une facture entre professionnels,
 // et une facture qui n'en porte qu'un se fait retoquer a la comptabilite.
 try { db.exec("ALTER TABLE st_clients ADD COLUMN if_fiscal TEXT"); } catch { /* already exists */ }
+// Plafond de credit du client (GROS, le plus souvent) : au-dela de ce montant
+// d'encours, une nouvelle sortie de stock doit etre signalee avant d'etre
+// enregistree. NULL = aucune limite — comportement historique inchange pour
+// toutes les fiches existantes tant que personne ne saisit de plafond.
+try { db.exec("ALTER TABLE st_clients ADD COLUMN plafond_credit REAL"); } catch { /* already exists */ }
 
 // ── Mentions legales de la facture ────────────────────────────────────────
 // L'emetteur est COPIE sur la facture au moment ou elle est etablie, jamais
@@ -1304,11 +1309,78 @@ try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_ticket ON st_stock_sort
 // l'historique.
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_canal_date ON st_stock_sorties (owner_id, canal, date_sortie)'); } catch { /* index déjà présent */ }
 
+// Retour caisse : une ligne de retour est une sortie a QUANTITE NEGATIVE qui
+// pointe vers la sortie d'origine. Elle remet la piece en stock (la matrice
+// couleur x taille soustrait une quantite negative, donc l'ajoute) et reduit
+// le chiffre d'affaires du jour SANS toucher a la ligne vendue — c'est elle
+// qui permet de calculer « combien reste-t-il a retourner » sans jamais
+// reecrire ni supprimer la vente d'origine.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN retour_de TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_retour_de ON st_stock_sorties (owner_id, retour_de)'); } catch { /* index déjà présent */ }
+
+// Caissier ayant encaisse (ou retourne) la vente. `vendeur_id` est l'id du
+// compte connecte (pas le companyId/owner_id qui identifie le workspace) :
+// dans un atelier a plusieurs postes, c'est lui qui permet la cloture de
+// journee par personne. `vendeur_nom` est recopie au moment de la vente,
+// comme le nom du client — un compte renomme ou supprime plus tard ne doit
+// jamais faire disparaitre qui a tenu la caisse ce jour-la.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN vendeur_id INTEGER'); } catch { /* colonne déjà présente */ }
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN vendeur_nom TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_vendeur ON st_stock_sorties (owner_id, vendeur_id, date_sortie)'); } catch { /* index déjà présent */ }
+
 // Canal d'application d'un tarif. NULL = tous canaux (comportement historique).
 // Le même modèle ne se vend pas au même prix en gros, en boutique physique et
 // en ligne : la vente en ligne porte des frais de livraison et une commission
 // de plateforme que le prix de gros n'a pas.
 try { db.exec('ALTER TABLE st_prix ADD COLUMN canal TEXT'); } catch { /* colonne déjà présente */ }
+
+// ── Inventaire (comptage physique du stock fini) ────────────────────────────
+// L'en-tête d'UN comptage : quand il a eu lieu, et l'écart total qu'il a
+// révélé. Les lignes elles-mêmes ne sont PAS ici — elles vivent dans
+// `st_stock_entries` (source = 'INVENTAIRE', order_id = cet id), pour que la
+// grille de stock les compte automatiquement sans code de lecture en double.
+// Cette table ne sert qu'à l'historique : « quand a-t-on compté, et combien
+// de pièces manquaient ou étaient en trop ? ».
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_inventaires (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    note TEXT,
+    nb_lignes INTEGER NOT NULL DEFAULT 0,
+    -- Somme des écarts en VALEUR ABSOLUE (pièces en trop + pièces manquantes),
+    -- pas leur somme algébrique : un +5 et un -5 sur deux tailles ne
+    -- s'annulent pas, ce sont dix pièces qui ont vraiment bougé.
+    ecart_pieces INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_inventaires_owner ON st_inventaires (owner_id, date)'); } catch { /* déjà présent */ }
+
+// ── Seuils de stock bas ──────────────────────────────────────────────────────
+// Un seuil à la maille MODÈLE (couleur et taille NULL) s'applique à toutes ses
+// cases ; un seuil à la maille CELLULE (couleur × taille précises) prime sur
+// lui pour cette case-là — une pièce best-seller peut avoir un seuil plus haut
+// qu'une case qui tourne peu, sans dupliquer un seuil sur chaque taille.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_stock_seuils (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    modelId TEXT NOT NULL,
+    couleur TEXT,
+    taille TEXT,
+    seuil INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+// Un seul seuil par (modèle, couleur, taille) — `COALESCE` évite que deux NULL
+// soient traités comme différents, ce que ferait un index UNIQUE classique en
+// SQL (NULL ≠ NULL), et laisserait deux seuils contradictoires coexister.
+try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_st_stock_seuils_scope ON st_stock_seuils (owner_id, modelId, COALESCE(couleur,''), COALESCE(taille,''))"); } catch { /* déjà présent */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS subcontractor_profiles (
@@ -1379,6 +1451,33 @@ try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN facture_ref TEXT"); }
 try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN date_facture TEXT"); } catch { /* already exists */ }
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_tiers ON subcontract_expenses(tiers_id)'); } catch { /* déjà présent */ }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_order ON subcontract_expenses(order_id)`);
+
+// Mouvements de MATIÈRE avec le sous-traitant, uniquement pertinent en mode
+// Façon (c'est NOUS qui fournissons le tissu/les fournitures) :
+//   ENVOI   = matière expédiée au sous-traitant
+//   RETOUR  = matière non utilisée qu'il nous rend
+//   CHUTE   = perte déclarée (chute de coupe, rebut...)
+// consommé = ENVOI - RETOUR ; l'écart avec le besoin théorique de la fiche
+// modèle (au prorata des pièces contrôlées) révèle une perte anormale de
+// matière chez le sous-traitant. Voir components/soustraitance/MatieresSousTraitant.tsx.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontract_material_moves (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    order_id TEXT NOT NULL,
+    materiau TEXT NOT NULL,
+    unite TEXT,
+    sens TEXT NOT NULL CHECK (sens IN ('ENVOI','RETOUR','CHUTE')),
+    quantite REAL NOT NULL DEFAULT 0,
+    date TEXT,
+    note TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES subcontract_orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_material_moves_order ON subcontract_material_moves(order_id)`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_material_moves_owner ON subcontract_material_moves(owner_id)`);
 
 // Toutes les lectures sous-traitance filtrent sur owner_id (isolation workspace) :
 // sans index, chaque appel fait un full scan. Idempotent (IF NOT EXISTS).

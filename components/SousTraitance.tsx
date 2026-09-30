@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile, DEFAULT_COMMERCIAL_SETTINGS } from '../types';
 import { tx } from '../lib/i18n';
+import { apiOrigine } from '../src/lib/apiOrigin';
 import { useLang } from '../src/context/LanguageContext';
 import { resolveStock, MagasinItem } from '../lib/magasinMatch';
 import { fmt } from '../app/constants';
@@ -15,6 +16,11 @@ import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import VentesDashboard, { VentesDetailKey } from './VentesDashboard';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
+import Inventaire, { InventaireItem } from './soustraitance/Inventaire';
+import SeuilForm, { StockSeuil, isModelLowStock, SeuilBell } from './soustraitance/SeuilsStock';
+import MatieresSousTraitant from './soustraitance/MatieresSousTraitant';
+import CompteSousTraitant from './soustraitance/CompteSousTraitant';
+import PerformanceSousTraitants from './soustraitance/PerformanceSousTraitants';
 import { ean13FromDigits, renderEAN13, parseScanCode } from '../lib/barcode';
 import { variantAxes, variantCode, resolveVariantByEAN as resolveVariantEAN } from '../lib/scanner';
 import ReferentielProduits from './ReferentielProduits';
@@ -31,12 +37,17 @@ import {
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
-  Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload, TrendingUp
+  Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload, TrendingUp, BellRing, ClipboardList
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
  *  Les écritures modèle passent alors par `setModels`, qui persiste côté client. */
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+/** Le stock, les ventes, la caisse et les tarifs vivent sur le serveur de
+ *  l'atelier. Le site publie (static) y accede quand `VITE_API_ORIGIN` pointe
+ *  vers ce serveur : il ne faut alors plus rien bloquer. Les MODELES, eux,
+ *  restent gouvernes par `IS_STATIC` (leur source en static est le navigateur). */
+const SANS_SERVEUR = IS_STATIC && !apiOrigine;
 
 interface SousTraitanceProps {
   models: ModelData[];
@@ -671,6 +682,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [orderPendingDelete, setOrderPendingDelete] = useState<SubcontractOrder | null>(null);
   const [isDeletingOrder, setIsDeletingOrder] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  /** Fenêtre de comparaison des sous-traitants (onglet Sous-traitants, bouton "Comparer"). */
+  const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
   /** Plein écran des fenêtres denses (grille de réception, frais, factures,
    *  mouvements de stock). Sur un grand écran, les lire dans une fenêtre
    *  étroite oblige à faire défiler pour comparer ce qui devrait se voir d'un
@@ -1164,7 +1177,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Recherche et filtre de l'onglet Stock & Ventes. Le filtre « non ventilé »
    *  existe parce que c'est exactement la population qui bloque une vente. */
   const [stockSearch, setStockSearch] = useState('');
-  const [stockFilter, setStockFilter] = useState<'all' | 'inStock' | 'noPrice' | 'unventilated'>('all');
+  const [stockFilter, setStockFilter] = useState<'all' | 'inStock' | 'noPrice' | 'unventilated' | 'lowStock'>('all');
+  /** Seuils de stock bas (reflet de `st_stock_seuils`) et fenêtres associées :
+   *  l'inventaire (comptage physique) et le petit formulaire de seuil ouvert
+   *  depuis la cloche d'une carte modèle. */
+  const [stockSeuils, setStockSeuils] = useState<StockSeuil[]>([]);
+  const [inventaireOpen, setInventaireOpen] = useState(false);
+  const [seuilFormModel, setSeuilFormModel] = useState<ModelData | null>(null);
   /** Cartes vs tableau : le mobile impose toujours les cartes (le tableau y est
    *  illisible), ce choix ne pilote que l'écran desktop. */
   const [stockViewMode, setStockViewMode] = useState<'cards' | 'table'>('cards');
@@ -1254,6 +1273,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  relance une résolution. Sans ce garde, une réponse lente écraserait une
    *  réponse plus récente et proposerait le tarif d'une autre quantité. */
   const sortieTarifSeq = useRef(0);
+  /** Plafond de credit du client selectionne : encours reel (factures VENTE non
+   *  soldees), charge a part du tarif — ce n'est pas un prix, c'est un risque
+   *  d'impaye, et il ne doit pas dependre de la resolution du tarif pour
+   *  s'afficher. `null` = pas encore connu (ou client sans id / sans plafond). */
+  const [sortieClientEncours, setSortieClientEncours] = useState<number | null>(null);
+  const sortieEncoursSeq = useRef(0);
+  /** Etape de confirmation « plafond depasse » : le premier clic ouvre
+   *  l'avertissement (pas de window.confirm), le second enregistre reellement —
+   *  meme geste que la confirmation « vente sous le prix plancher » ci-dessous. */
+  const [sortieConfirmPlafond, setSortieConfirmPlafond] = useState(false);
 
   /* ──────────────────────────────────────────────────────────────────────
    * Commande « normale » : plusieurs modèles sur UNE commande de vente.
@@ -1350,7 +1379,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  classique, avec la quantité TOTALE de la ligne). Debounce + compteur de
    *  séquence : une réponse lente ne doit pas écraser une réponse récente. */
   useEffect(() => {
-    if (IS_STATIC || !commandeOpen) return;
+    if (SANS_SERVEUR || !commandeOpen) return;
     const targets = commandeLignes.filter(l => l.modelId && commandeLigneTotalQty(l) > 0);
     if (targets.length === 0) {
       setCommandePrix({});
@@ -1400,7 +1429,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  donc elles ne doivent pas changer quand on choisit un client précis
    *  (contrairement à `commandePrix` ci-dessus, qui lui suit le client). */
   useEffect(() => {
-    if (IS_STATIC || !commandeOpen) return;
+    if (SANS_SERVEUR || !commandeOpen) return;
     const targets = commandeLignes.filter(l => l.modelId && commandeLigneTotalQty(l) > 0);
     if (targets.length === 0) { setCommandeTarifsParType({}); return; }
     let alive = true;
@@ -1539,11 +1568,39 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const sortieModelId = sortieForm?.model.id ?? null;
   const sortieClientId = sortieForm?.clientId ?? '';
 
+  /** Client selectionne pour la sortie en cours — calcule ici (portee du
+   *  composant) car le garde-fou « plafond de credit » et son bloc d'alerte
+   *  sont a deux endroits differents du JSX, tous deux hors de l'IIFE qui
+   *  affiche le selecteur de client. */
+  const sortieSelectedClient = atelierClients.find(c => c.id === sortieClientId) || null;
+  const sortiePlafond: number | null = sortieSelectedClient?.plafondCredit != null
+    ? Number(sortieSelectedClient.plafondCredit)
+    : null;
+  const sortieMontantVente: number = sortieTotalQty * (Number(sortieForm?.prix) || 0);
+  /** Depassement : encours deja du + CETTE vente, compare au plafond. Reste
+   *  `false` tant que l'encours n'est pas connu — un plafond ne doit jamais
+   *  bloquer sur un chiffre qu'on n'a pas encore. */
+  const sortieDepassePlafond: boolean = sortiePlafond != null && sortieClientEncours != null
+    ? (sortieClientEncours + sortieMontantVente) > sortiePlafond
+    : false;
+
+  /** Encours du client selectionne, pour le comparer a son plafond de credit.
+   *  Meme geste que la resolution du tarif juste apres : compteur de sequence
+   *  pour ignorer une reponse en retard si le client change vite. */
+  useEffect(() => {
+    if (!sortieClientId || SANS_SERVEUR) { setSortieClientEncours(null); return; }
+    const seq = ++sortieEncoursSeq.current;
+    fetch(`/api/ventes/encours/${encodeURIComponent(sortieClientId)}`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: any) => { if (seq === sortieEncoursSeq.current) setSortieClientEncours(d && typeof d.encours === 'number' ? d.encours : 0); })
+      .catch(() => { if (seq === sortieEncoursSeq.current) setSortieClientEncours(null); });
+  }, [sortieClientId]);
+
   /** Résolution du tarif (client → type de client → catalogue). Debounce parce
    *  que la quantité change à chaque frappe, et compteur de séquence + abort
    *  parce que sans eux une réponse en retard viendrait écraser la bonne. */
   useEffect(() => {
-    if (!sortieModelId || IS_STATIC) { setSortieTarif(null); return; }
+    if (!sortieModelId || SANS_SERVEUR) { setSortieTarif(null); return; }
     const seq = ++sortieTarifSeq.current;
     const ctrl = new AbortController();
     setSortieTarifLoading(true);
@@ -1579,7 +1636,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  à COMPARER, donc elles ne doivent pas changer quand on choisit un client
    *  précis (contrairement à `sortieTarif` ci-dessus, qui lui suit le client). */
   useEffect(() => {
-    if (!sortieModelId || IS_STATIC) { setSortieTarifsParType({}); return; }
+    if (!sortieModelId || SANS_SERVEUR) { setSortieTarifsParType({}); return; }
     let alive = true;
     const qty = String(sortieTotalQty);
     Promise.all((['DETAIL', 'GROS', 'BOUTIQUE'] as const).map(t =>
@@ -1607,6 +1664,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setSortieTarif(null);
     setSortieMotif('');
     setSortieConfirmSousCout(false);
+    setSortieClientEncours(null);
+    setSortieConfirmPlafond(false);
   };
 
   // ── Lecteur de code-barres (laser / USB : se comporte comme un clavier).
@@ -1947,7 +2006,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setIntegriteError(null);
     setIntegriteResultat(null);
     setIntegriteFait(null);
-    if (IS_STATIC) return;
+    if (SANS_SERVEUR) return;
     setIntegriteLoading(true);
     try {
       const res = await fetch('/api/subcontract/stock-integrity', { credentials: 'include' });
@@ -2072,7 +2131,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  dessus. La quantité vaut 0 — une étiquette ne connaît pas la taille de la
    *  commande à venir, donc aucun palier volume ne s'applique. */
   useEffect(() => {
-    if (!labelModel || IS_STATIC) { setLabelTarifs({}); return; }
+    if (!labelModel || SANS_SERVEUR) { setLabelTarifs({}); return; }
     let alive = true;
     const modelId = labelModel.id;
     setLabelTarifsLoading(true);
@@ -2772,6 +2831,33 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  qu'il faut penser a demander est un ticket qu'on oublie. Le rendu
    *  navigateur reste la voie par defaut ; en mode ZPL, le meme ticket va
    *  d'un coup a toutes les imprimantes reglees (caisse, atelier, reserve). */
+  /** Identite legale + caissier, communs a TOUT ticket (vente ou retour) :
+   *  `marque` reste celle du poste (override), l'identite legale est celle de
+   *  l'entreprise — les deux coexistent, comme sur une facture. */
+  const ticketEntreprise = () => ({
+    adresse: companyIdentity.adresse || null,
+    tel: companyIdentity.tel || null,
+    ice: companyIdentity.ice || null,
+  });
+  const ticketMarque = () => tikiSettings.brand || companyIdentity.nom || '';
+  const ticketCaissier = () => user?.name || null;
+
+  /** Envoie un ticket deja construit vers l'imprimante reglee (ZPL reseau, ou
+   *  fenetre navigateur par defaut) — partage par la vente et le retour. */
+  const envoyerTicket = (ticket: TicketData) => {
+    const hosts = tikiSettings.printMode === 'zpl' ? parsePrinterHosts(tikiSettings.zplHost) : [];
+    if (hosts.length > 0) {
+      const zpl = buildTicketZpl(ticket, tikiSettings.zplDpi);
+      // Chaque imprimante recoit sa copie : un echec sur l'une ne prive pas
+      // les autres, et la vente est deja enregistree de toute facon.
+      hosts.forEach(h => { void sendZplToPrinter(zpl, h, tikiSettings.zplPort); });
+      return;
+    }
+    const w = window.open('', '_blank', 'width=380,height=640');
+    w?.document.write(buildTicketHtml(ticket));
+    w?.document.close();
+  };
+
   const imprimerTicket = (payload: {
     lignes: CaisseLigne[];
     clientNom: string | null;
@@ -2783,7 +2869,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   }, ticketRef: string) => {
     const now = new Date();
     const ticket: TicketData = {
-      marque: tikiSettings.brand || '',
+      marque: ticketMarque(),
       // Le numero imprime EST la reference enregistree : c'est ce qui permet
       // de retrouver — et d'annuler — la vente a partir du ticket que le
       // client rapporte au comptoir.
@@ -2804,19 +2890,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       rendu: payload.rendu,
       clientNom: payload.clientNom,
       currency,
+      type: 'VENTE',
+      entreprise: ticketEntreprise(),
+      caissier: ticketCaissier(),
     };
+    envoyerTicket(ticket);
+  };
 
-    const hosts = tikiSettings.printMode === 'zpl' ? parsePrinterHosts(tikiSettings.zplHost) : [];
-    if (hosts.length > 0) {
-      const zpl = buildTicketZpl(ticket, tikiSettings.zplDpi);
-      // Chaque imprimante recoit sa copie : un echec sur l'une ne prive pas
-      // les autres, et la vente est deja enregistree de toute facon.
-      hosts.forEach(h => { void sendZplToPrinter(zpl, h, tikiSettings.zplPort); });
-      return;
-    }
-    const w = window.open('', '_blank', 'width=380,height=640');
-    w?.document.write(buildTicketHtml(ticket));
-    w?.document.close();
+  /** Ticket de retour/avoir : memes builders que la vente, lignes et total en
+   *  negatif. `caisseCandidats` (modeles + articles) resout le nom affiche —
+   *  le serveur ne renvoie qu'un `modelId`. */
+  const imprimerTicketRetour = (payload: {
+    ticketRef: string;
+    clientNom: string | null;
+    lignes: Array<{ modelId: string; couleur: string | null; taille: string | null; quantite: number; prixUnitaire: number }>;
+    montant: number;
+  }) => {
+    const now = new Date();
+    const ticket: TicketData = {
+      marque: ticketMarque(),
+      numero: `RET-${payload.ticketRef}`,
+      date: now.toLocaleString(dateLocale),
+      lignes: payload.lignes.map(l => ({
+        nom: caisseCandidats.find(m => m.id === l.modelId)?.meta_data?.nom_modele || l.modelId,
+        couleur: l.couleur || undefined,
+        taille: l.taille || undefined,
+        qte: l.quantite,
+        prix: l.prixUnitaire,
+      })),
+      sousTotal: -payload.montant,
+      remise: 0,
+      total: -payload.montant,
+      paiement: '',
+      clientNom: payload.clientNom,
+      currency,
+      type: 'RETOUR',
+      entreprise: ticketEntreprise(),
+      caissier: ticketCaissier(),
+    };
+    envoyerTicket(ticket);
   };
 
   /** Encaissement de la caisse.
@@ -2839,14 +2951,43 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     facture: boolean;
     recu: number | null;
     rendu: number | null;
+    remisePercent: number;
   }): Promise<string | null> => {
-    if (IS_STATIC) {
-      return tx(lang,{fr:"Mode statique : aucune vente ne peut etre enregistree.",ar:'الوضع الساكن: ما يمكن تسجيل حتى بيعة.',en:'Static mode: no sale can be recorded.',es:'Modo estatico: no se puede registrar la venta.',pt:'Modo estatico: nao e possivel registar a venda.',tr:'Statik mod: satis kaydedilemez.'});
+    if (SANS_SERVEUR) {
+      return tx(lang,{fr:"Aucun serveur d'atelier relie : la vente n'est pas enregistree. Ouvrez l'application depuis le serveur de l'atelier (reseau local) pour vendre.",ar:'لا يوجد سيرفر ورشة مربوط: لم تُسجَّل البيعة. افتح التطبيق من سيرفر الورشة (الشبكة المحلية) للبيع.',en:'No workshop server connected: the sale was not recorded. Open the app from the workshop server (local network) to sell.',es:'Sin servidor del taller: la venta no se registro. Abra la aplicacion desde el servidor del taller (red local).',pt:'Sem servidor da oficina: a venda nao foi registada. Abra a aplicacao a partir do servidor da oficina (rede local).',tr:'Atolye sunucusu bagli degil: satis kaydedilmedi. Satmak icin uygulamayi atolye sunucusundan (yerel ag) acin.'});
     }
-    const parModele = new Map<string, CaisseLigne[]>();
-    payload.lignes.forEach(l => {
+    /* Ce qui est ENCAISSE, reparti ligne par ligne au centime pres.
+     *
+     * Les remises (par ligne et globale) s'affichaient a l'ecran et sur le
+     * ticket, mais la sortie gardait le prix AVANT remise : le chiffre
+     * d'affaires du journal et du tableau de bord etait gonfle, et un retour
+     * remboursait un prix que le client n'avait jamais paye. On repartit donc
+     * le total encaisse sur les lignes, au prorata de leur montant net de
+     * remise de ligne (plus grand reste pour les centimes), puis chaque ligne
+     * est coupee en deux prix unitaires voisins si son montant ne se divise
+     * pas par sa quantite : la somme des (quantite x prix) enregistres est
+     * EXACTEMENT le total encaisse. */
+    const nets = payload.lignes.map(l => Math.max(0, l.qte * (Number(l.prix) || 0) - (Number(l.remise) || 0)));
+    const sommeNets = nets.reduce((a, n) => a + n, 0);
+    const cibleCentimes = Math.round((Number(payload.total) || 0) * 100);
+    const bruts = nets.map(n => (sommeNets > 0 ? (n / sommeNets) * cibleCentimes : 0));
+    const centimes = bruts.map(Math.floor);
+    let resteCentimes = cibleCentimes - centimes.reduce((a, c) => a + c, 0);
+    bruts
+      .map((b, i) => ({ i, frac: b - Math.floor(b) }))
+      .sort((x, y) => y.frac - x.frac)
+      .forEach(({ i }) => { if (resteCentimes > 0 && sommeNets > 0) { centimes[i] += 1; resteCentimes -= 1; } });
+    type LigneSortie = { couleur: string; taille: string; quantite: number; prix_unitaire: number };
+    const parModele = new Map<string, LigneSortie[]>();
+    payload.lignes.forEach((l, i) => {
       const arr = parModele.get(l.model.id) || [];
-      arr.push(l);
+      const q = Math.max(0, Math.floor(l.qte));
+      if (q > 0) {
+        const base = Math.floor(centimes[i] / q);
+        const enPlus = centimes[i] - base * q; // pieces qui portent 1 centime de plus
+        if (q - enPlus > 0) arr.push({ couleur: l.couleur, taille: l.taille, quantite: q - enPlus, prix_unitaire: base / 100 });
+        if (enPlus > 0) arr.push({ couleur: l.couleur, taille: l.taille, quantite: enPlus, prix_unitaire: (base + 1) / 100 });
+      }
       parModele.set(l.model.id, arr);
     });
     let faites = 0;
@@ -2857,11 +2998,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const ticketRef = `TK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     try {
       for (const [modelId, lignes] of parModele) {
-        // Un prix unitaire par sortie : quand un modele a plusieurs prix dans
-        // le panier, on envoie la moyenne ponderee pour que le total encaisse
-        // reste exact au centime.
-        const qte = lignes.reduce((a, l) => a + l.qte, 0);
-        const montant = lignes.reduce((a, l) => a + l.qte * (Number(l.prix) || 0), 0);
+        // Chaque ligne porte son propre prix net (voir plus haut) ; le prix
+        // global n'est qu'une valeur de repli pour une ligne qui n'en aurait pas.
+        const qte = lignes.reduce((a, l) => a + l.quantite, 0);
+        const montant = lignes.reduce((a, l) => a + l.quantite * l.prix_unitaire, 0);
         const prixUnitaire = qte > 0 ? Number((montant / qte).toFixed(2)) : 0;
         const res = await fetch('/api/subcontract/stock-sorties', {
           method: 'POST',
@@ -2878,7 +3018,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             type_vente: payload.typeVente,
             ticket_ref: ticketRef,
             note: `CAISSE ${payload.typeVente} ${payload.paiement}`,
-            lignes: lignes.map(l => ({ couleur: l.couleur, taille: l.taille, quantite: l.qte })),
+            lignes,
+            // Rejoue cote serveur la limite « remise max vendeur » : l'ecran
+            // a deja bloque au-dela, ceci empeche un appel direct de passer a cote.
+            remise_percent_vente: payload.remisePercent,
           }),
         });
         const body = await res.json().catch(() => ({}));
@@ -2905,7 +3048,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ clientId: payload.clientId, sortieIds, discount: payload.remiseGlobale }),
+            // Remise deja incluse dans le prix de chaque sortie : la repasser
+            // ici la deduirait une seconde fois de la facture.
+            body: JSON.stringify({ clientId: payload.clientId, sortieIds, discount: 0 }),
           });
           if (!fres.ok) {
             const fb = await fres.json().catch(() => ({}));
@@ -2925,6 +3070,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // Le stock affiche doit suivre, meme apres un echec partiel.
       await loadStockMovements();
     }
+  };
+
+  /** Retour caisse : le POST est deja fait cote Caisse.tsx (comme
+   *  l'annulation de ticket) — ce gestionnaire n'a que deux choses a faire,
+   *  toutes deux hors de portee de Caisse.tsx : imprimer (marque/identite/
+   *  caissier vivent ici) et relire les mouvements de stock. */
+  const retourCaisse = async (payload: {
+    ticketRef: string;
+    clientNom: string | null;
+    motif: string | null;
+    montant: number;
+    lignes: Array<{ modelId: string; couleur: string | null; taille: string | null; quantite: number; prixUnitaire: number }>;
+    imprimer: boolean;
+  }) => {
+    if (payload.imprimer) {
+      imprimerTicketRetour({
+        ticketRef: payload.ticketRef,
+        clientNom: payload.clientNom,
+        lignes: payload.lignes,
+        montant: payload.montant,
+      });
+    }
+    await loadStockMovements();
   };
 
   /** Ouvre la caisse sur un modele : c'est le geste de vente au comptoir,
@@ -2951,6 +3119,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
     if (lignes.length === 0) {
       setSortieError(tx(lang,{fr:'Saisissez au moins une quantité.',ar:'دخّل على الأقل كمية وحدة.',en:'Enter at least one quantity.',es:'Introduzca al menos una cantidad.',pt:'Introduza pelo menos uma quantidade.',tr:'En az bir miktar girin.'}));
+      return;
+    }
+
+    // Garde-fou « plafond de crédit ». Pas de window.confirm : premier clic sur
+    // « Enregistrer » ouvre l'avertissement inline (voir le bloc JSX plus bas),
+    // second clic confirme réellement — même geste que « vente sous le prix
+    // plancher » juste après, qu'il ne faut pas mélanger avec lui (deux causes
+    // de blocage différentes, deux confirmations indépendantes).
+    if (sortieDepassePlafond && !sortieConfirmPlafond) {
+      setSortieConfirmPlafond(true);
+      setSortieError(null);
       return;
     }
 
@@ -3046,6 +3225,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setAllStockSorties(Array.isArray(x) ? x : []);
     } catch {
       // Hors-ligne : l'onglet retombe sur les totaux de la commande.
+    }
+  };
+
+  /** Seuils de stock bas : chargés une fois, comme les mouvements de stock —
+   *  la carte modèle et le filtre « Stock bas » en ont besoin dès l'ouverture
+   *  de l'onglet, pas seulement quand on ouvre la fenêtre d'inventaire. */
+  const loadStockSeuils = async () => {
+    try {
+      const res = await fetch('/api/subcontract/seuils', { credentials: 'include' });
+      const data = res.ok ? await res.json() : [];
+      setStockSeuils(Array.isArray(data) ? data : []);
+    } catch {
+      // Hors-ligne : aucune alerte de stock bas tant que la liste n'est pas revenue.
     }
   };
 
@@ -3185,7 +3377,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [articleSalePrices, setArticleSalePrices] = useState<Record<string, number | null>>({});
 
   const loadArticlesEtAchats = useCallback(async () => {
-    if (IS_STATIC) return;
+    if (SANS_SERVEUR) return;
     try {
       const [ra, rb] = await Promise.all([
         fetch('/api/subcontract/articles', { credentials: 'include' }),
@@ -3201,7 +3393,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Prix de vente catalogue d'un article — résolu par la grille des tarifs.
    *  `null` = aucun prix saisi, ce qui doit se voir plutôt que de se deviner. */
   useEffect(() => {
-    if (IS_STATIC || articles.length === 0) return;
+    if (SANS_SERVEUR || articles.length === 0) return;
     let alive = true;
     Promise.all(articles.map(a =>
       fetch(`/api/prix/resolve?modelId=${encodeURIComponent(a.id)}&qty=0`, { credentials: 'include' })
@@ -3652,6 +3844,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // l'ouverture du module et non seulement après une sortie de stock.
     loadStockMovements();
     loadAtelierClients();
+    loadStockSeuils();
     return () => controller.abort();
   }, []);
 
@@ -4133,7 +4326,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setPrixSheetOpenCalc(null);
     setPrixSheetConfirm(null);
     setPrixSheetInitial({});
-    if (IS_STATIC) return;
+    if (SANS_SERVEUR) return;
     setPrixSheetLoading(true);
     try {
       // Une requête par canal : la résolution répond ce qui S'APPLIQUERAIT
@@ -4434,7 +4627,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setCostInvoiceQty(aFacturer > 0 ? aFacturer : '');
     // Une facture partielle a pu déjà partir : on propose ce qui RESTE à
     // facturer, sinon rouvrir la fenêtre refacturait les premières pièces.
-    if (!IS_STATIC && order.id) {
+    if (!SANS_SERVEUR && order.id) {
       void (async () => {
         try {
           const res = await fetch(`/api/facturation/factures?source_module=SOUSTRAITANCE&source_id=${encodeURIComponent(order.id)}`, { credentials: 'include' });
@@ -5180,6 +5373,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     [commandeLignes, modelStockStats, margeMinimale]
   );
 
+  /** Modèles ayant au moins une case (ou leur total, si non ventilés) à leur
+   *  seuil ou en dessous. Un `Set` plutôt qu'un recalcul par carte : la même
+   *  question — « ce modèle est-il bas ? » — est posée par le filtre, le
+   *  badge de chaque carte et le KPI d'en-tête. */
+  const lowStockModelIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (stockSeuils.length === 0) return ids;
+    modelStockStats.forEach(it => {
+      const fiche: any = it.model.ficheData || {};
+      const colors: Array<{ name: string }> = fiche.colors || [];
+      const sizes: string[] = fiche.sizes || [];
+      const matrix = stockMatrixByModel.get(it.model.id);
+      if (isModelLowStock(it.model.id, stockSeuils, matrix, colors, sizes, it.remainingStock)) {
+        ids.add(it.model.id);
+      }
+    });
+    return ids;
+  }, [modelStockStats, stockSeuils, stockMatrixByModel]);
+
   /** Liste réellement affichée : recherche libre (modèle ou client) + un filtre
    *  par intention. « Non ventilé » isole les lignes qui bloquent une vente. */
   const filteredStockStats = useMemo(() => {
@@ -5194,9 +5406,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (stockFilter === 'inStock') return it.remainingStock > 0;
       if (stockFilter === 'noPrice') return !(it.salePrice != null && it.salePrice > 0);
       if (stockFilter === 'unventilated') return it.stockSource === 'FALLBACK';
+      if (stockFilter === 'lowStock') return lowStockModelIds.has(it.model.id);
       return true;
     });
-  }, [modelStockStats, stockSearch, stockFilter]);
+  }, [modelStockStats, stockSearch, stockFilter, lowStockModelIds]);
 
   /** Indicateurs de tête. La valeur est calculée au prix de REVIENT (valorisation
    *  comptable du stock) et ignore les modèles sans prix fiable plutôt que de
@@ -5218,8 +5431,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (it.price != null) value += it.remainingStock * it.price;
       if (!(it.salePrice != null && it.salePrice > 0)) noPrice += 1;
     });
-    return { value, available, exited, noPrice };
-  }, [modelStockStats]);
+    return { value, available, exited, noPrice, lowStock: lowStockModelIds.size };
+  }, [modelStockStats, lowStockModelIds]);
+
+  /** Puces de filtre de l'onglet Stock & Ventes. « Stock bas » n'apparaît que
+   *  si au moins un seuil existe : sinon le filtre listerait toujours zéro
+   *  modèle. Typé explicitement sur `stockFilter` : chaque `id` reste une
+   *  valeur exacte de l'union, sans caster tout le tableau. */
+  const stockFilterChips = useMemo(() => {
+    const chips: Array<{ id: typeof stockFilter; label: string }> = [
+      { id: 'all', label: tx(lang,{fr:'Tous',ar:'الكل',en:'All',es:'Todos',pt:'Todos',tr:'Tumu'}) },
+      { id: 'inStock', label: tx(lang,{fr:'En stock',ar:'ف المخزون',en:'In stock',es:'En stock',pt:'Em stock',tr:'Stokta'}) },
+      { id: 'noPrice', label: tx(lang,{fr:'Sans prix de vente',ar:'بلا ثمن بيع',en:'No sale price',es:'Sin precio de venta',pt:'Sem preco de venda',tr:'Satis fiyati yok'}) },
+      { id: 'unventilated', label: tx(lang,{fr:'Non ventilé',ar:'غير مفصّل',en:'Not itemised',es:'Sin desglose',pt:'Sem desdobramento',tr:'Ayrintisiz'}) },
+    ];
+    if (stockSeuils.length > 0) {
+      chips.push({ id: 'lowStock', label: tx(lang,{fr:'Stock bas',ar:'مخزون منخفض',en:'Low stock',es:'Stock bajo',pt:'Stock baixo',tr:'Düşük stok'}) });
+    }
+    return chips;
+  }, [lang, stockSeuils]);
 
   /** Vrai quand la liste affichée ne montre PAS tout le stock. Sans ce repère,
    *  l'écart entre les indicateurs (globaux) et les cartes (filtrées) passe
@@ -8059,6 +8289,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     const matchedModel = models.find(m => m.id === order.modelId);
                     const orderProfile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
 
+                    // En retard : date de livraison dépassée et commande pas encore
+                    // complétée. `COMPLETED` sort du calcul — une fois clôturée, la
+                    // date prévue n'a plus à être surveillée.
+                    const deliveryDateObj = order.deliveryDate ? new Date(order.deliveryDate) : null;
+                    const daysLate = (order.status !== 'COMPLETED' && deliveryDateObj && !isNaN(deliveryDateObj.getTime()))
+                      ? Math.floor((Date.now() - deliveryDateObj.getTime()) / 86400000)
+                      : 0;
+                    const isLate = daysLate > 0;
+
                     return (
                       <div 
                         key={order.id}
@@ -8093,19 +8332,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 );
                               })()}
                             </div>
-                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                              order.status === 'COMPLETED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
-                              order.status === 'LIVRE_PARTIEL' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50' :
-                              order.status === 'IN_COUTURE' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
-                              order.status === 'IN_COUPE' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50' :
-                              'bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
-                            }`}>
-                              {order.status === 'PENDING' ? tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'}) :
-                               order.status === 'IN_COUPE' ? tx(lang,{fr:'Coupe',ar:'قص',en:'Cutting',es:'Corte',pt:'Corte',tr:'Kesim'}) :
-                               order.status === 'IN_COUTURE' ? tx(lang,{fr:'Couture',ar:'خياطة',en:'Sewing',es:'Costura',pt:'Costura',tr:'Dikiş'}) :
-                               order.status === 'IN_FINITION' ? tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitim'}) :
-                               order.status === 'LIVRE_PARTIEL' ? tx(lang,{fr:'Partiel',ar:'جزئي',en:'Partial',es:'Parcial',pt:'Parcial',tr:'Kısmi'}) : tx(lang,{fr:'Complété',ar:'مكتمل',en:'Completed',es:'Completado',pt:'Concluído',tr:'Tamamlandı'})}
-                            </span>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                order.status === 'COMPLETED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
+                                order.status === 'LIVRE_PARTIEL' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50' :
+                                order.status === 'IN_COUTURE' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
+                                order.status === 'IN_COUPE' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50' :
+                                'bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
+                              }`}>
+                                {order.status === 'PENDING' ? tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'}) :
+                                 order.status === 'IN_COUPE' ? tx(lang,{fr:'Coupe',ar:'قص',en:'Cutting',es:'Corte',pt:'Corte',tr:'Kesim'}) :
+                                 order.status === 'IN_COUTURE' ? tx(lang,{fr:'Couture',ar:'خياطة',en:'Sewing',es:'Costura',pt:'Costura',tr:'Dikiş'}) :
+                                 order.status === 'IN_FINITION' ? tx(lang,{fr:'Finition',ar:'تشطيب',en:'Finishing',es:'Acabado',pt:'Acabamento',tr:'Bitim'}) :
+                                 order.status === 'LIVRE_PARTIEL' ? tx(lang,{fr:'Partiel',ar:'جزئي',en:'Partial',es:'Parcial',pt:'Parcial',tr:'Kısmi'}) : tx(lang,{fr:'Complété',ar:'مكتمل',en:'Completed',es:'Completado',pt:'Concluído',tr:'Tamamlandı'})}
+                              </span>
+                              {isLate && (
+                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 flex items-center gap-1 whitespace-nowrap">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  {tx(lang,{fr:`En retard de ${daysLate} j`,ar:`متأخر ب ${daysLate} يوم`,en:`Late by ${daysLate} d`,es:`Con retraso de ${daysLate} d`,pt:`Com atraso de ${daysLate} d`,tr:`${daysLate} gün gecikti`})}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex gap-3 items-center">
@@ -8339,6 +8586,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
 
                 {subcontractorGroups.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPerformanceModalOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                  >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>{tx(lang,{fr:'Comparer',ar:'مقارنة',en:'Compare',es:'Comparar',pt:'Comparar',tr:'Karşılaştır'})}</span>
+                  </button>
+                )}
+
+                {subcontractorGroups.length > 0 && (
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
@@ -8483,6 +8741,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         {tx(lang,{fr:'Aucun profil enregistré pour ce sous-traitant — cliquez sur modifier pour compléter ses informations.',ar:'لا يوجد ملف مسجل لهذا المقاول من الباطن — انقر على تعديل لإكمال معلوماته.',en:'No profile saved for this subcontractor — click edit to complete their information.',es:'No hay perfil guardado para este subcontratista — haga clic en editar para completar su información.',pt:'Nenhum perfil guardado para este subcontratado — clique em editar para completar as informações.',tr:'Bu taşeron için kayıtlı profil yok — bilgilerini tamamlamak için düzenlemeye tıklayın.'})}
                       </div>
                     )}
+
+                    <CompteSousTraitant
+                      subcontractorName={selectedSubcontractor.name}
+                      orders={selectedSubcontractor.orders}
+                      currency={currency}
+                    />
 
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
@@ -8651,6 +8915,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     </span>
                   </div>
                 </div>
+                {/* N'apparaît qu'une fois au moins un seuil réglé : sans seuil,
+                    ce chiffre serait toujours 0 et n'apprendrait rien. */}
+                {stockSeuils.length > 0 && (
+                  <div className="shrink-0 min-w-[160px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${stockKpis.lowStock > 0 ? 'bg-rose-50 dark:bg-rose-950/30' : 'bg-slate-100 dark:bg-dk-elevated'}`}>
+                      <BellRing className={`w-4 h-4 ${stockKpis.lowStock > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-dk-muted'}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                        {tx(lang,{fr:'Stock bas',ar:'مخزون منخفض',en:'Low stock',es:'Stock bajo',pt:'Stock baixo',tr:'Düşük stok'})}
+                      </span>
+                      <span className={`block font-bold text-sm ${stockKpis.lowStock > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-dk-text'}`}>
+                        {stockKpis.lowStock.toLocaleString(dateLocale)}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 </div>
               </div>
 
@@ -8718,6 +8999,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <Barcode className="w-3.5 h-3.5" />
                   {tx(lang,{fr:'Référentiel produits',ar:'قاعدة المنتجات',en:'Product reference',es:'Referencial de productos',pt:'Referencial de produtos',tr:'Ürün referansı'})}
                 </button>
+                {/* Comptage physique : compare le théorique au compte réel et
+                    n'écrit que les écarts. Bouton séparé de la sortie/entrée :
+                    un inventaire ne vend ni ne réceptionne rien. */}
+                <button
+                  type="button"
+                  onClick={() => setInventaireOpen(true)}
+                  className="shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:border-indigo-400 dark:hover:border-dk-accent hover:text-indigo-600 dark:hover:text-dk-accent transition-colors"
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  {tx(lang,{fr:'Inventaire',ar:'الجرد',en:'Inventory',es:'Inventario',pt:'Inventário',tr:'Envanter'})}
+                </button>
                 {/* Acheter n'est pas commander : ici on fait entrer de la
                     marchandise DÉJÀ FINIE, sans gamme ni jalons. Deux gestes
                     distincts, deux boutons distincts. */}
@@ -8730,12 +9022,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   {tx(lang,{fr:'Nouveau modèle en stock',ar:'موديل جديد فالمخزون',en:'New model in stock',es:'Nuevo modelo en stock',pt:'Novo modelo em stock',tr:'Stokta yeni model'})}
                 </button>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  {([
-                    { id: 'all', label: tx(lang,{fr:'Tous',ar:'الكل',en:'All',es:'Todos',pt:'Todos',tr:'Tumu'}) },
-                    { id: 'inStock', label: tx(lang,{fr:'En stock',ar:'ف المخزون',en:'In stock',es:'En stock',pt:'Em stock',tr:'Stokta'}) },
-                    { id: 'noPrice', label: tx(lang,{fr:'Sans prix de vente',ar:'بلا ثمن بيع',en:'No sale price',es:'Sin precio de venta',pt:'Sem preco de venda',tr:'Satis fiyati yok'}) },
-                    { id: 'unventilated', label: tx(lang,{fr:'Non ventilé',ar:'غير مفصّل',en:'Not itemised',es:'Sin desglose',pt:'Sem desdobramento',tr:'Ayrintisiz'}) },
-                  ] as const).map(p => (
+                  {stockFilterChips.map(p => (
                     <button
                       key={p.id}
                       type="button"
@@ -8838,16 +9125,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase whitespace-nowrap shrink-0 border ${
-                          item.status === 'FINISHED' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40' :
-                          item.status === 'IN_PRODUCTION' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/40' :
-                          'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.status === 'FINISHED' ? 'bg-emerald-500' : item.status === 'IN_PRODUCTION' ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
-                          {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
-                           item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
-                           tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {/* Cloche : ouvre le réglage du seuil de stock bas de ce
+                              modèle. Pleine dès qu'un seuil existe, rouge dès que
+                              le stock l'a atteint — visible sans ouvrir la fiche. */}
+                          <SeuilBell
+                            has={stockSeuils.some(s => s.modelId === item.model.id)}
+                            low={lowStockModelIds.has(item.model.id)}
+                            onClick={() => setSeuilFormModel(item.model)}
+                            title={tx(lang,{fr:'Seuil de stock bas',ar:'عتبة المخزون المنخفض',en:'Low-stock threshold',es:'Umbral de stock bajo',pt:'Limite de stock baixo',tr:'Düşük stok eşiği'})}
+                          />
+                          <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase whitespace-nowrap shrink-0 border ${
+                            item.status === 'FINISHED' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40' :
+                            item.status === 'IN_PRODUCTION' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/40' :
+                            'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.status === 'FINISHED' ? 'bg-emerald-500' : item.status === 'IN_PRODUCTION' ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
+                            {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
+                             item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
+                             tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
+                          </span>
+                        </div>
                         {/* Seuls les articles ACHETÉS se suppriment ici : un modèle
                             de sous-traitance vient d'une vraie commande, le supprimer
                             depuis cette carte n'aurait pas de sens. */}
@@ -8897,6 +9195,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </div>
                     </div>
 
+                    {lowStockModelIds.has(item.model.id) && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
+                        <BellRing className="w-3 h-3" />
+                        {tx(lang,{fr:'stock bas',ar:'مخزون منخفض',en:'low stock',es:'stock bajo',pt:'stock baixo',tr:'düşük stok'})}
+                      </span>
+                    )}
                     {item.stockSource === 'FALLBACK' && (
                       <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
                         <AlertTriangle className="w-3 h-3" />
@@ -10964,6 +11268,36 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         }}
       />
 
+      {inventaireOpen && (
+        <Inventaire
+          onClose={() => setInventaireOpen(false)}
+          lang={lang}
+          currency={currency}
+          dateLocale={dateLocale}
+          canSeeCost={canSeeCostHere}
+          items={modelStockStats.map((it): InventaireItem => ({ model: it.model, remainingStock: it.remainingStock, price: it.price }))}
+          stockMatrixByModel={stockMatrixByModel}
+          onValidated={() => { void loadStockMovements(); }}
+        />
+      )}
+
+      {seuilFormModel && (
+        <SeuilForm
+          lang={lang}
+          model={seuilFormModel}
+          displayName={seuilFormModel.meta_data?.nom_modele || seuilFormModel.id.slice(0, 8)}
+          seuils={stockSeuils}
+          onClose={() => setSeuilFormModel(null)}
+          onSaved={rows => setStockSeuils(prev => {
+            // Remplace les lignes du modèle édité par leur nouvelle version ;
+            // celles qui viennent d'être supprimées (seuil vidé) disparaissent
+            // simplement en ne figurant plus dans `rows`.
+            const others = prev.filter(s => s.modelId !== seuilFormModel.id);
+            return [...others, ...rows];
+          })}
+        />
+      )}
+
       <Caisse
         open={caisseOpen}
         onClose={() => setCaisseOpen(false)}
@@ -10972,13 +11306,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         stockMatrix={stockMatrixByModel}
         currency={currency}
         lang={lang}
-        isStatic={IS_STATIC}
+        isStatic={SANS_SERVEUR}
         initialRecherche={caisseRecherche}
         pendingScan={caissePendingScan}
         onCreateClient={() => { setCaisseOpen(false); setActiveTab('clients'); }}
         onClientsChanged={loadAtelierClients}
         onEncaisser={encaisserCaisse}
         onTicketAnnule={loadStockMovements}
+        onRetourEffectue={retourCaisse}
+        remiseMaxVendeur={settings?.remiseMaxVendeur ?? DEFAULT_COMMERCIAL_SETTINGS.remiseMaxVendeur}
+        remisePrivilegiee={perms.isSuper || user?.role === 'admin'}
       />
 
       {/* Sortie de stock : client du registre + grille couleur x taille. */}
@@ -11163,7 +11500,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 <div className="max-h-56 overflow-y-auto border-b border-slate-100 dark:border-dk-border">
                                   <button
                                     type="button"
-                                    onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: '' })); setClientPickerOpen(false); }}
+                                    onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: '' })); setSortieConfirmPlafond(false); setClientPickerOpen(false); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
                                   >
                                     {tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}
@@ -11176,7 +11513,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                     <button
                                       key={c.id}
                                       type="button"
-                                      onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: c.id })); setClientPickerOpen(false); }}
+                                      onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: c.id })); setSortieConfirmPlafond(false); setClientPickerOpen(false); }}
                                       className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
                                     >
                                       {c.photo ? (
@@ -11490,6 +11827,28 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               ) : null}
 
+              {/* GARDE-FOU PLAFOND DE CREDIT. Independant du garde-fou « vente a
+                  perte » ci-dessus : un client peut vendre au bon prix et quand
+                  meme depasser ce qu'il a le droit de devoir. Pas de bloc si le
+                  client n'a pas de plafond ou si l'encours n'est pas encore connu. */}
+              {sortiePlafond != null && sortieClientEncours != null && sortieDepassePlafond && (
+                <div className="px-3 py-2.5 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-rose-700 dark:text-rose-400">
+                        {tx(lang,{fr:'Plafond de crédit dépassé.',ar:'سقف الائتمان تجاوَز.',en:'Credit limit exceeded.',es:'Límite de crédito superado.',pt:'Limite de crédito excedido.',tr:'Kredi limiti aşıldı.'})}
+                      </p>
+                      <p className="text-[10px] text-slate-600 dark:text-dk-text-soft mt-0.5">
+                        {tx(lang,{fr:'Encours',ar:'المستحقّ',en:'Outstanding',es:'Pendiente',pt:'Em dívida',tr:'Bakiye'})} {fmt(sortieClientEncours)} {currency}
+                        {' + '}{tx(lang,{fr:'cette vente',ar:'هاد البيع',en:'this sale',es:'esta venta',pt:'esta venda',tr:'bu satış'})} {fmt(sortieMontantVente)} {currency}
+                        {' > '}{tx(lang,{fr:'plafond',ar:'السقف',en:'limit',es:'límite',pt:'limite',tr:'limit'})} {fmt(sortiePlafond)} {currency}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {sortieError && (
                 <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{sortieError}</p>
               )}
@@ -11509,15 +11868,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 disabled={sortieSaving || (sortieSousPlancher && venteSousCoutPolicy === 'BLOCK')}
                 onClick={submitSortie}
                 className={
-                  sortieSousPlancher && venteSousCoutPolicy === 'CONFIRM'
+                  (sortieDepassePlafond && !sortieConfirmPlafond) || (sortieSousPlancher && venteSousCoutPolicy === 'CONFIRM')
                     ? 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-600 dark:bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition-colors disabled:opacity-40'
                     : 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40'
                 }
               >
                 {sortieSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {sortieSousPlancher && venteSousCoutPolicy === 'CONFIRM' && !sortieConfirmSousCout
-                  ? tx(lang,{fr:'Vendre sous le plancher…',ar:'البيع تحت الثمن الأدنى…',en:'Sell below the floor…',es:'Vender por debajo del minimo…',pt:'Vender abaixo do minimo…',tr:'Taban altinda sat…'})
-                  : tx(lang,{fr:'Enregistrer la sortie',ar:'حفظ الإخراج',en:'Save the exit',es:'Guardar la salida',pt:'Guardar a saida',tr:'Cikisi kaydet'})}
+                {sortieDepassePlafond && !sortieConfirmPlafond
+                  ? tx(lang,{fr:'Dépasser le plafond…',ar:'تجاوز السقف…',en:'Exceed the limit…',es:'Superar el límite…',pt:'Exceder o limite…',tr:'Limiti aş…'})
+                  : sortieSousPlancher && venteSousCoutPolicy === 'CONFIRM' && !sortieConfirmSousCout
+                    ? tx(lang,{fr:'Vendre sous le plancher…',ar:'البيع تحت الثمن الأدنى…',en:'Sell below the floor…',es:'Vender por debajo del minimo…',pt:'Vender abaixo do minimo…',tr:'Taban altinda sat…'})
+                    : tx(lang,{fr:'Enregistrer la sortie',ar:'حفظ الإخراج',en:'Save the exit',es:'Guardar la salida',pt:'Guardar a saida',tr:'Cikisi kaydet'})}
               </button>
             </div>
         </SheetModal>
@@ -11769,6 +12130,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           canSetPrice={canSetPriceHere}
           clientTypeLabels={clientTypeLabels}
           onSetModelStorePublished={writeModelStorePublished}
+          companyIdentity={companyIdentity}
+        />
+      )}
+
+      {isPerformanceModalOpen && (
+        <PerformanceSousTraitants
+          onClose={() => setIsPerformanceModalOpen(false)}
+          subcontractorGroups={subcontractorGroups}
+          stockEntries={allStockEntries}
+          currency={currency}
         />
       )}
 
@@ -12195,6 +12566,21 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </div>
                 );
               })()}
+
+              {/* Suivi matière envoyée / retournée / chutes avec le sous-traitant —
+                  même condition « mode Façon » que le bloc besoins ci-dessus. */}
+              {detailOrder.tissuFournisseur !== 'SUBCONTRACTOR' && (
+                <MatieresSousTraitant
+                  orderId={detailOrder.id}
+                  qtyAccepted={detailOrder.qtyAccepted || 0}
+                  qtyToRepair={detailOrder.qtyToRepair || 0}
+                  qtyRejected={detailOrder.qtyRejected || 0}
+                  totalQuantity={detailOrder.totalQuantity}
+                  materialsNeeds={getFaconMaterialsNeeds(detailOrder, parseJsonSafe(detailOrder.materials_fournisseur_json, {} as Record<string, string>))}
+                  canSeeCost={canSeeCostHere}
+                  currency={currency}
+                />
+              )}
 
               {/* ================================================================
                   B — FRAIS ADDITIONNELS LIBRES
@@ -14332,7 +14718,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </button>
                       {labelTarifsLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 dark:text-dk-muted" />}
                     </div>
-                    {!labelTarifsLoading && !IS_STATIC && Object.keys(labelTarifs).length > 0 && Object.values(labelTarifs).every(v => v == null) && (
+                    {!labelTarifsLoading && !SANS_SERVEUR && Object.keys(labelTarifs).length > 0 && Object.values(labelTarifs).every(v => v == null) && (
                       <p className="mb-2 text-[10px] text-amber-600 dark:text-amber-400 font-semibold leading-snug">
                         {tx(lang,{fr:'Aucun tarif dans la grille pour ce modèle — le prix ci-dessous reste une saisie manuelle.',ar:'ما كاين حتى ثمن فالشبكة لهاد الموديل — الثمن اللي تحت بقا إدخال يدوي.',en:'No price in the grid for this model — the price below stays a manual entry.',es:'Ningún precio en la cuadrícula para este modelo — el precio de abajo sigue siendo manual.',pt:'Nenhum preço na grelha para este modelo — o preço abaixo continua manual.',tr:'Bu model için listede fiyat yok — aşağıdaki fiyat elle girilmiş kalır.'})}
                       </p>

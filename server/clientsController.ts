@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import db from './db';
 import { verifierVenteSousCout } from './commercialPolicy';
 import { generateNumero } from './facturationController';
+import { loadUserContext } from './permissionsController';
 
 /**
  * Clients de l'atelier (acheteurs des pièces finies).
@@ -37,7 +38,7 @@ const CANAUX = new Set(['ATELIER', 'MAGASIN', 'ONLINE']);
 
 /** `doc_recto`/`doc_verso` restent en snake_case en base (comme le reste de la
  *  table) mais sortent en camelCase pour coller à `AtelierClient` côté client. */
-const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, types, if_fiscal AS ifFiscal, COALESCE(role, \'CLIENT\') AS role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, created_at, updated_at FROM st_clients';
+const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, types, if_fiscal AS ifFiscal, COALESCE(role, \'CLIENT\') AS role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, plafond_credit AS plafondCredit, created_at, updated_at FROM st_clients';
 
 export const getClients = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
@@ -72,9 +73,18 @@ export const saveClient = (req: Request, res: Response) => {
 
     try {
         const id = c.id || randomUUID();
+        // Plafond de credit : NULL = pas de limite. Une chaine vide (champ
+        // efface dans le formulaire) doit redevenir NULL, pas 0 — un plafond a
+        // 0 bloquerait toute vente, ce que personne ne demande en effacant le
+        // champ. Negatif refuse par symetrie avec un prix : un plafond n'a pas
+        // de sens sous zero.
+        const plafondCreditRaw = c.plafondCredit ?? c.plafond_credit;
+        const plafondCredit = plafondCreditRaw === '' || plafondCreditRaw == null
+            ? null
+            : Math.max(0, Number(plafondCreditRaw) || 0);
         db.prepare(`
-            INSERT INTO st_clients (id, owner_id, nom, type, types, if_fiscal, role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_clients (id, owner_id, nom, type, types, if_fiscal, role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso, plafond_credit)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 nom = excluded.nom,
                 type = excluded.type,
@@ -91,6 +101,7 @@ export const saveClient = (req: Request, res: Response) => {
                 photo = excluded.photo,
                 doc_recto = excluded.doc_recto,
                 doc_verso = excluded.doc_verso,
+                plafond_credit = excluded.plafond_credit,
                 updated_at = CURRENT_TIMESTAMP
         `).run(
             id,
@@ -118,6 +129,7 @@ export const saveClient = (req: Request, res: Response) => {
             c.photo || null,
             c.docRecto || null,
             c.docVerso || null,
+            plafondCredit,
         );
 
         const saved = db.prepare(`${CLIENT_SELECT} WHERE id = ? AND owner_id = ?`).get(id, companyId);
@@ -540,6 +552,31 @@ export const createStockSortie = (req: Request, res: Response) => {
         return res.status(400).json({ message: verdict.message, code: 'VENTE_SOUS_COUT', policy: verdict.policy });
     }
 
+    // Garde-fou « remise max vendeur », rejoué ici pour la même raison que le
+    // précédent : l'écran est contournable. `remise_percent_vente` est le
+    // pourcentage de remise de la VENTE ENTIÈRE (panier caisse), pas de cette
+    // seule ligne — la caisse envoie le même chiffre sur chaque modèle du
+    // panier. Absent (sortie hors caisse) → aucun contrôle, rien à comparer.
+    const remisePourcent = body.remise_percent_vente != null ? Number(body.remise_percent_vente) : null;
+    if (remisePourcent != null && Number.isFinite(remisePourcent) && remisePourcent > 0) {
+        try {
+            const row = db.prepare("SELECT value FROM app_settings WHERE owner_id = ? AND key = 'global_settings'").get(companyId) as { value?: string } | undefined;
+            const settings = row?.value ? JSON.parse(row.value) : {};
+            const limite = settings && typeof settings === 'object' ? settings.remiseMaxVendeur : null;
+            if (limite != null && Number.isFinite(Number(limite))) {
+                const meta = loadUserContext((req as any).user?.id, (req as any).user?.role);
+                // Propriétaire / admin : jamais limités, même réglage actif —
+                // c'est la même hiérarchie que `resolveCommercialAccess` côté écran.
+                if (!meta.isSuper && remisePourcent > Number(limite)) {
+                    return res.status(400).json({
+                        message: `Remise de ${remisePourcent.toFixed(1)} % refusée : la limite pour un vendeur est de ${Number(limite)} %. Demandez à un responsable.`,
+                        code: 'REMISE_MAX_DEPASSEE',
+                    });
+                }
+            }
+        } catch { /* réglage illisible : on ne bloque jamais sur une donnée absente */ }
+    }
+
     try {
         // Stock disponible, cellule par cellule : on refuse de sortir ce qui
         // n'existe pas, sinon le stock passerait en négatif sans que rien ne le
@@ -556,7 +593,17 @@ export const createStockSortie = (req: Request, res: Response) => {
         entrees.forEach(r => dispo.set(key(r.couleur, r.taille), (dispo.get(key(r.couleur, r.taille)) || 0) + Number(r.q)));
         sorties.forEach(r => dispo.set(key(r.couleur, r.taille), (dispo.get(key(r.couleur, r.taille)) || 0) - Number(r.q)));
 
-        const insuffisant = lignes.find((l: any) => (dispo.get(key(l.couleur, l.taille)) || 0) < l.quantite);
+        // Une même case peut arriver en DEUX lignes (la caisse répartit une
+        // remise au centime : 1 pièce à 33,34 et 2 à 33,33). Le contrôle se fait
+        // donc sur la somme demandée par case, pas ligne par ligne.
+        const demande = new Map<string, { couleur: any; taille: any; quantite: number }>();
+        lignes.forEach((l: any) => {
+            const k = key(l.couleur, l.taille);
+            const d = demande.get(k) || { couleur: l.couleur, taille: l.taille, quantite: 0 };
+            d.quantite += l.quantite;
+            demande.set(k, d);
+        });
+        const insuffisant = [...demande.values()].find(d => (dispo.get(key(d.couleur, d.taille)) || 0) < d.quantite);
         if (insuffisant) {
             return res.status(400).json({
                 message: `Stock insuffisant pour ${insuffisant.couleur || '—'} / ${insuffisant.taille || '—'} : ${dispo.get(key(insuffisant.couleur, insuffisant.taille)) || 0} disponible(s), ${insuffisant.quantite} demandée(s)`,
@@ -582,17 +629,22 @@ export const createStockSortie = (req: Request, res: Response) => {
         // Référence de ticket : fournie par la caisse, identique pour tous les
         // modèles d'un même encaissement. Absente ailleurs (sortie atelier).
         const ticketRef = String(body.ticket_ref ?? '').trim().slice(0, 40) || null;
+        // Caissier : l'identité du COMPTE connecté, jamais celle envoyée par
+        // l'écran — sinon n'importe quel appel pourrait s'attribuer la vente
+        // d'un autre.
+        const vendeurId = (req as any).user?.id ?? null;
+        const vendeurNom = (req as any).user?.name ?? null;
 
         const insert = db.prepare(`
-            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie, canal, mode_paiement, type_vente, ticket_ref)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie, canal, mode_paiement, type_vente, ticket_ref, vendeur_id, vendeur_nom)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         // Transaction : une sortie est un tout. La moitié des cellules écrites
         // laisserait un stock faux sans que rien ne le signale.
         db.transaction(() => {
             for (const l of lignes) {
                 insert.run(randomUUID(), companyId, modelId, body.client_id || null, body.client_nom || null,
-                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date, canal, modePaiement, typeVente, ticketRef);
+                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date, canal, modePaiement, typeVente, ticketRef, vendeurId, vendeurNom);
             }
         })();
 

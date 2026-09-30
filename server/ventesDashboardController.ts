@@ -735,6 +735,33 @@ export const getVentesEncours = (req: Request, res: Response) => {
 };
 
 /**
+ * L'encours d'UN SEUL client, pour le plafond de credit (`st_clients.plafond_credit`) :
+ * avant d'enregistrer une nouvelle sortie de stock, l'ecran doit savoir « il doit
+ * deja combien ? » sans recharger tout le detail des impayes de l'atelier.
+ *
+ * Meme formule que le total par client de `getVentesDashboard` ci-dessus
+ * (facture VENTE, non annulee, `total_ttc - montant_paye` plafonne a 0) — une
+ * formule differente donnerait un chiffre qui ne correspond a aucun autre
+ * ecran, et le plafond deviendrait incomprehensible des le premier ecart.
+ */
+export const getVentesEncoursClient = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const clientId = req.params.clientId;
+    if (!clientId) return res.status(400).json({ message: 'clientId manquant' });
+    try {
+        const row = db.prepare(`
+            SELECT COALESCE(SUM(MAX(0, total_ttc - COALESCE(montant_paye, 0))), 0) AS encours
+            FROM factures
+            WHERE owner_id = ? AND type = 'VENTE' AND statut != 'ANNULEE' AND source_id = ?
+        `).get(companyId, clientId) as { encours: number };
+        res.json({ encours: Number((row?.encours ?? 0).toFixed(2)) });
+    } catch (error) {
+        console.error('Ventes encours client error:', error);
+        res.status(500).json({ message: 'Error computing client receivables' });
+    }
+};
+
+/**
  * Ce qu'il y a DANS la facture : sans les articles, « FV-2026-0011 · 279 MAD »
  * ne se verifie pas au telephone. La photo du modele fait le reste — on
  * reconnait un vetement avant d'en lire la reference.

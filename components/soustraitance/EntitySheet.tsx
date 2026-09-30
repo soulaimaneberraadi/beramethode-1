@@ -6,10 +6,13 @@ import { fmt } from '../../app/constants';
 import {
     ArrowLeft, Package, Users, Layers, Edit2, ShoppingBag,
     Truck, Coins, AlertTriangle, Tag, TrendingUp, Plus, Trash2, Loader2, Save, Receipt,
+    FileText, Printer, MessageCircle, ArrowRightLeft, X,
 } from 'lucide-react';
 import type { AtelierClient } from './ClientsPanel';
 import { ModelStoreSection } from './StoreSync';
 import SheetModal, { useSheetFullscreen } from '../shared/SheetModal';
+import { apiOrigine } from '../../src/lib/apiOrigin';
+import { enPdf, partagerOuTelecharger } from '../ventes/partagerDocument';
 
 /**
  * Fiches d'entité de la sous-traitance (modèle et client).
@@ -93,11 +96,18 @@ interface EntitySheetProps {
      *  Le parent seul sait écrire un modèle sans écraser le travail de
      *  l'ingénierie (même mécanisme que le prix de vente). */
     onSetModelStorePublished?: (modelId: string, published: boolean) => Promise<boolean>;
+    /** Identité de l'entreprise (nom, ICE, RC, adresse, tél, logo) — pour
+     *  l'en-tête du devis imprimé/partagé. Le parent seul la connaît (réglages
+     *  Admin > Entreprise) ; sans elle, le devis s'imprime sans en-tête émetteur
+     *  plutôt que d'échouer. */
+    companyIdentity?: { nom?: string; ice?: string; rc?: string; adresse?: string; tel?: string; logo?: string };
 }
 
 /** Mode statique (Vercel, sans Express) : aucune route `/api/prix` n'existe.
  *  Les sections tarifaires s'effacent alors au lieu d'afficher une erreur. */
-const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+// Sans serveur joignable (static sans `VITE_API_ORIGIN`), les tarifs et la
+// facturation n'ont nulle part ou vivre.
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true' && !apiOrigine;
 
 /* ------------------------------------------------------------------ */
 /* Helpers purs — aucun hook ici, ils sont appelés hors corps React.    */
@@ -1109,6 +1119,7 @@ interface ClientSheetProps extends Omit<EntitySheetProps, 'stack' | 'onBack' | '
 
 const ClientSheet: React.FC<ClientSheetProps> = ({
     clientId, clientNom, autoOpenInvoice, clients, models, sorties, currency, dateLocale, onPush, onEditClient, onInvoiced, onPrintInvoice,
+    stockMatrix, companyIdentity,
 }) => {
     const { lang } = useLang();
     const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
@@ -1133,6 +1144,11 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
     const [clientFacturesLoading, setClientFacturesLoading] = useState(false);
     const [cancellingFactureId, setCancellingFactureId] = useState<string | null>(null);
     const [pendingCancelFacture, setPendingCancelFacture] = useState<any | null>(null);
+
+    /** Encours reel du client (factures VENTE non soldees), pour le comparer au
+     *  plafond de credit de sa fiche. `null` tant que la reponse n'est pas
+     *  arrivee — la barre reste invisible plutot que d'afficher un faux zero. */
+    const [clientEncours, setClientEncours] = useState<number | null>(null);
 
     /** Volet FOURNISSEUR — ce que CE tiers nous facture, et ce qu'on lui doit
      *  encore. Deux sources s'additionnent côté serveur : les frais rattachés à
@@ -1169,6 +1185,18 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
     }, [record?.id]);
 
     useEffect(() => { loadClientFactures(); }, [loadClientFactures]);
+
+    /** Encours pour le plafond de credit — inutile de le charger pour un client
+     *  qui n'a pas de plafond, et inutile pour une fiche sans id (nom libre). */
+    useEffect(() => {
+        if (!record?.id || record.plafondCredit == null) { setClientEncours(null); return; }
+        let alive = true;
+        fetch(`/api/ventes/encours/${encodeURIComponent(record.id)}`, { credentials: 'include' })
+            .then(r => (r.ok ? r.json() : null))
+            .then((d: any) => { if (alive) setClientEncours(d && typeof d.encours === 'number' ? d.encours : 0); })
+            .catch(() => { if (alive) setClientEncours(null); });
+        return () => { alive = false; };
+    }, [record?.id, record?.plafondCredit]);
 
     const cancelInvoice = async (facture: any) => {
         setCancellingFactureId(facture.id);
@@ -1357,6 +1385,416 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
         }
     };
 
+    /* ------------------------------------------------------------------ */
+    /* DEVIS — construction, liste, impression/partage, transformation      */
+    /* ------------------------------------------------------------------ */
+
+    const [devisModal, setDevisModal] = useState(false);
+    const [devisSaving, setDevisSaving] = useState(false);
+    const [devisError, setDevisError] = useState<string | null>(null);
+    const [devisStatut, setDevisStatut] = useState<'BROUILLON' | 'ENVOYE'>('BROUILLON');
+    const [devisValidUntil, setDevisValidUntil] = useState('');
+    const [devisTva, setDevisTva] = useState('20');
+    const [devisExo, setDevisExo] = useState(false);
+    const [devisDiscount, setDevisDiscount] = useState<number | ''>('');
+    const [devisDiscountMode, setDevisDiscountMode] = useState<'PCT' | 'AMOUNT'>('PCT');
+    /** Lignes déjà ajoutées au devis (un devis porte souvent plusieurs modèles). */
+    const [devisLines, setDevisLines] = useState<Array<{ modelId: string; modelNom: string; couleur: string; taille: string; quantite: number; prix_unitaire: number }>>([]);
+    /** Modèle en cours d'ajout : sa grille se remplit avant de rejoindre `devisLines`. */
+    const [devisPickModelId, setDevisPickModelId] = useState('');
+    const [devisGrid, setDevisGrid] = useState<Record<string, number | ''>>({});
+    const [devisPrix, setDevisPrix] = useState<number | ''>('');
+
+    /** Devis déjà émis pour ce client. */
+    const [clientDevis, setClientDevis] = useState<any[]>([]);
+    const [clientDevisLoading, setClientDevisLoading] = useState(false);
+    const [devisActionId, setDevisActionId] = useState<string | null>(null);
+    const [devisActionError, setDevisActionError] = useState<string | null>(null);
+    /** Cellules refusées par la dernière tentative de conversion — affichées
+     *  pour dire PRÉCISÉMENT où manque le stock plutôt qu'un message générique. */
+    const [devisShortfall, setDevisShortfall] = useState<{ devisId: string; cells: Array<{ modelNom: string; couleur: string; taille: string; manque: number }> } | null>(null);
+
+    const loadClientDevis = useCallback(() => {
+        if (!record?.id) { setClientDevis([]); return; }
+        setClientDevisLoading(true);
+        fetch(`/api/facturation/factures?source_module=SOUSTRAITANCE_DEVIS&source_id=${encodeURIComponent(record.id)}`, { credentials: 'include' })
+            .then(r => (r.ok ? r.json() : []))
+            .then(d => setClientDevis(Array.isArray(d) ? d : []))
+            .catch(() => setClientDevis([]))
+            .finally(() => setClientDevisLoading(false));
+    }, [record?.id]);
+
+    useEffect(() => { loadClientDevis(); }, [loadClientDevis]);
+
+    const openDevisModal = () => {
+        setDevisLines([]);
+        setDevisPickModelId('');
+        setDevisGrid({});
+        setDevisPrix('');
+        setDevisStatut('BROUILLON');
+        setDevisTva('20');
+        setDevisExo(false);
+        setDevisDiscount('');
+        setDevisDiscountMode('PCT');
+        const dans30j = new Date();
+        dans30j.setDate(dans30j.getDate() + 30);
+        setDevisValidUntil(dans30j.toISOString().split('T')[0]);
+        setDevisError(null);
+        setDevisModal(true);
+    };
+
+    const devisPickModel = models.find(m => m.id === devisPickModelId) || null;
+    const devisPickFiche: any = devisPickModel?.ficheData || {};
+    const devisPickColors: Array<{ id: string; name: string }> = devisPickFiche.colors || [];
+    const devisPickSizes: string[] = devisPickFiche.sizes || [];
+    const devisPickTotalQty: number = Object.values(devisGrid).reduce<number>((a, v) => a + (Number(v) || 0), 0);
+
+    /** Prix proposé pour le modèle choisi, résolu pour LE TYPE/CLIENT — prefill
+     *  uniquement, l'opérateur garde toujours la main sur le prix affiché. */
+    useEffect(() => {
+        if (!devisPickModelId || IS_STATIC) return;
+        let alive = true;
+        const qs = new URLSearchParams({ modelId: devisPickModelId, qty: String(Math.max(1, devisPickTotalQty)) });
+        if (record?.id) qs.set('clientId', record.id);
+        else if (record?.type) qs.set('type', record.type);
+        fetch(`/api/prix/resolve?${qs.toString()}`, { credentials: 'include' })
+            .then(r => (r.ok ? r.json() : null))
+            .then((d: any) => { if (alive && d?.prix != null) setDevisPrix(Number(Number(d.prix).toFixed(2))); })
+            .catch(() => undefined);
+        return () => { alive = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [devisPickModelId]);
+
+    /** Ajoute les cellules remplies de la grille courante aux lignes du devis,
+     *  puis libère le formulaire pour un autre modèle. */
+    const addDevisLines = () => {
+        if (!devisPickModel) return;
+        const nom = devisPickModel.meta_data?.nom_modele || devisPickModel.id;
+        const prix = Number(devisPrix) || 0;
+        const nouvelles = Object.entries(devisGrid)
+            .map(([k, v]) => {
+                const [couleur, taille] = k.split('|');
+                return { modelId: devisPickModel.id, modelNom: nom, couleur, taille, quantite: Number(v) || 0, prix_unitaire: prix };
+            })
+            .filter(l => l.quantite > 0);
+        if (nouvelles.length === 0) return;
+        setDevisLines(prev => [...prev, ...nouvelles]);
+        setDevisPickModelId('');
+        setDevisGrid({});
+        setDevisPrix('');
+    };
+
+    const removeDevisLine = (i: number) => setDevisLines(prev => prev.filter((_, idx) => idx !== i));
+
+    const devisTotals = useMemo(() => {
+        const brut = devisLines.reduce((a, l) => a + l.quantite * l.prix_unitaire, 0);
+        const discount = devisDiscountMode === 'PCT'
+            ? brut * ((Number(devisDiscount) || 0) / 100)
+            : Math.min(brut, Number(devisDiscount) || 0);
+        const ht = Math.max(0, brut - discount);
+        const tva = devisExo ? 0 : ht * ((Number(devisTva) || 0) / 100);
+        const ttc = ht + tva;
+        return { brut, discount, ht, tva, ttc };
+    }, [devisLines, devisDiscount, devisDiscountMode, devisTva, devisExo]);
+
+    const submitDevis = async () => {
+        if (devisLines.length === 0) {
+            setDevisError(tx(lang, { fr: 'Ajoutez au moins un article.', ar: 'زيد على الأقل مقالة وحدة.', en: 'Add at least one item.', es: 'Añada al menos un artículo.', pt: 'Adicione pelo menos um artigo.', tr: 'En az bir kalem ekleyin.' }));
+            return;
+        }
+        setDevisSaving(true);
+        setDevisError(null);
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const res = await fetch('/api/facturation/factures', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'DEVIS',
+                    tiers_nom: record?.nom || displayName,
+                    tiers_ice: record?.ice || null,
+                    tiers_rc: record?.rc || null,
+                    tiers_adresse: record?.adresse || null,
+                    tiers_tel: record?.tel || null,
+                    tiers_email: record?.email || null,
+                    tiers_type: record?.type || null,
+                    tiers_ville: record?.ville || null,
+                    date_facture: today,
+                    date_echeance: devisValidUntil || null,
+                    taux_tva: devisExo ? 0 : (Number(devisTva) || 0),
+                    total_ht: Number(devisTotals.ht.toFixed(2)),
+                    total_tva: Number(devisTotals.tva.toFixed(2)),
+                    total_ttc: Number(devisTotals.ttc.toFixed(2)),
+                    montant_paye: 0,
+                    source_module: 'SOUSTRAITANCE_DEVIS',
+                    source_id: record?.id || null,
+                    statut: devisStatut,
+                    lignes: devisLines.map(l => ({
+                        designation: `${l.modelNom} — ${l.couleur} / ${l.taille}`,
+                        modelId: l.modelId,
+                        couleur: l.couleur,
+                        taille: l.taille,
+                        quantite: l.quantite,
+                        prix_unitaire: l.prix_unitaire,
+                        total: Number((l.quantite * l.prix_unitaire).toFixed(2)),
+                    })),
+                }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                throw new Error(body?.error || body?.message || 'save');
+            }
+            setDevisModal(false);
+            loadClientDevis();
+        } catch {
+            setDevisError(tx(lang, { fr: "L'enregistrement du devis a échoué.", ar: 'فشل تسجيل عرض الثمن.', en: 'Saving the quote failed.', es: 'Error al guardar el presupuesto.', pt: 'Falha ao guardar o orçamento.', tr: 'Teklif kaydedilemedi.' }));
+        } finally {
+            setDevisSaving(false);
+        }
+    };
+
+    /** Grille couleur × taille agrégée d'un devis — même forme que `invoiceGrid`. */
+    const devisGridOf = (devis: any) => {
+        const lignes = Array.isArray(devis.lignes) ? devis.lignes : [];
+        const couleurs: string[] = [];
+        const tailles: string[] = [];
+        const byCell = new Map<string, number>();
+        lignes.forEach((l: any) => {
+            const c = String(l.couleur || '—');
+            const t = String(l.taille || '—');
+            if (!couleurs.includes(c)) couleurs.push(c);
+            if (!tailles.includes(t)) tailles.push(t);
+            byCell.set(`${c}|${t}`, (byCell.get(`${c}|${t}`) || 0) + toNum(l.quantite));
+        });
+        couleurs.sort((a, b) => a.localeCompare(b));
+        tailles.sort((a, b) => sizeRank(a) - sizeRank(b) || a.localeCompare(b));
+        return { couleurs, tailles, byCell };
+    };
+
+    const escHtml = (v: unknown) => String(v ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    /** Document imprimable du devis — indépendant du document « facture de
+     *  vente » du parent (dont le titre et la numérotation ne conviennent pas
+     *  à un devis) mais avec la même identité d'entreprise, passée en prop. */
+    const buildDevisHtml = (devis: any) => {
+        const lignes = Array.isArray(devis.lignes) ? devis.lignes : [];
+        const money = (v: number) => `${escHtml(fmt(Number(v) || 0))} ${escHtml(currency)}`;
+        const rows = lignes.map((l: any, i: number) => `
+            <tr>
+              <td class="num">${i + 1}</td>
+              <td>${escHtml(l.designation || '—')}</td>
+              <td class="num">${escHtml((Number(l.quantite) || 0).toLocaleString(dateLocale))}</td>
+              <td class="num">${money(l.prix_unitaire)}</td>
+              <td class="num strong">${money(l.total ?? (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0))}</td>
+            </tr>`).join('');
+        const emetteurLines = [
+            companyIdentity?.adresse,
+            companyIdentity?.tel ? `Tél : ${companyIdentity.tel}` : '',
+            [companyIdentity?.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity?.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '),
+        ].filter(Boolean).map(l => `<div class="party">${escHtml(l)}</div>`).join('');
+        const destLines = [
+            record?.adresse,
+            record?.tel,
+            [record?.ice ? `ICE : ${record.ice}` : '', record?.rc ? `RC : ${record.rc}` : ''].filter(Boolean).join(' · '),
+        ].filter(Boolean).map(l => `<div class="party">${escHtml(l)}</div>`).join('');
+        const titre = tx(lang, { fr: 'DEVIS', ar: 'عرض ثمن', en: 'QUOTE', es: 'PRESUPUESTO', pt: 'ORÇAMENTO', tr: 'TEKLİF' });
+
+        return `<html><head><title>${escHtml(titre)} - ${escHtml(devis.numero)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 16px; line-height: 1.35; font-size: 11px; }
+  .box { max-width: 820px; margin: auto; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 2px solid #6366f1; padding-bottom: 10px; margin-bottom: 12px; }
+  .title { font-size: 18px; font-weight: 900; color: #1e1b4b; }
+  .doc-title { font-size: 18px; font-weight: 900; color: #4f46e5; }
+  .doc-meta { margin-top: 5px; font-size: 10.5px; color: #64748b; font-weight: 700; }
+  .meta-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .cadre { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 8px; }
+  .cadre-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+  .cadre-val { font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+  .party { font-size: 9.5px; color: #475569; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; }
+  th.num { text-align: right; }
+  td { padding: 5px 8px; border-bottom: 1px solid #eef2f7; font-size: 11px; }
+  .strong { font-weight: 700; }
+  .total-table { width: 100%; max-width: 320px; margin-left: auto; }
+  .total-table td { padding: 4px 0; border: none; font-size: 10.5px; }
+  .total-table td:first-child { color: #475569; }
+  .total-table td:last-child { font-weight: 700; text-align: right; }
+  .total-row td { background: #4f46e5; color: #ffffff; font-weight: 800; font-size: 12.5px; padding: 6px 8px; }
+  .total-row td:first-child { color: #ffffff; text-transform: uppercase; font-size: 10px; }
+  .footer { margin-top: 16px; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; text-align: center; }
+  @page { size: A4; margin: 10mm; }
+  @media print { body { padding: 0; } .total-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head>
+<body>
+  <div class="box">
+    <div class="header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        ${companyIdentity?.logo ? `<img src="${escHtml(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
+        <div class="title">${escHtml(companyIdentity?.nom || '')}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="doc-title">${escHtml(titre)}</div>
+        <div class="doc-meta">
+          <div>REF : ${escHtml(devis.numero)}</div>
+          <div>${escHtml(tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' }))} : ${escHtml(fmtDay(devis.date_facture, dateLocale))}</div>
+          ${devis.date_echeance ? `<div>${escHtml(tx(lang, { fr: 'Valable jusqu\'au', ar: 'صالح إلى غاية', en: 'Valid until', es: 'Válido hasta', pt: 'Válido até', tr: 'Son geçerlilik' }))} : ${escHtml(fmtDay(devis.date_echeance, dateLocale))}</div>` : ''}
+        </div>
+      </div>
+    </div>
+    <div class="meta-section">
+      <div class="cadre">
+        <div class="cadre-title">${escHtml(tx(lang, { fr: 'Émetteur', ar: 'المصدر', en: 'Issuer', es: 'Emisor', pt: 'Emitente', tr: 'Düzenleyen' }))}</div>
+        <div class="cadre-val">${escHtml(companyIdentity?.nom || '—')}</div>
+        ${emetteurLines}
+      </div>
+      <div class="cadre">
+        <div class="cadre-title">${escHtml(tx(lang, { fr: 'Client', ar: 'الزبون', en: 'Client', es: 'Cliente', pt: 'Cliente', tr: 'Müşteri' }))}</div>
+        <div class="cadre-val">${escHtml(record?.nom || devis.tiers_nom || '—')}</div>
+        ${destLines}
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th class="num">#</th>
+        <th>${escHtml(tx(lang, { fr: 'Désignation', ar: 'البيان', en: 'Description', es: 'Designación', pt: 'Designação', tr: 'Açıklama' }))}</th>
+        <th class="num">${escHtml(tx(lang, { fr: 'Quantité', ar: 'الكمية', en: 'Quantity', es: 'Cantidad', pt: 'Quantidade', tr: 'Miktar' }))}</th>
+        <th class="num">${escHtml(tx(lang, { fr: 'Prix Unitaire', ar: 'السعر الوحدة', en: 'Unit Price', es: 'Precio Unitario', pt: 'Preço Unitário', tr: 'Birim Fiyat' }))}</th>
+        <th class="num">${escHtml(tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' }))}</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <table class="total-table">
+      <tr><td>${escHtml(tx(lang, { fr: 'Total HT', ar: 'المجموع دون الضريبة', en: 'Total excl. tax', es: 'Total sin IVA', pt: 'Total sem IVA', tr: 'KDV hariç toplam' }))}</td><td>${money(devis.total_ht)}</td></tr>
+      <tr><td>${escHtml(tx(lang, { fr: 'TVA', ar: 'الضريبة على القيمة المضافة', en: 'VAT', es: 'IVA', pt: 'IVA', tr: 'KDV' }))} ${escHtml(devis.taux_tva)}%</td><td>${money(devis.total_tva)}</td></tr>
+      <tr class="total-row"><td>${escHtml(tx(lang, { fr: 'TOTAL TTC', ar: 'المجموع مع الضريبة', en: 'TOTAL INCL. TAX', es: 'TOTAL CON IVA', pt: 'TOTAL COM IVA', tr: 'TOPLAM (KDV DAHİL)' }))}</td><td>${money(devis.total_ttc)}</td></tr>
+    </table>
+    <div class="footer">
+      ${escHtml([companyIdentity?.nom, companyIdentity?.ice ? `ICE : ${companyIdentity.ice}` : ''].filter(Boolean).join(' · '))}<br/>
+      ${escHtml(tx(lang, { fr: 'Devis valable sous réserve de disponibilité du stock à la date de commande.', ar: 'عرض الثمن صالح رهن توفّر المخزون يوم الطلب.', en: 'Quote valid subject to stock availability at order date.', es: 'Presupuesto válido sujeto a disponibilidad de stock.', pt: 'Orçamento válido sujeito à disponibilidade de stock.', tr: 'Teklif, sipariş tarihindeki stok durumuna bağlıdır.' }))}
+    </div>
+  </div>
+</body></html>`;
+    };
+
+    const printDevis = (devis: any) => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+        printWindow.document.write(buildDevisHtml(devis));
+        printWindow.document.close();
+    };
+
+    const shareDevisWhatsapp = async (devis: any) => {
+        setDevisActionError(null);
+        try {
+            const html = buildDevisHtml(devis);
+            const nomFichier = `Devis ${devis.numero} ${record?.nom || ''}`.replace(/[\\/:*?"<>|]/g, '-');
+            const fichier = await enPdf(html, nomFichier);
+            const texte = tx(lang, {
+                fr: `Devis ${devis.numero} — ${fmt(devis.total_ttc)} ${currency}`,
+                ar: `عرض ثمن ${devis.numero} — ${fmt(devis.total_ttc)} ${currency}`,
+                en: `Quote ${devis.numero} — ${fmt(devis.total_ttc)} ${currency}`,
+                es: `Presupuesto ${devis.numero} — ${fmt(devis.total_ttc)} ${currency}`,
+                pt: `Orçamento ${devis.numero} — ${fmt(devis.total_ttc)} ${currency}`,
+                tr: `Teklif ${devis.numero} — ${fmt(devis.total_ttc)} ${currency}`,
+            });
+            await partagerOuTelecharger(fichier, texte);
+        } catch (e: any) {
+            setDevisActionError(e?.message || tx(lang, { fr: 'Le partage a échoué.', ar: 'فشلت المشاركة.', en: 'Sharing failed.', es: 'El envío falló.', pt: 'O envio falhou.', tr: 'Paylaşım başarısız.' }));
+        }
+    };
+
+    /** Bascule le statut d'un devis (REFUSE, ou ACCEPTE après conversion) en
+     *  réémettant la même ligne — `saveFacture` accepte un id existant comme
+     *  une mise à jour, donc aucune route dédiée n'est nécessaire. */
+    const updateDevisStatut = async (devis: any, statut: string, notes?: string) => {
+        setDevisActionId(devis.id);
+        setDevisActionError(null);
+        try {
+            const res = await fetch('/api/facturation/factures', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...devis, statut, notes: notes ?? devis.notes }),
+            });
+            if (!res.ok) throw new Error();
+            loadClientDevis();
+        } catch {
+            setDevisActionError(tx(lang, { fr: "La mise à jour du devis a échoué.", ar: 'فشل تحديث عرض الثمن.', en: 'Updating the quote failed.', es: 'Error al actualizar el presupuesto.', pt: 'Falha ao atualizar o orçamento.', tr: 'Teklif güncellenemedi.' }));
+        } finally {
+            setDevisActionId(null);
+        }
+    };
+
+    /** Transforme un devis en vente réelle : vérifie le stock cellule par
+     *  cellule AVANT tout envoi (un refus partiel laisserait un devis à moitié
+     *  transformé, invisible depuis cet écran), poste une sortie de stock PAR
+     *  MODÈLE — même découpage que `submitSortie` du parent, l'endpoint ne
+     *  connaît qu'un modèle à la fois — puis marque le devis ACCEPTE.
+     */
+    const convertDevisToVente = async (devis: any) => {
+        setDevisActionError(null);
+        setDevisShortfall(null);
+        const lignes = Array.isArray(devis.lignes) ? devis.lignes : [];
+        if (lignes.length === 0) return;
+
+        const shortfallCells: Array<{ modelNom: string; couleur: string; taille: string; manque: number }> = [];
+        lignes.forEach((l: any) => {
+            const dispo = stockMatrix?.get(String(l.modelId))?.get(`${l.couleur || '—'}|${l.taille || '—'}`) || 0;
+            const demande = Number(l.quantite) || 0;
+            if (demande > dispo) {
+                const modelNom = models.find(m => m.id === l.modelId)?.meta_data?.nom_modele || String(l.modelId);
+                shortfallCells.push({ modelNom, couleur: l.couleur || '—', taille: l.taille || '—', manque: demande - dispo });
+            }
+        });
+        if (shortfallCells.length > 0) {
+            setDevisShortfall({ devisId: devis.id, cells: shortfallCells });
+            return;
+        }
+
+        setDevisActionId(devis.id);
+        try {
+            const parModele = new Map<string, any[]>();
+            lignes.forEach((l: any) => {
+                const arr = parModele.get(l.modelId) || [];
+                arr.push(l);
+                parModele.set(l.modelId, arr);
+            });
+            const batchIds: string[] = [];
+            for (const [modelId, lignesModele] of parModele) {
+                const res = await fetch('/api/subcontract/stock-sorties', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        modelId,
+                        client_id: record?.id || null,
+                        client_nom: record?.nom || null,
+                        date_sortie: new Date().toISOString().split('T')[0],
+                        type_vente: 'GROS',
+                        note: `Devis ${devis.numero}`,
+                        lignes: lignesModele.map((l: any) => ({ couleur: l.couleur, taille: l.taille, quantite: l.quantite, prix_unitaire: l.prix_unitaire })),
+                    }),
+                });
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(body?.message || 'sortie');
+                batchIds.push(body.batch_id);
+            }
+
+            await updateDevisStatut(devis, 'ACCEPTE', `${devis.notes ? devis.notes + ' — ' : ''}Transformé en vente (lot ${batchIds.join(', ')})`);
+            onInvoiced?.();
+        } catch (e: any) {
+            setDevisActionError(e?.message || tx(lang, { fr: 'La transformation en vente a échoué.', ar: 'فشل التحويل إلى بيع.', en: 'Converting to a sale failed.', es: 'La conversión en venta falló.', pt: 'A conversão em venda falhou.', tr: 'Satışa dönüştürme başarısız.' }));
+        } finally {
+            setDevisActionId(null);
+        }
+    };
+
     const roleValue: string = (record as any)?.role || 'CLIENT';
     const sellsToUs = roleValue === 'FOURNISSEUR' || roleValue === 'LES_DEUX';
     const buysFromUs = roleValue !== 'FOURNISSEUR';
@@ -1438,6 +1876,16 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                             <Receipt className="w-3.5 h-3.5" />
                             {tx(lang, { fr: 'Facturer', ar: 'فوترة', en: 'Invoice', es: 'Facturar', pt: 'Faturar', tr: 'Faturala' })}
                             <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-white/20 text-[9px]">{unbilled.length}</span>
+                        </button>
+                    )}
+                    {record && buysFromUs && (
+                        <button
+                            type="button"
+                            onClick={openDevisModal}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-dk-accent/40 text-indigo-600 dark:text-dk-accent font-bold text-[11px] hover:bg-indigo-50 dark:hover:bg-dk-accent/10 transition-colors"
+                        >
+                            <FileText className="w-3.5 h-3.5" />
+                            {tx(lang, { fr: 'Nouveau devis', ar: 'عرض ثمن جديد', en: 'New quote', es: 'Nuevo presupuesto', pt: 'Novo orçamento', tr: 'Yeni teklif' })}
                         </button>
                     )}
                     {record && onEditClient && (
@@ -1831,6 +2279,228 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                 </SheetModal>
             )}
 
+            {devisModal && (
+                <SheetModal
+                    onClose={() => { if (!devisSaving) setDevisModal(false); }}
+                    title={tx(lang, { fr: 'Nouveau devis', ar: 'عرض ثمن جديد', en: 'New quote', es: 'Nuevo presupuesto', pt: 'Novo orçamento', tr: 'Yeni teklif' })}
+                    icon={<FileText className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+                    size="lg"
+                    zClass="z-[260]"
+                    fullscreen={denseFullscreen}
+                    onToggleFullscreen={toggleDenseFullscreen}
+                    closeOnBackdrop
+                    bare
+                >
+                    <div className="flex-1 overflow-y-auto min-h-0">
+                        <div className="p-5 space-y-3">
+                            {devisError && (
+                                <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                    <span className="text-[10px] font-semibold">{devisError}</span>
+                                </div>
+                            )}
+
+                            {/* Ajout d'un article : modèle → grille couleur × taille → prix. */}
+                            <div className="border border-slate-200 dark:border-dk-border rounded-xl p-3 space-y-2.5">
+                                <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                                    {tx(lang, { fr: 'Ajouter un modèle', ar: 'إضافة موديل', en: 'Add a model', es: 'Añadir un modelo', pt: 'Adicionar um modelo', tr: 'Model ekle' })}
+                                </label>
+                                <select
+                                    value={devisPickModelId}
+                                    onChange={e => { setDevisPickModelId(e.target.value); setDevisGrid({}); }}
+                                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                >
+                                    <option value="">{tx(lang, { fr: '— Choisir —', ar: '— اختيار —', en: '— Choose —', es: '— Elegir —', pt: '— Escolher —', tr: '— Seç —' })}</option>
+                                    {models.map(m => (
+                                        <option key={m.id} value={m.id}>{m.meta_data?.nom_modele || m.id}</option>
+                                    ))}
+                                </select>
+
+                                {devisPickModel && (
+                                    devisPickColors.length === 0 || devisPickSizes.length === 0 ? (
+                                        <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
+                                            {tx(lang, { fr: "Ce modèle n'a ni couleurs ni tailles.", ar: 'هاد الموديل ما عندو لا ألوان لا مقاسات.', en: 'This model has no colors or sizes.', es: 'Este modelo no tiene colores ni tallas.', pt: 'Este modelo não tem cores nem tamanhos.', tr: 'Bu modelin rengi veya bedeni yok.' })}
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <div className="overflow-x-auto border border-slate-200 dark:border-dk-border rounded-lg">
+                                                <table className="w-full text-[10px]">
+                                                    <thead className="bg-slate-50 dark:bg-dk-bg/60">
+                                                        <tr>
+                                                            <th className="px-2 py-1.5 text-left font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
+                                                            {devisPickSizes.map(sz => <th key={sz} className="px-1.5 py-1.5 text-center font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted">{sz}</th>)}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                                        {devisPickColors.map(c => (
+                                                            <tr key={c.id}>
+                                                                <td className="px-2 py-1 font-semibold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">{c.name}</td>
+                                                                {devisPickSizes.map(sz => {
+                                                                    const k = `${c.name}|${sz}`;
+                                                                    return (
+                                                                        <td key={sz} className="px-1 py-1 text-center">
+                                                                            <input
+                                                                                type="number" min={0}
+                                                                                value={devisGrid[k] ?? ''}
+                                                                                onChange={e => setDevisGrid(prev => ({ ...prev, [k]: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0) }))}
+                                                                                className="w-12 text-center rounded-lg px-1 py-1 text-[11px] outline-none border bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent"
+                                                                            />
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div className="flex items-end gap-2">
+                                                <div className="flex-1">
+                                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                                        {tx(lang, { fr: 'Prix unitaire', ar: 'ثمن الوحدة', en: 'Unit price', es: 'Precio unitario', pt: 'Preço unitário', tr: 'Birim fiyat' })}
+                                                    </label>
+                                                    <input
+                                                        type="number" min={0} value={devisPrix}
+                                                        onChange={e => setDevisPrix(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))}
+                                                        placeholder={tx(lang, { fr: 'Prix', ar: 'الثمن', en: 'Price', es: 'Precio', pt: 'Preço', tr: 'Fiyat' })}
+                                                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={addDevisLines}
+                                                    disabled={devisPickTotalQty === 0}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" />
+                                                    {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
+                                                </button>
+                                            </div>
+                                        </>
+                                    )
+                                )}
+                            </div>
+
+                            {/* Articles déjà ajoutés. */}
+                            {devisLines.length > 0 && (
+                                <div className="border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden">
+                                    <table className="w-full text-[11px]">
+                                        <thead className="bg-slate-50 dark:bg-dk-bg/60">
+                                            <tr>
+                                                <th className="px-2.5 py-1.5 text-left font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Article', ar: 'المقالة', en: 'Item', es: 'Artículo', pt: 'Artigo', tr: 'Kalem' })}</th>
+                                                <th className="px-2.5 py-1.5 text-right font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' })}</th>
+                                                <th className="px-2.5 py-1.5 text-right font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted">PU</th>
+                                                <th className="px-2.5 py-1.5 text-right font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted">Total</th>
+                                                <th className="w-8"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                            {devisLines.map((l, i) => (
+                                                <tr key={i}>
+                                                    <td className="px-2.5 py-1.5 font-semibold text-slate-800 dark:text-dk-text">{l.modelNom} — {l.couleur} / {l.taille}</td>
+                                                    <td className="px-2.5 py-1.5 text-right">{l.quantite}</td>
+                                                    <td className="px-2.5 py-1.5 text-right">{fmt(l.prix_unitaire)}</td>
+                                                    <td className="px-2.5 py-1.5 text-right font-bold">{fmt(l.quantite * l.prix_unitaire)}</td>
+                                                    <td className="px-1 py-1.5 text-center">
+                                                        <button type="button" onClick={() => removeDevisLine(i)} className="p-1 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                        {tx(lang, { fr: 'Valable jusqu\'au', ar: 'صالح إلى غاية', en: 'Valid until', es: 'Válido hasta', pt: 'Válido até', tr: 'Son geçerlilik' })}
+                                    </label>
+                                    <input type="date" value={devisValidUntil} onChange={e => setDevisValidUntil(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                                </div>
+                                <div>
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                        {tx(lang, { fr: 'TVA (%)', ar: 'الضريبة (%)', en: 'VAT (%)', es: 'IVA (%)', pt: 'IVA (%)', tr: 'KDV (%)' })}
+                                    </label>
+                                    <input type="number" min={0} step="any" disabled={devisExo} value={devisTva} onChange={e => setDevisTva(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value) || 0)))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent disabled:opacity-40" />
+                                </div>
+                                <div>
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                        {tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Estado', tr: 'Durum' })}
+                                    </label>
+                                    <select value={devisStatut} onChange={e => setDevisStatut(e.target.value as any)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent">
+                                        <option value="BROUILLON">{tx(lang, { fr: 'Brouillon', ar: 'مسوّدة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</option>
+                                        <option value="ENVOYE">{tx(lang, { fr: 'Envoyé', ar: 'مرسل', en: 'Sent', es: 'Enviado', pt: 'Enviado', tr: 'Gönderildi' })}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                        {tx(lang, { fr: 'Remise', ar: 'التخفيض', en: 'Discount', es: 'Descuento', pt: 'Desconto', tr: 'İndirim' })}
+                                    </label>
+                                    <div className="flex items-center gap-1.5">
+                                        <input
+                                            type="number" min={0} value={devisDiscount}
+                                            onChange={e => setDevisDiscount(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                        />
+                                        <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border shrink-0">
+                                            {(['PCT', 'AMOUNT'] as const).map(mode => (
+                                                <button key={mode} type="button" onClick={() => setDevisDiscountMode(mode)}
+                                                    className={`px-2 py-2 text-[10px] font-bold transition-colors ${devisDiscountMode === mode ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted'}`}>
+                                                    {mode === 'PCT' ? '%' : currency}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <label className="col-span-2 flex items-start gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={devisExo} onChange={e => setDevisExo(e.target.checked)} className="w-3.5 h-3.5 accent-indigo-600 mt-0.5" />
+                                    <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft">
+                                        {tx(lang, { fr: 'Exonéré de TVA (marché export — art. 92 CGI)', ar: 'معفى من الضريبة على القيمة المضافة (سوق التصدير — المادة 92)', en: 'VAT exempt (export market — art. 92)', es: 'Exento de IVA (mercado de exportación — art. 92)', pt: 'Isento de IVA (mercado de exportação — art. 92)', tr: 'KDV muaf (ihracat pazarı — madde 92)' })}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div className="border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 p-3 space-y-1 text-[11px] rounded-xl">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang, { fr: 'Total HT brut', ar: 'المجموع الخام دون الضريبة', en: 'Gross total excl. tax', es: 'Total bruto sin IVA', pt: 'Total bruto sem IVA', tr: 'Brüt KDV hariç toplam' })}</span>
+                                    <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(devisTotals.brut)} {currency}</span>
+                                </div>
+                                {devisTotals.discount > 0 && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang, { fr: 'Remise', ar: 'التخفيض', en: 'Discount', es: 'Descuento', pt: 'Desconto', tr: 'İndirim' })}</span>
+                                        <span className="font-bold text-amber-700 dark:text-amber-400">- {fmt(devisTotals.discount)} {currency}</span>
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang, { fr: 'TVA', ar: 'الضريبة', en: 'VAT', es: 'IVA', pt: 'IVA', tr: 'KDV' })} {devisExo ? '(0%)' : `${devisTva}%`}</span>
+                                    <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(devisTotals.tva)} {currency}</span>
+                                </div>
+                                <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-dk-border">
+                                    <span className="font-black uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Total TTC', ar: 'المجموع مع الضريبة', en: 'Total incl. tax', es: 'Total con IVA', pt: 'Total com IVA', tr: 'Toplam (KDV dahil)' })}</span>
+                                    <span className="font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(devisTotals.ttc)} {currency}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-dk-border flex flex-wrap justify-end gap-2 bg-white dark:bg-dk-surface">
+                        <button onClick={() => setDevisModal(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
+                            {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
+                        </button>
+                        <button
+                            onClick={submitDevis}
+                            disabled={devisSaving || devisLines.length === 0}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                        >
+                            {devisSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            {tx(lang, { fr: 'Enregistrer le devis', ar: 'حفظ عرض الثمن', en: 'Save the quote', es: 'Guardar el presupuesto', pt: 'Guardar o orçamento', tr: 'Teklifi kaydet' })}
+                        </button>
+                    </div>
+                </SheetModal>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <Kpi label={tx(lang, { fr: 'CA total', ar: 'رقم المعاملات', en: 'Total revenue', es: 'Facturación total', pt: 'Volume total', tr: 'Toplam ciro' })} value={`${fmt(kpis.ca)} ${currency}`} tone="accent" />
                 <Kpi label={tx(lang, { fr: 'Pièces achetées', ar: 'القطع المشتراة', en: 'Pieces bought', es: 'Piezas compradas', pt: 'Peças compradas', tr: 'Alınan parça' })} value={kpis.pieces.toLocaleString(dateLocale)} />
@@ -1842,6 +2512,42 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                 <Kpi label={tx(lang, { fr: 'Dernier achat', ar: 'آخر شراء', en: 'Last purchase', es: 'Última compra', pt: 'Última compra', tr: 'Son alım' })} value={kpis.last ? fmtDay(kpis.last, dateLocale) : '—'} />
                 <Kpi label={tx(lang, { fr: 'Modèles achetés', ar: 'الموديلات المشتراة', en: 'Models bought', es: 'Modelos comprados', pt: 'Modelos comprados', tr: 'Alınan model' })} value={kpis.modeles.toLocaleString(dateLocale)} />
             </div>
+
+            {/* Plafond de credit : n'apparait que si la fiche en porte un — sinon
+                la barre n'aurait rien a comparer et n'annoncerait qu'une absence. */}
+            {record?.plafondCredit != null && (() => {
+                const plafond = Number(record.plafondCredit) || 0;
+                const encours = clientEncours ?? 0;
+                const pct = plafond > 0 ? Math.min(100, (encours / plafond) * 100) : (encours > 0 ? 100 : 0);
+                const depasse = clientEncours != null && encours > plafond;
+                return (
+                    <div className={`rounded-2xl border px-4 py-3 ${
+                        depasse
+                            ? 'border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30'
+                            : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'
+                    }`}>
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
+                                {tx(lang, { fr: 'Encours / Plafond', ar: 'المستحقّ / السقف', en: 'Outstanding / Limit', es: 'Pendiente / Límite', pt: 'Em dívida / Limite', tr: 'Bakiye / Limit' })}
+                            </span>
+                            <span className={`text-[11px] font-extrabold ${depasse ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-dk-text'}`}>
+                                {clientEncours == null ? '…' : `${fmt(encours)} ${currency}`} / {fmt(plafond)} {currency}
+                            </span>
+                        </div>
+                        <div className="mt-2 h-2 rounded-full bg-slate-100 dark:bg-dk-bg overflow-hidden">
+                            <div
+                                className={`h-full rounded-full transition-all ${depasse ? 'bg-rose-500' : 'bg-indigo-500 dark:bg-dk-accent'}`}
+                                style={{ width: `${pct}%` }}
+                            />
+                        </div>
+                        {depasse && (
+                            <p className="mt-1.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                                {tx(lang, { fr: 'Plafond dépassé.', ar: 'السقف تجاوَز.', en: 'Credit limit exceeded.', es: 'Límite de crédito superado.', pt: 'Limite de crédito excedido.', tr: 'Kredi limiti aşıldı.' })}
+                            </p>
+                        )}
+                    </div>
+                );
+            })()}
 
             <Section
                 title={tx(lang, { fr: 'Répartition par modèle', ar: 'التوزيع حسب الموديل', en: 'Breakdown by model', es: 'Reparto por modelo', pt: 'Repartição por modelo', tr: 'Modele göre dağılım' })}
@@ -1878,6 +2584,104 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                     </div>
                 )}
             </Section>
+
+            {record && buysFromUs && (
+                <Section
+                    title={tx(lang, { fr: 'Devis', ar: 'عروض الثمن', en: 'Quotes', es: 'Presupuestos', pt: 'Orçamentos', tr: 'Teklifler' })}
+                    icon={<FileText className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent" />}
+                >
+                    {devisActionError && (
+                        <div className="mb-2 flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span className="text-[10px] font-semibold">{devisActionError}</span>
+                        </div>
+                    )}
+                    {devisShortfall && (
+                        <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+                            <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 mb-1">
+                                {tx(lang, { fr: 'Stock insuffisant pour transformer ce devis :', ar: 'المخزون غير كافٍ لتحويل هاد عرض الثمن:', en: 'Not enough stock to convert this quote:', es: 'Stock insuficiente para convertir este presupuesto:', pt: 'Stock insuficiente para converter este orçamento:', tr: 'Bu teklifi dönüştürmek için stok yetersiz:' })}
+                            </p>
+                            <ul className="text-[10px] text-amber-700 dark:text-amber-400 space-y-0.5">
+                                {devisShortfall.cells.map((c, i) => (
+                                    <li key={i}>{c.modelNom} — {c.couleur} / {c.taille} : {tx(lang, { fr: `manque ${c.manque}`, ar: `ناقص ${c.manque}`, en: `short by ${c.manque}`, es: `faltan ${c.manque}`, pt: `faltam ${c.manque}`, tr: `${c.manque} eksik` })}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    {clientDevisLoading ? (
+                        <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-dk-muted" /></div>
+                    ) : clientDevis.length === 0 ? (
+                        <EmptyLine text={tx(lang, { fr: 'Aucun devis pour ce client.', ar: 'ما كاين حتى عرض ثمن لهاد الزبون.', en: 'No quote for this client.', es: 'Ningún presupuesto para este cliente.', pt: 'Nenhum orçamento para este cliente.', tr: 'Bu müşteri için teklif yok.' })} />
+                    ) : (
+                        <div className="space-y-2">
+                            {clientDevis.map(d => {
+                                const statutTone = d.statut === 'ACCEPTE' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50'
+                                    : d.statut === 'REFUSE' ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/50'
+                                    : d.statut === 'ENVOYE' ? 'bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800/50'
+                                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border';
+                                const statutLabel = d.statut === 'ACCEPTE'
+                                    ? tx(lang, { fr: 'Accepté', ar: 'مقبول', en: 'Accepted', es: 'Aceptado', pt: 'Aceite', tr: 'Kabul edildi' })
+                                    : d.statut === 'REFUSE'
+                                        ? tx(lang, { fr: 'Refusé', ar: 'مرفوض', en: 'Refused', es: 'Rechazado', pt: 'Recusado', tr: 'Reddedildi' })
+                                        : d.statut === 'ENVOYE'
+                                            ? tx(lang, { fr: 'Envoyé', ar: 'مرسل', en: 'Sent', es: 'Enviado', pt: 'Enviado', tr: 'Gönderildi' })
+                                            : tx(lang, { fr: 'Brouillon', ar: 'مسوّدة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' });
+                                const busy = devisActionId === d.id;
+                                const peutTransformer = d.statut !== 'ACCEPTE' && d.statut !== 'REFUSE';
+                                return (
+                                    <div key={d.id} className="border border-slate-200 dark:border-dk-border rounded-xl p-3">
+                                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                                            <div className="min-w-0">
+                                                <p className="text-[12px] font-bold text-slate-800 dark:text-dk-text">{d.numero}</p>
+                                                <p className="text-[10px] text-slate-400 dark:text-dk-muted">
+                                                    {fmtDay(d.date_facture, dateLocale)}
+                                                    {d.date_echeance && ` · ${tx(lang, { fr: 'valable jusqu\'au', ar: 'صالح إلى', en: 'valid until', es: 'válido hasta', pt: 'válido até', tr: 'geçerlilik' })} ${fmtDay(d.date_echeance, dateLocale)}`}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`inline-block px-2 py-0.5 rounded border text-[9px] font-bold ${statutTone}`}>{statutLabel}</span>
+                                                <span className="text-[12px] font-extrabold text-indigo-600 dark:text-dk-accent">{fmt(Number(d.total_ttc) || 0)} {currency}</span>
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                            <button type="button" onClick={() => printDevis(d)} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[10px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
+                                                <Printer className="w-3 h-3" />
+                                                {tx(lang, { fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}
+                                            </button>
+                                            <button type="button" onClick={() => shareDevisWhatsapp(d)} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
+                                                <MessageCircle className="w-3 h-3" />
+                                                WhatsApp
+                                            </button>
+                                            {peutTransformer && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => convertDevisToVente(d)}
+                                                        disabled={busy}
+                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[10px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                                                    >
+                                                        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowRightLeft className="w-3 h-3" />}
+                                                        {tx(lang, { fr: 'Transformer en vente', ar: 'تحويل إلى بيع', en: 'Convert to sale', es: 'Convertir en venta', pt: 'Converter em venda', tr: 'Satışa dönüştür' })}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateDevisStatut(d, 'REFUSE')}
+                                                        disabled={busy}
+                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted font-bold text-[10px] hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                        {tx(lang, { fr: 'Refuser', ar: 'رفض', en: 'Refuse', es: 'Rechazar', pt: 'Recusar', tr: 'Reddet' })}
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </Section>
+            )}
 
             <Section
                 title={tx(lang, { fr: 'Historique des achats', ar: 'سجلّ المشتريات', en: 'Purchase history', es: 'Historial de compras', pt: 'Histórico de compras', tr: 'Alım geçmişi' })}
@@ -2137,6 +2941,7 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                             onEditClient={props.onEditClient}
                             onInvoiced={props.onInvoiced}
                             onPrintInvoice={props.onPrintInvoice}
+                            companyIdentity={props.companyIdentity}
                         />
                     )}
                 </div>
