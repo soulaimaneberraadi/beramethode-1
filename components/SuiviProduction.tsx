@@ -23,7 +23,8 @@ import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import SuiviPostes from './suivi/SuiviPostes';
 import { addTombstone } from '../src/lib/apiShim';
-import { cleChaine, effectifChaineJour, type DonneesRH, type EffectifResolu, type SourceEffectif } from '../lib/effectifChaine';
+import { cleChaine, effectifChaineJour, type EffectifResolu, type SourceEffectif } from '../lib/effectifChaine';
+import { useDonneesRH } from '../lib/useDonneesRH';
 import { wipCoupe } from '../lib/suiviCoupe';
 
 interface Props {
@@ -412,29 +413,9 @@ export default function SuiviProduction({
         }
     }, [globalDate, weekDays, selectedChartDate]);
 
-    /* Donnees RH : ouvriers (chaine, nom), pointage et competences. Elles
-       fournissent l'effectif quand la page Effectifs n'a rien pour le jour, les
-       noms proposes pour le responsable de ligne, et la verification des
-       competences de la gamme. Un compte sans acces a la RH les voit refusees :
-       la page fonctionne alors sans elles et le dit. */
-    const [rh, setRh] = useState<(DonneesRH & { workers: any[]; skills: any[] | null }) | null>(null);
-    useEffect(() => {
-        let annule = false;
-        const lire = async (url: string) => {
-            try {
-                const r = await fetch(url, { credentials: 'include' });
-                if (!r.ok) return null;
-                const d = await r.json();
-                return Array.isArray(d) ? d : null;
-            } catch { return null; }
-        };
-        (async () => {
-            const [workers, pointages, skills] = await Promise.all([lire('/api/hr/workers'), lire('/api/hr/pointage'), lire('/api/worker-skills')]);
-            if (annule || !workers) return;
-            setRh({ workers, pointages: pointages || [], skills });
-        })();
-        return () => { annule = true; };
-    }, []);
+    /* Donnees RH (ouvriers, pointage, competences) : effectif quand la page
+       Effectifs n'a rien pour le jour, noms du responsable de ligne, competences. */
+    const rh = useDonneesRH(true);
 
     /* Responsable de ligne : range dans les parametres de l'entreprise (synchronises),
        une valeur par chaine. Il etait tenu dans un etat local, pre-rempli de noms de

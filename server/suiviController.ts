@@ -95,17 +95,27 @@ export const saveSuiviData = (req: Request, res: Response) => {
             // Recalcule UNE fois par OF touche (et non a chaque ligne du lot).
             for (const planningId of touchedPlannings) {
                 const rows = db.prepare(`SELECT raw_data FROM suivi_data WHERE planningId = ? AND owner_id = ?`).all(planningId, companyId);
+                /* Pieces produites = somme des sorties horaires, exactement comme le
+                   client (utils/produced.ts). L'ancien repli sur `pJournaliere` (un
+                   champ jamais rempli) pouvait faire diverger les deux calculs. */
                 let totalProduced = 0;
                 for (const r of rows) {
                     try {
                         const parsed = JSON.parse((r as any).raw_data);
-                        totalProduced += parsed.totalHeure || parsed.pJournaliere || 0;
+                        for (const v of Object.values(parsed.sorties || {})) totalProduced += Number(v) || 0;
                     } catch (e) { }
                 }
 
                 const planRow = db.prepare(`SELECT status, qteTotal, raw_data FROM planning_events WHERE id = ? AND owner_id = ?`).get(planningId, companyId) as { status: string, qteTotal: number, raw_data: string } | undefined;
                 if (!planRow) continue;
-                const status = totalProduced >= planRow.qteTotal ? 'DONE' : (totalProduced > 0 ? 'IN_PROGRESS' : planRow.status);
+                /* Meme regle que le client (App.tsx) : un OF sans quantite cible n'est
+                   jamais « Termine » (0 >= 0 le fermait a la premiere saisie, et il
+                   disparaissait du Suivi), et seul un OF « Pret » passe « En cours ». */
+                let cible = Number(planRow.qteTotal) || 0;
+                try { cible = Number(JSON.parse(planRow.raw_data)?.totalQuantity ?? cible) || 0; } catch (e) { }
+                const status = cible > 0 && totalProduced >= cible
+                    ? 'DONE'
+                    : (totalProduced > 0 && planRow.status === 'READY' ? 'IN_PROGRESS' : planRow.status);
 
                 try {
                     const rawData = JSON.parse(planRow.raw_data);

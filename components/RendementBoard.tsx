@@ -3,8 +3,8 @@ import { AlertCircle } from 'lucide-react';
 import type { ModelData, PlanningEvent, SuiviData, AppSettings } from '../types';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
-import { computeRendement, type RendementNode } from '../lib/rendementEngine';
-import { getWorkMinutesPerDay } from '../utils/planning';
+import { computeRendement, type RendementInputs, type RendementNode } from '../lib/rendementEngine';
+import { useDonneesRH } from '../lib/useDonneesRH';
 import CompanyKpiRow from './rendement/CompanyKpiRow';
 import DrilldownTable from './rendement/DrilldownTable';
 import RendementTrendChart from './rendement/RendementTrendChart';
@@ -38,42 +38,15 @@ function periodRange(preset: PeriodPreset, customFrom?: string, customTo?: strin
     return undefined;
 }
 
-function calcTrend(suivis: SuiviData[], planningEvents: PlanningEvent[], models: ModelData[], minutesPerDay: number, range?: { from: string; to: string }) {
-    type Acc = { rP: number; tMin: number; downtime: number; produced: number; defects: number; workers: number };
-    const byDate = new Map<string, Acc>();
-    let filtered = suivis;
-    if (range) filtered = suivis.filter(s => s.date >= range.from && s.date <= range.to);
-    const eventMap = new Map(planningEvents.map(e => [e.id, e]));
-    const modelMap = new Map(models.map(m => [m.id, m]));
-
-    for (const s of filtered) {
-        const ev = eventMap.get(s.planningId);
-        if (!ev) continue;
-        const model = modelMap.get(ev.modelId);
-        const sam = model?.meta_data?.total_temps || 0;
-        const prod = Object.values(s.sorties || {}).reduce<number>((a, v) => a + (Number(v) || 0), 0);
-        const dt = (s.downtime_events || []).reduce((a, d) => a + (d.minutes || 0), 0);
-        const def = (s.defauts || []).reduce((a, d) => a + (d.quantity || 0), 0) + (s.scrap_details || []).reduce((a, d) => a + (d.quantity || 0), 0);
-        const w = s.totalWorkers || 0;
-        const cur: Acc = byDate.get(s.date) || { rP: 0, tMin: 0, downtime: 0, produced: 0, defects: 0, workers: 0 };
-        cur.rP += prod * sam;
-        cur.tMin += w * minutesPerDay;
-        cur.downtime += dt;
-        cur.produced += prod;
-        cur.defects += def;
-        cur.workers += w;
-        byDate.set(s.date, cur);
-    }
-
-    return Array.from(byDate.entries())
-        .map(([date, v]) => {
-            const avail = v.tMin > 0 ? ((v.tMin - Math.min(v.downtime, v.tMin)) / v.tMin) * 100 : 100;
-            const qual = v.produced > 0 ? ((v.produced - v.defects) / v.produced) * 100 : 100;
-            const rP = v.tMin > 0 ? (v.rP / v.tMin) * 100 : 0;
-            const trs = (rP * avail * qual) / 10000;
-            return { date, rPercent: Math.round(rP * 100) / 100, trs: Math.round(trs * 100) / 100 };
-        })
-        .sort((a, b) => a.date.localeCompare(b.date));
+/* Tendance jour par jour : le MEME calcul que le tableau (computeRendement sur
+   un seul jour). Une seconde formule a part prenait une journee fixe et
+   additionnait l'effectif de chaque ligne d'OF. */
+function calcTrend(inputs: Omit<RendementInputs, 'range'>, range?: { from: string; to: string }) {
+    const dates = Array.from(new Set(inputs.suivis.filter(s => !range || (s.date >= range.from && s.date <= range.to)).map(s => s.date))).sort();
+    return dates.map(date => {
+        const r = computeRendement({ ...inputs, range: { from: date, to: date } });
+        return { date, rPercent: r.rPercent, trs: r.trs };
+    });
 }
 
 export default function RendementBoard({ models, planningEvents, suivis, settings }: Props) {
@@ -84,11 +57,11 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
 
     const range = useMemo(() => periodRange(period, customFrom || undefined, customTo || undefined), [period, customFrom, customTo]);
 
-    const root = useMemo(() => computeRendement({ models, planningEvents, suivis, settings, range }), [models, planningEvents, suivis, settings, range]);
+    // Pointage RH : effectif d'une chaine quand la page Effectifs n'a rien pour le jour.
+    const rh = useDonneesRH();
+    const root = useMemo(() => computeRendement({ models, planningEvents, suivis, settings, range, rh }), [models, planningEvents, suivis, settings, range, rh]);
 
-    const minutesPerDay = useMemo(() => getWorkMinutesPerDay(settings), [settings]);
-
-    const trendData = useMemo(() => calcTrend(suivis, planningEvents, models, minutesPerDay, range), [suivis, planningEvents, models, minutesPerDay, range]);
+    const trendData = useMemo(() => calcTrend({ models, planningEvents, suivis, settings, rh }, range), [models, planningEvents, suivis, settings, rh, range]);
 
     const salles = useMemo(() => {
         if (!root.children) return [];
@@ -119,8 +92,8 @@ export default function RendementBoard({ models, planningEvents, suivis, setting
 
     const prevRoot = useMemo(() => {
         if (!prevPeriodRange) return null;
-        return computeRendement({ models, planningEvents, suivis, settings, range: prevPeriodRange });
-    }, [models, planningEvents, suivis, settings, prevPeriodRange]);
+        return computeRendement({ models, planningEvents, suivis, settings, range: prevPeriodRange, rh });
+    }, [models, planningEvents, suivis, settings, prevPeriodRange, rh]);
 
     if (suivis.length === 0) {
         return (
