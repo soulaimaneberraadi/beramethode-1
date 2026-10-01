@@ -419,7 +419,7 @@ export default function Library({
                 onClick={() => enterSelectionMode()}
                 className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors"
             >
-                <CheckSquare className="w-4 h-4" /> {tx(lang, { fr: "Sélectionner des modèles", ar: "اختيار نماذج", en: "Select models", es: "Seleccionar modelos", pt: "Selecionar modelos", tr: "Modelleri seç" })}
+                <CheckSquare className="w-4 h-4" /> {tx(lang, { fr: "Sélectionner (exporter / supprimer)", ar: "اختيار نماذج (تصدير / حذف)", en: "Select (export / delete)", es: "Seleccionar (exportar / eliminar)", pt: "Selecionar (exportar / excluir)", tr: "Seç (dışa aktar / sil)" })}
             </button>
             <button
                 type="button"
@@ -524,30 +524,8 @@ export default function Library({
                         />
                     </div>
 
-                    {/* Ligne 3 (tel.) : Importer, Exporter, grille/liste, tri, ⋮ — dans cet ordre. */}
-                    <button
-                        type="button"
-                        onClick={triggerFileInput}
-                        disabled={importBusy}
-                        aria-label={tx(lang, { fr: "Importer des modèles", ar: "استيراد نماذج", en: "Import models", es: "Importar modelos", pt: "Importar modelos", tr: "Model içe aktar" })}
-                        title={tx(lang, { fr: "Importer un ou plusieurs modèles (.json)", ar: "استيراد نموذج واحد أو عدة نماذج (.json)", en: "Import one or several models (.json)", es: "Importar uno o varios modelos (.json)", pt: "Importar um ou vários modelos (.json)", tr: "Bir veya birden fazla model içe aktar (.json)" })}
-                        className="order-4 md:order-3 shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft rounded-xl border border-slate-200 dark:border-dk-border transition-colors text-xs font-bold disabled:opacity-50"
-                    >
-                        {importBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                        <span className="hidden sm:inline">{tx(lang, { fr: "Importer", ar: "استيراد", en: "Import", es: "Importar", pt: "Importar", tr: "İçe Aktar" })}</span>
-                    </button>
+                    {/* Importer / Exporter vivent dans le menu ⋮ (demande de Soulaimane) : la barre reste legere. */}
                     <input type="file" accept=".json,application/json" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} aria-label={tx(lang, { fr: "Importer des modèles", ar: "استيراد نماذج", en: "Import models", es: "Importar modelos", pt: "Importar modelos", tr: "Model içe aktar" })} />
-
-                    <button
-                        type="button"
-                        onClick={() => { if (selectionMode) exitSelectionMode(); else enterSelectionMode(); }}
-                        aria-label={tx(lang, { fr: "Exporter des modèles", ar: "تصدير نماذج", en: "Export models", es: "Exportar modelos", pt: "Exportar modelos", tr: "Model dışa aktar" })}
-                        title={tx(lang, { fr: "Sélectionner des modèles à exporter", ar: "اختيار نماذج للتصدير", en: "Select models to export", es: "Seleccionar modelos para exportar", pt: "Selecionar modelos para exportar", tr: "Dışa aktarılacak modelleri seç" })}
-                        className={`order-5 md:order-4 shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border transition-colors text-xs font-bold ${selectionMode ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
-                    >
-                        <Download className="w-4 h-4" />
-                        <span className="hidden sm:inline">{tx(lang, { fr: "Exporter", ar: "تصدير", en: "Export", es: "Exportar", pt: "Exportar", tr: "Dışa Aktar" })}</span>
-                    </button>
 
                     <div className="order-6 md:order-5 shrink-0 flex bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 border border-slate-200 dark:border-dk-border">
                         <button
@@ -598,7 +576,7 @@ export default function Library({
                             title={moreMenuLabel}
                             className="p-2 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-500 dark:text-dk-text-soft rounded-xl border border-slate-200 dark:border-dk-border transition-colors"
                         >
-                            <MoreVertical className="w-4 h-4" />
+                            {importBusy || exportBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-4 h-4" />}
                         </button>
                         {moreMenuOpen && !isMobileMenu && (
                             <div
