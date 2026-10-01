@@ -290,6 +290,8 @@ const SOUS_RESSOURCES_SERVEUR = new Set([
   'clients', 'stock-entries', 'stock-sorties', 'commandes', 'articles', 'achats',
   'expenses', 'caisse', 'ventes', 'stock', 'inventaire', 'seuils', 'materials',
   'stock-integrity', 'emplacements', 'transferts',
+  // Conversion devis → vente : transaction SQLite côté serveur, pas de magasin local.
+  'devis',
 ]);
 
 const PREFIXES_SERVEUR = ['/api/facturation', '/api/prix', '/api/clients', '/api/ventes'];

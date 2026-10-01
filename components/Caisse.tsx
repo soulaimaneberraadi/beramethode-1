@@ -63,6 +63,11 @@ export interface CaisseTicket {
   vendeurNom: string | null;
   pieces: number;
   total: number;
+  /** Comment le ticket a été réglé, moyen par moyen (AVOIR et CREDIT inclus).
+   *  Absent sur un ancien serveur : on retombe alors sur `modePaiement`. */
+  reglements?: Array<{ mode: string; montant: number }>;
+  /** Ce que le client doit encore sur ce ticket (vente à crédit). */
+  resteDu?: number;
   lignes: Array<{
     id: string;
     modelId: string;
@@ -79,6 +84,8 @@ export interface CaisseTicket {
 
 export interface CaisseJournal {
   date: string;
+  /** Lieu de la journée : '' = Dépôt principal, 'ALL' = tous les lieux. */
+  emplacement?: string;
   tickets: CaisseTicket[];
   parMode: Record<string, { pieces: number; total: number; tickets: number }>;
   /** Totaux du jour, par caissier puis par mode DANS ce caissier — la
@@ -86,9 +93,36 @@ export interface CaisseJournal {
    *  pour les ventes antérieures à l'attribution par caissier. */
   parVendeur: Record<string, {
     nom: string; pieces: number; total: number; tickets: number;
+    /** Argent réellement reçu par ce caissier (hors crédit et avoir). */
+    encaisse?: number;
     parMode: Record<string, { pieces: number; total: number; tickets: number }>;
   }>;
-  totaux: { tickets: number; pieces: number; total: number };
+  totaux: {
+    tickets: number; pieces: number;
+    /** Valeur des ventes du jour, crédit et avoir compris. */
+    total: number;
+    /** L'argent réellement entré (espèces, carte, chèque, virement). */
+    encaisse?: number;
+    /** Ce que les clients restent devoir (ventes à crédit du jour). */
+    aCredit?: number;
+    /** Réglé en avoir : utilisé moins émis ce jour-là. */
+    avoirs?: number;
+  };
+}
+
+/** Un avoir de caisse (crédit de retour), tel que le serveur le rend. */
+export interface CaisseAvoir {
+  id: string;
+  code: string;
+  clientId: string | null;
+  clientNom: string | null;
+  ticketRef: string | null;
+  montant: number;
+  montantUtilise: number;
+  /** Ce qu'il reste à dépenser (0 si soldé ou annulé). */
+  restant: number;
+  statut: 'OUVERT' | 'SOLDE' | 'ANNULE' | string;
+  createdAt: string | null;
 }
 
 /** Une ligne d'origine d'un ticket, avec ce qu'il en reste à retourner —
@@ -114,10 +148,25 @@ export interface CaisseTicketDetail {
   typeVente: string | null;
   vendeurNom: string | null;
   dateSortie: string | null;
+  /** Ticket réglé (même en partie) à crédit ou par avoir : le tiroir n'a pas
+   *  reçu cet argent, donc le retour ne peut se faire que par avoir. */
+  avoirObligatoire?: boolean;
   lignes: CaisseTicketLigne[];
 }
 
-export type CaissePaiement = 'ESPECES' | 'CARTE' | 'CHEQUE' | 'VIREMENT';
+/** CREDIT : la vente est laissée en compte (facture impayée, éventuellement après
+ *  un acompte). Ce n'est pas de l'argent qui entre : la journée le range à part. */
+export type CaissePaiement = 'ESPECES' | 'CARTE' | 'CHEQUE' | 'VIREMENT' | 'CREDIT';
+/** Les vrais moyens d'encaissement (de l'argent entre dans le tiroir ou en banque). */
+export type ModeArgent = 'ESPECES' | 'CARTE' | 'CHEQUE' | 'VIREMENT';
+
+/** Une part du règlement d'une vente. La somme des parts vaut EXACTEMENT le total. */
+export type CaisseReglement = {
+  mode: ModeArgent | 'AVOIR' | 'CREDIT';
+  montant: number;
+  /** Seulement pour AVOIR : le code de l'avoir consommé. */
+  avoirCode?: string;
+};
 
 export interface CaisseProps {
   open: boolean;
@@ -159,6 +208,11 @@ export interface CaisseProps {
      *  (limite « remise max vendeur »). L'écran a déjà bloqué au-delà de la
      *  limite ; ce chiffre permet au serveur de refuser un appel direct. */
     remisePercent: number;
+    /** Ventilation complète du règlement (avoir, acompte, crédit…), jamais vide
+     *  sauf total nul. La somme vaut le total à un centime près. */
+    reglements: CaisseReglement[];
+    /** Un responsable a confirmé le dépassement du plafond de crédit du client. */
+    depasserPlafond: boolean;
   }) => Promise<string | null>;
   /** Mode statique : aucune API, la caisse ne peut pas enregistrer. */
   isStatic?: boolean;
@@ -189,6 +243,9 @@ export interface CaisseProps {
     montant: number;
     lignes: Array<{ modelId: string; couleur: string | null; taille: string | null; quantite: number; prixUnitaire: number }>;
     imprimer: boolean;
+    /** Code de l'avoir créé par ce retour (null = remboursé en espèces) : il
+     *  s'imprime sur le ticket de retour, le client le présentera à la caisse. */
+    avoirCode?: string | null;
   }) => void | Promise<void>;
   /** Remise max (%) qu'un vendeur peut accorder seul. `null` = aucune limite. */
   remiseMaxVendeur?: number | null;
@@ -306,6 +363,8 @@ const lireMiseEnPage = (): MiseEnPage => {
  *  elle etouffe l'autre. On borne au lieu d'interdire, pour que la poignee
  *  reste attrapable dans tous les cas. */
 const borne = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+/** Arrondi au centime : les parts d'un règlement doivent sommer au total sans résidu. */
+const arrondi2 = (n: number) => Math.round(n * 100) / 100;
 const PALIERS: Array<[string, number]> = [['etroit', 38], ['moyen', 50], ['large', 62]];
 
 const cellKey = (c: string, t: string) => `${c || ''}|${t || ''}`;
@@ -411,6 +470,25 @@ const Caisse: React.FC<CaisseProps> = ({
     try { return localStorage.getItem(FACTURE_AUTO_KEY) === '1'; } catch { return false; }
   });
   const [paiement, setPaiement] = useState<CaissePaiement>('ESPECES');
+  /** Vente à crédit : ce que le client verse tout de suite (acompte) et avec quoi.
+   *  `number | ''` : un champ vidé redevient vide, pas « 0 ». */
+  const [acompte, setAcompte] = useState<number | ''>('');
+  const [acompteMode, setAcompteMode] = useState<ModeArgent>('ESPECES');
+  /** Avoir (crédit de retour) appliqué à CETTE vente comme un moyen de paiement.
+   *  Le code est vérifié auprès du serveur avant d'être accepté, et consommé
+   *  atomiquement à l'encaissement : cet état n'est qu'un aperçu. */
+  const [avoirCodeSaisi, setAvoirCodeSaisi] = useState('');
+  const [avoir, setAvoir] = useState<CaisseAvoir | null>(null);
+  const [avoirErreur, setAvoirErreur] = useState<string | null>(null);
+  const [avoirChargement, setAvoirChargement] = useState(false);
+  /** Encours déjà dû par le client choisi (pour comparer à son plafond de crédit),
+   *  `null` tant qu'il n'est pas connu — un plafond ne bloque jamais sur un
+   *  chiffre qu'on n'a pas : le serveur le rejoue de toute façon à la vente. */
+  const [creditEncours, setCreditEncours] = useState<number | null>(null);
+  const creditEncoursSeq = useRef(0);
+  /** Un responsable a cliqué « Dépasser le plafond » : second geste explicite,
+   *  jamais un window.confirm. Retombe à faux dès que la vente change. */
+  const [plafondConfirme, setPlafondConfirme] = useState(false);
   const [remiseGlobale, setRemiseGlobale] = useState<number | ''>('');
   const [recherche, setRecherche] = useState('');
   /** Modèle ouvert : le comptoir choisit un vêtement, PUIS sa couleur et sa
@@ -582,6 +660,15 @@ const Caisse: React.FC<CaisseProps> = ({
   const [annulEnCours, setAnnulEnCours] = useState<string | null>(null);
   /** Filtre « par caissier » de la journee : NULL = tous. */
   const [journalVendeurFiltre, setJournalVendeurFiltre] = useState<string | null>(null);
+  /** Par défaut la journée est CELLE DE CE LIEU (le lieu réglé sur ce poste) ;
+   *  « Tous les lieux » donne la vue du gérant, toutes boutiques confondues. */
+  const [journalTousLieux, setJournalTousLieux] = useState(false);
+  /** Avoirs encore ouverts : ce que le magasin doit à ses clients. */
+  const [avoirsOuverts, setAvoirsOuverts] = useState<{ avoirs: CaisseAvoir[]; total: number } | null>(null);
+  const [avoirsVisibles, setAvoirsVisibles] = useState(false);
+  /** Mode de remboursement choisi pour un retour simple (l'échange, lui, est
+   *  toujours un avoir : le crédit sert tout de suite à la pièce de remplacement). */
+  const [retourRemboursement, setRetourRemboursement] = useState<'ESPECES' | 'AVOIR'>('ESPECES');
 
   /* ── Retour / echange ─────────────────────────────────────────────────────
    *  Deux portes d'entree pour le meme panneau : depuis un ticket de la
@@ -616,6 +703,25 @@ const Caisse: React.FC<CaisseProps> = ({
     try { localStorage.setItem('beramethode_caisse_ticket', v ? '1' : '0'); } catch {}
   }, []);
 
+  /** Le Dépôt principal EST « tout » pour une entreprise sans lieu actif : ses
+   *  anciennes sorties peuvent porter l'identifiant d'un lieu désactivé depuis, et
+   *  les filtrer sur « vide » les ferait disparaître de la journée. */
+  const aDesLieux = emplacements.some(e => e.actif);
+
+  /** Les avoirs ouverts. Rechargés avec la journée : toute action qui relit le
+   *  journal (retour, annulation) peut avoir créé, rendu ou consommé un avoir. */
+  const chargerAvoirs = useCallback(async () => {
+    if (isStatic) { setAvoirsOuverts(null); return; }
+    try {
+      const res = await fetch('/api/subcontract/caisse/avoirs', { credentials: 'include' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+      setAvoirsOuverts({ avoirs: Array.isArray(body?.avoirs) ? body.avoirs : [], total: Number(body?.total) || 0 });
+    } catch {
+      setAvoirsOuverts(null); // la liste est un confort : la journée reste lisible sans elle
+    }
+  }, [isStatic]);
+
   const chargerJournal = useCallback(async (jour: string, vendeurId?: string | null) => {
     if (isStatic) { setJournal(null); setJournalErreur(null); return; }
     setJournalCharge(true);
@@ -623,17 +729,21 @@ const Caisse: React.FC<CaisseProps> = ({
     try {
       const qs = new URLSearchParams({ date: jour });
       if (vendeurId) qs.set('vendeurId', vendeurId);
+      // Le lieu de la journée : celui de CETTE caisse (vide = Dépôt principal),
+      // ou `ALL`. Toujours envoyé : un paramètre absent voudrait dire « tous ».
+      qs.set('emplacementId', journalTousLieux || !aDesLieux ? 'ALL' : (emplacementId ?? ''));
       const res = await fetch(`/api/subcontract/caisse/journal?${qs.toString()}`, { credentials: 'include' });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
       setJournal(body as CaisseJournal);
+      void chargerAvoirs();
     } catch (err: any) {
       setJournal(null);
       setJournalErreur(err?.message || String(err));
     } finally {
       setJournalCharge(false);
     }
-  }, [isStatic]);
+  }, [isStatic, emplacementId, journalTousLieux, aDesLieux, chargerAvoirs]);
 
   useEffect(() => {
     if (!open || !journeeOuverte) return;
@@ -696,6 +806,7 @@ const Caisse: React.FC<CaisseProps> = ({
     setRetourMotif('');
     setRetourErreur(null);
     setRetourRefSaisie('');
+    setRetourRemboursement('ESPECES');
   }, []);
 
   /** Enregistre le retour choisi. `echange` laisse le comptoir sur le rayon
@@ -714,10 +825,18 @@ const Caisse: React.FC<CaisseProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ ticket_ref: retourTicket.ticket, lignes, motif: retourMotif.trim() || null }),
+        // Un échange est TOUJOURS un avoir (le crédit sert tout de suite) ; un ticket
+        // réglé à crédit ou par avoir ne se rembourse jamais en espèces. Sinon, le
+        // choix du comptoir — « espèces » étant l'ancien comportement.
+        body: JSON.stringify({
+          ticket_ref: retourTicket.ticket, lignes, motif: retourMotif.trim() || null,
+          remboursement: echange || retourTicket.avoirObligatoire ? 'AVOIR' : retourRemboursement,
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+      // L'avoir est créé côté serveur, dans la même transaction que le retour.
+      const avoirCree: { id: string; code: string; montant: number } | null = body?.avoir?.code ? body.avoir : null;
 
       await onRetourEffectue?.({
         ticketRef: retourTicket.ticket,
@@ -729,23 +848,68 @@ const Caisse: React.FC<CaisseProps> = ({
           quantite: Number(l.quantite) || 0, prixUnitaire: Number(l.prixUnitaire) || 0,
         })),
         imprimer: ticketActif,
+        avoirCode: avoirCree?.code ?? null,
       });
 
       if (echange) {
         setAvoirEnCours({ montant: Number(body?.montant) || retourMontant, ticketRef: retourTicket.ticket });
+        // L'avoir tout juste créé s'applique d'office à la vente de remplacement :
+        // le comptoir n'a pas à retaper un code qu'il vient de recevoir.
+        if (avoirCree) {
+          setAvoir({
+            id: avoirCree.id, code: avoirCree.code, clientId: retourTicket.clientId, clientNom: retourTicket.clientNom,
+            ticketRef: retourTicket.ticket, montant: avoirCree.montant, montantUtilise: 0, restant: avoirCree.montant,
+            statut: 'OUVERT', createdAt: null,
+          });
+          setAvoirCodeSaisi(avoirCree.code);
+          setAvoirErreur(null);
+        }
         fermerRetour();
         setVoletMobile('rayon');
+        // Revenir à la vente fait sortir de la Journée : le panneau de vente est caché tant qu'elle est ouverte.
+        setJourneeOuverte(false);
       } else {
         fermerRetour();
         await chargerJournal(journalJour, journalVendeurFiltre);
       }
-      setFlash({ ok: true, msg: tx(lang, { fr: 'Retour enregistré.', ar: 'تسجّل الرجوع.', en: 'Return recorded.', es: 'Devolución registrada.', pt: 'Devolução registada.', tr: 'İade kaydedildi.' }) });
+      setFlash({
+        ok: true,
+        msg: avoirCree
+          ? tx(lang, { fr: `Avoir ${avoirCree.code} : ${fmt(avoirCree.montant)} ${currency}`, ar: `رصيد ${avoirCree.code} : ${fmt(avoirCree.montant)} ${currency}`, en: `Credit note ${avoirCree.code}: ${fmt(avoirCree.montant)} ${currency}`, es: `Abono ${avoirCree.code}: ${fmt(avoirCree.montant)} ${currency}`, pt: `Vale ${avoirCree.code}: ${fmt(avoirCree.montant)} ${currency}`, tr: `Alacak ${avoirCree.code}: ${fmt(avoirCree.montant)} ${currency}` })
+          : tx(lang, { fr: 'Retour enregistré.', ar: 'تسجّل الرجوع.', en: 'Return recorded.', es: 'Devolución registrada.', pt: 'Devolução registada.', tr: 'İade kaydedildi.' }),
+      });
     } catch (err: any) {
       setRetourErreur(err?.message || String(err));
     } finally {
       setRetourSaving(false);
     }
-  }, [retourTicket, retourQtes, retourMotif, retourMontant, isStatic, onRetourEffectue, ticketActif, fermerRetour, chargerJournal, journalJour, journalVendeurFiltre, lang]);
+  }, [retourTicket, retourQtes, retourMotif, retourMontant, retourRemboursement, currency, isStatic, onRetourEffectue, ticketActif, fermerRetour, chargerJournal, journalJour, journalVendeurFiltre, lang]);
+
+  /** Vérifie un code d'avoir auprès du serveur (sans le consommer) et l'applique à
+   *  la vente en cours. Le serveur le revérifie — et le consomme — à l'encaissement :
+   *  ici on n'affiche qu'un aperçu du solde. */
+  const verifierAvoir = useCallback(async (codeBrut: string) => {
+    const code = codeBrut.trim().toUpperCase().replace(/\s+/g, '');
+    if (!code || isStatic) return;
+    setAvoirChargement(true);
+    setAvoirErreur(null);
+    try {
+      const res = await fetch(`/api/subcontract/caisse/avoir/${encodeURIComponent(code)}`, { credentials: 'include' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+      const a = body as CaisseAvoir;
+      if (a.statut !== 'OUVERT' || !(Number(a.restant) > 0.004)) {
+        throw new Error(tx(lang, { fr: 'Cet avoir est déjà utilisé ou annulé.', ar: 'هاد الرصيد تستعمل ولا تلغى.', en: 'This credit note is already used or cancelled.', es: 'Este abono ya se usó o se anuló.', pt: 'Este vale já foi usado ou anulado.', tr: 'Bu alacak zaten kullanıldı veya iptal edildi.' }));
+      }
+      setAvoir(a);
+      setAvoirCodeSaisi(a.code);
+    } catch (err: any) {
+      setAvoir(null);
+      setAvoirErreur(err?.message || String(err));
+    } finally {
+      setAvoirChargement(false);
+    }
+  }, [isStatic, lang]);
 
   const client = clients.find(c => c.id === clientId) || null;
   /** Segments SECONDAIRES d'un client. Le principal vit dans `type` ; ceux-ci
@@ -759,8 +923,8 @@ const Caisse: React.FC<CaisseProps> = ({
     } catch { return []; }
   };
   const typeEffectif: TypeVente = typeVente;
-  /** Un revendeur repart toujours avec une facture — la case ne se decoche pas. */
-  const factureRequise = typeEffectif === 'GROS' ? true : factureAuto;
+  /* `factureRequise` est calculée plus bas, une fois le total et le règlement
+   * connus : une vente à crédit EXIGE une facture, c'est elle qui porte la dette. */
 
   useEffect(() => {
     if (client?.type && ['BOUTIQUE', 'DETAIL', 'GROS'].includes(client.type)) {
@@ -1231,8 +1395,60 @@ const Caisse: React.FC<CaisseProps> = ({
   const remiseLignes = useMemo(() => lignes.reduce((a, l) => a + (Number(l.remise) || 0), 0), [lignes]);
   const remise = (Number(remiseGlobale) || 0) + remiseLignes;
   const total = Math.max(0, sousTotal - remise);
-  const rendu = encaisse === '' ? null : Number(encaisse) - total;
+
+  /* ── Règlement : avoir, crédit, acompte ──────────────────────────────────────
+   * Le total se découpe en parts qui somment à lui, au centime :
+   *   1. l'AVOIR d'abord (un crédit de retour est de l'argent déjà encaissé) ;
+   *   2. le RESTE se règle au mode choisi, ou — à crédit — en acompte + dette.
+   * Seule la dette (CREDIT) reste due ; tout le reste est de l'argent reçu ou un
+   * avoir consommé. C'est cette ventilation, et rien d'autre, qui part au serveur. */
+  const estCredit = paiement === 'CREDIT';
+  const avoirApplique = avoir ? arrondi2(Math.min(Number(avoir.restant) || 0, total)) : 0;
+  const resteApresAvoir = arrondi2(total - avoirApplique);
+  const acompteNum = estCredit ? arrondi2(borne(Number(acompte) || 0, 0, resteApresAvoir)) : 0;
+  const partCredit = estCredit ? arrondi2(resteApresAvoir - acompteNum) : 0;
+  /** Vraie vente à crédit : il reste quelque chose à devoir. Si l'avoir (ou
+   *  l'acompte) couvre déjà tout, il n'y a plus de crédit à accorder. */
+  const venteACredit = estCredit && partCredit > 0.004;
+  /** Un revendeur repart toujours avec une facture — la case ne se decoche pas. Une
+   *  vente à crédit aussi : l'encours d'un client se calcule SUR SES FACTURES. */
+  const factureRequise = typeEffectif === 'GROS' ? true : (factureAuto || venteACredit);
+  const plafond: number | null = client?.plafondCredit != null && Number.isFinite(Number(client.plafondCredit))
+    ? Number(client.plafondCredit) : null;
+  const depassePlafond = venteACredit && !!client && plafond != null && creditEncours != null
+    && (creditEncours + partCredit) > plafond + 0.005;
+  const reglementsPrevus: CaisseReglement[] = [];
+  if (avoir && avoirApplique > 0.004) reglementsPrevus.push({ mode: 'AVOIR', montant: avoirApplique, avoirCode: avoir.code });
+  if (estCredit) {
+    if (acompteNum > 0.004) reglementsPrevus.push({ mode: acompteMode, montant: acompteNum });
+    if (partCredit > 0.004) reglementsPrevus.push({ mode: 'CREDIT', montant: partCredit });
+  } else if (resteApresAvoir > 0.004) {
+    reglementsPrevus.push({ mode: paiement as ModeArgent, montant: resteApresAvoir });
+  }
+  /** Ce qui reste à passer au TPE ou à encaisser hors espèces. */
+  const montantTpe = estCredit
+    ? (acompteMode !== 'ESPECES' ? acompteNum : 0)
+    : (paiement !== 'ESPECES' ? resteApresAvoir : 0);
+
+  /** Espèces : ce que le client a tendu moins ce qu'il DOIT en espèces (l'avoir
+   *  déjà déduit) — sinon on rendrait la monnaie d'un montant qu'il ne paie pas. */
+  const rendu = encaisse === '' ? null : Number(encaisse) - resteApresAvoir;
   const nbPieces = lignes.reduce((a, l) => a + l.qte, 0);
+
+  /** Encours du client, lu seulement quand la vente est à crédit : c'est lui, ajouté
+   *  à la dette qu'on s'apprête à créer, que l'on compare au plafond. */
+  useEffect(() => {
+    if (!open || !estCredit || !client?.id || isStatic) { setCreditEncours(null); return; }
+    const seq = ++creditEncoursSeq.current;
+    fetch(`/api/ventes/encours/${encodeURIComponent(client.id)}`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: any) => { if (seq === creditEncoursSeq.current) setCreditEncours(d && typeof d.encours === 'number' ? d.encours : null); })
+      .catch(() => { if (seq === creditEncoursSeq.current) setCreditEncours(null); });
+  }, [open, estCredit, client?.id, isStatic]);
+
+  /** La confirmation de dépassement ne survit pas à un changement de la vente : un
+   *  « Dépasser » donné pour 300 ne vaut pas pour 900. */
+  useEffect(() => { setPlafondConfirme(false); }, [client?.id, partCredit, estCredit]);
 
   const [displayConnected, setDisplayConnected] = useState(false);
   const [displayMsg, setDisplayMsg] = useState<string | null>(null);
@@ -1259,6 +1475,13 @@ const Caisse: React.FC<CaisseProps> = ({
     setLignes([]); setRemiseGlobale(''); setEncaisse(''); setClientId('');
     setClientLibre(''); setErreur(null); setRecherche(''); setClientQuery('');
     setAvoirEnCours(null);
+    // L'avoir, l'acompte et le crédit valent POUR UNE VENTE : jamais reportés. Le
+    // mode « à crédit » en particulier retombe en espèces — une habitude de
+    // comptoir ne doit pas mettre la vente suivante en dette sans que personne
+    // ne l'ait voulu.
+    setAvoir(null); setAvoirCodeSaisi(''); setAvoirErreur(null);
+    setAcompte(''); setAcompteMode('ESPECES'); setPlafondConfirme(false);
+    setPaiement(p => (p === 'CREDIT' ? 'ESPECES' : p));
   };
 
   const valider = async () => {
@@ -1291,6 +1514,29 @@ const Caisse: React.FC<CaisseProps> = ({
         return;
       }
     }
+    // Vente à crédit : la dette s'accroche à une FICHE client, sinon rien ne la
+    // retrouverait dans l'encours. Bloqué ici avant tout appel réseau.
+    if (estCredit && !client && resteApresAvoir > 0.004) {
+      setErreur(tx(lang, { fr: 'Choisissez un client pour vendre à crédit.', ar: 'اختر زبوناً باش تبيع بالكريدي.', en: 'Pick a customer to sell on credit.', es: 'Elija un cliente para vender a crédito.', pt: 'Escolha um cliente para vender a crédito.', tr: 'Veresiye satmak için bir müşteri seçin.' }));
+      return;
+    }
+    // Un acompte qui couvre déjà tout le reste n'est plus une vente à crédit.
+    if (estCredit && client && resteApresAvoir > 0.004 && partCredit <= 0.004) {
+      setErreur(tx(lang, { fr: "L'acompte couvre déjà tout le reste : choisissez un mode de règlement normal.", ar: 'العربون كيغطّي كلشي: اختر طريقة أداء عادية.', en: 'The deposit already covers the rest: pick a normal payment mode.', es: 'El anticipo ya cubre el resto: elija un pago normal.', pt: 'O sinal já cobre o resto: escolha um pagamento normal.', tr: 'Kapora kalanı zaten karşılıyor: normal bir ödeme seçin.' }));
+      return;
+    }
+    // Plafond de crédit : un vendeur est BLOQUÉ ; un responsable ne dépasse qu'après
+    // avoir cliqué explicitement « Dépasser le plafond ». Le serveur le rejoue.
+    if (depassePlafond) {
+      if (!remisePrivilegiee) {
+        setErreur(tx(lang, { fr: 'Plafond de crédit dépassé : demandez à un responsable.', ar: 'تجاوزتي سقف الكريدي: اطلب من مسؤول.', en: 'Credit limit exceeded: ask a manager.', es: 'Límite de crédito superado: pida a un responsable.', pt: 'Limite de crédito excedido: peça a um responsável.', tr: 'Kredi limiti aşıldı: bir sorumluya danışın.' }));
+        return;
+      }
+      if (!plafondConfirme) {
+        setErreur(tx(lang, { fr: 'Plafond de crédit dépassé : confirmez avec « Dépasser le plafond ».', ar: 'تجاوزتي سقف الكريدي: أكّد بزر « تجاوز السقف ».', en: 'Credit limit exceeded: confirm with the Exceed limit button.', es: 'Límite de crédito superado: confirme con el botón Superar el límite.', pt: 'Limite de crédito excedido: confirme com o botão Exceder o limite.', tr: 'Kredi limiti aşıldı: Limiti aş düğmesiyle onaylayın.' }));
+        return;
+      }
+    }
     setSaving(true); setErreur(null);
     const msg = await onEncaisser({
       lignes,
@@ -1305,6 +1551,8 @@ const Caisse: React.FC<CaisseProps> = ({
       rendu: paiement === 'ESPECES' && rendu != null ? rendu : null,
       imprimerTicket: ticketActif,
       remisePercent: sousTotal > 0 ? Number(((remise / sousTotal) * 100).toFixed(2)) : 0,
+      reglements: reglementsPrevus,
+      depasserPlafond: depassePlafond && plafondConfirme,
     });
     setSaving(false);
     if (msg) { setErreur(msg); pip(false); return; }
@@ -1398,6 +1646,32 @@ const Caisse: React.FC<CaisseProps> = ({
     modeAutre: tx(lang, { fr: 'Non precise', ar: 'غير محدّد', en: 'Unspecified', es: 'Sin precisar', pt: 'Nao indicado', tr: 'Belirtilmemis' }),
     journeeStatique: tx(lang, { fr: "Mode statique : la journee de caisse vient du serveur.", ar: 'الوضع الساكن: يومية الصندوق كتجي من السيرفر.', en: 'Static mode: the cash journal comes from the server.', es: 'Modo estatico: la jornada viene del servidor.', pt: 'Modo estatico: a jornada vem do servidor.', tr: 'Statik mod: kasa gunlugu sunucudan gelir.' }),
     statique: tx(lang, { fr: "Mode statique : la caisse a besoin du serveur pour enregistrer une vente.", ar: 'الوضع الساكن: الصندوق كيحتاج السيرفر باش يسجّل البيعة.', en: 'Static mode: the checkout needs the server to record a sale.', es: 'Modo estatico: la caja necesita el servidor.', pt: 'Modo estatico: a caixa precisa do servidor.', tr: 'Statik mod: kasa sunucuya ihtiyac duyar.' }),
+    imposeeCredit: tx(lang, { fr: 'imposée à crédit', ar: 'إجبارية بالكريدي', en: 'required on credit', es: 'obligatoria a crédito', pt: 'obrigatória a crédito', tr: 'veresiyede zorunlu' }),
+    creditClientRequis: tx(lang, { fr: 'Choisissez un client pour vendre à crédit.', ar: 'اختر زبوناً باش تبيع بالكريدي.', en: 'Pick a customer to sell on credit.', es: 'Elija un cliente para vender a crédito.', pt: 'Escolha um cliente para vender a crédito.', tr: 'Veresiye satmak için bir müşteri seçin.' }),
+    acompte: tx(lang, { fr: 'Acompte', ar: 'عربون', en: 'Deposit', es: 'Anticipo', pt: 'Sinal', tr: 'Kapora' }),
+    resteDu: tx(lang, { fr: 'Reste dû', ar: 'الباقي', en: 'Balance due', es: 'Pendiente', pt: 'Em dívida', tr: 'Kalan borç' }),
+    encours: tx(lang, { fr: 'Encours', ar: 'الدين الحالي', en: 'Outstanding', es: 'Saldo actual', pt: 'Em aberto', tr: 'Açık bakiye' }),
+    plafond: tx(lang, { fr: 'Plafond', ar: 'السقف', en: 'Limit', es: 'Límite', pt: 'Limite', tr: 'Limit' }),
+    plafondDepasse: tx(lang, { fr: 'Plafond de crédit dépassé', ar: 'تجاوزتي سقف الكريدي', en: 'Credit limit exceeded', es: 'Límite de crédito superado', pt: 'Limite de crédito excedido', tr: 'Kredi limiti aşıldı' }),
+    depasserPlafond: tx(lang, { fr: 'Dépasser le plafond', ar: 'تجاوز السقف', en: 'Exceed limit', es: 'Superar el límite', pt: 'Exceder o limite', tr: 'Limiti aş' }),
+    plafondConfirme: tx(lang, { fr: 'Dépassement confirmé', ar: 'التجاوز مؤكَّد', en: 'Overrun confirmed', es: 'Exceso confirmado', pt: 'Excesso confirmado', tr: 'Aşım onaylandı' }),
+    demanderResponsable: tx(lang, { fr: 'Demandez à un responsable.', ar: 'اطلب من مسؤول.', en: 'Ask a manager.', es: 'Pida a un responsable.', pt: 'Peça a um responsável.', tr: 'Bir sorumluya danışın.' }),
+    avoirNom: tx(lang, { fr: 'Avoir', ar: 'رصيد', en: 'Credit note', es: 'Abono', pt: 'Vale', tr: 'Alacak' }),
+    codeAvoir: tx(lang, { fr: 'Code avoir (AV-…)', ar: 'كود الرصيد (AV-…)', en: 'Credit note code (AV-…)', es: 'Código de abono (AV-…)', pt: 'Código do vale (AV-…)', tr: 'Alacak kodu (AV-…)' }),
+    appliquer: tx(lang, { fr: 'Appliquer', ar: 'طبّق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' }),
+    reste: tx(lang, { fr: 'reste', ar: 'الباقي', en: 'left', es: 'resta', pt: 'resta', tr: 'kalan' }),
+    applique: tx(lang, { fr: 'appliqué', ar: 'مطبّق', en: 'applied', es: 'aplicado', pt: 'aplicado', tr: 'uygulanan' }),
+    retirerAvoir: tx(lang, { fr: "Retirer l'avoir", ar: 'إزالة الرصيد', en: 'Remove credit note', es: 'Quitar abono', pt: 'Remover vale', tr: 'Alacağı kaldır' }),
+    aPayer: tx(lang, { fr: 'À payer', ar: 'للأداء', en: 'To pay', es: 'A pagar', pt: 'A pagar', tr: 'Ödenecek' }),
+    aCredit: tx(lang, { fr: 'À crédit', ar: 'بالكريدي', en: 'On credit', es: 'A crédito', pt: 'A crédito', tr: 'Veresiye' }),
+    horsTiroir: tx(lang, { fr: 'hors tiroir', ar: 'خارج الصندوق', en: 'not in drawer', es: 'fuera de caja', pt: 'fora da caixa', tr: 'kasa dışı' }),
+    tousLieux: tx(lang, { fr: 'Tous les lieux', ar: 'كل الأماكن', en: 'All locations', es: 'Todos los lugares', pt: 'Todos os locais', tr: 'Tüm konumlar' }),
+    ceLieu: tx(lang, { fr: 'Ce lieu', ar: 'هاد المكان', en: 'This location', es: 'Este lugar', pt: 'Este local', tr: 'Bu konum' }),
+    avoirsOuverts: tx(lang, { fr: 'Avoirs ouverts', ar: 'الأرصدة المفتوحة', en: 'Open credit notes', es: 'Abonos abiertos', pt: 'Vales abertos', tr: 'Açık alacaklar' }),
+    utiliser: tx(lang, { fr: 'Utiliser', ar: 'استعمل', en: 'Use', es: 'Usar', pt: 'Usar', tr: 'Kullan' }),
+    remboursement: tx(lang, { fr: 'Remboursement', ar: 'الاسترجاع', en: 'Refund', es: 'Reembolso', pt: 'Reembolso', tr: 'İade ödemesi' }),
+    remboursEspeces: tx(lang, { fr: 'Espèces', ar: 'نقداً', en: 'Cash', es: 'Efectivo', pt: 'Dinheiro', tr: 'Nakit' }),
+    avoirObligatoireNote: tx(lang, { fr: 'Ticket réglé à crédit ou par avoir : remboursement par avoir uniquement.', ar: 'التيكي مؤدّى بالكريدي ولا برصيد: الاسترجاع برصيد فقط.', en: 'Ticket paid on credit or by credit note: refund by credit note only.', es: 'Ticket pagado a crédito o con abono: solo reembolso con abono.', pt: 'Talão pago a crédito ou com vale: reembolso apenas por vale.', tr: 'Veresiye veya alacakla ödenen fiş: yalnızca alacak ile iade.' }),
   };
 
   const tousTypesVente: Array<{ v: TypeVente; l: string }> = [
@@ -1414,7 +1688,14 @@ const Caisse: React.FC<CaisseProps> = ({
     { v: 'CARTE', l: tx(lang, { fr: 'Carte', ar: 'بطاقة', en: 'Card', es: 'Tarjeta', pt: 'Cartao', tr: 'Kart' }) },
     { v: 'CHEQUE', l: tx(lang, { fr: 'Cheque', ar: 'شيك', en: 'Cheque', es: 'Cheque', pt: 'Cheque', tr: 'Cek' }) },
     { v: 'VIREMENT', l: tx(lang, { fr: 'Virement', ar: 'تحويل', en: 'Transfer', es: 'Transferencia', pt: 'Transferencia', tr: 'Havale' }) },
+    // « À crédit » n'est pas de l'argent qui entre : la vente reste due (facture
+    // impayée, éventuellement après un acompte). Voir le bloc `paiement`.
+    { v: 'CREDIT', l: T.aCredit },
   ];
+  /** Libellé d'un mode tel que la journée le lit : les quatre moyens, plus « à
+   *  crédit » et « avoir » qui ne sont pas de l'argent dans le tiroir. */
+  const libelleMode = (m: string | null | undefined): string =>
+    m === 'AVOIR' ? T.avoirNom : (modes.find(x => x.v === m)?.l || T.modeAutre);
 
   /* La grille couleur/taille du modele ouvert. Elle vit dans une variable
    * parce que le poste choisit OU la poser : a droite du rayon, a sa gauche,
@@ -1954,12 +2235,13 @@ const Caisse: React.FC<CaisseProps> = ({
               <input
                 type="checkbox"
                 checked={factureRequise}
-                disabled={typeEffectif === 'GROS'}
+                disabled={typeEffectif === 'GROS' || venteACredit}
                 onChange={e => setFactureAuto(e.target.checked)}
                 className="w-4 h-4 rounded border-slate-300 dark:border-dk-border"
               />
               {T.factureAuto}
               {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
+              {typeEffectif !== 'GROS' && venteACredit && <span className="text-slate-400 dark:text-dk-muted">({T.imposeeCredit})</span>}
             </label>
             {/* Gros ou vente facturee : ce que la facture exige et que la
                 fiche ne porte pas encore. On le demande ICI, au moment ou il
@@ -2017,7 +2299,7 @@ const Caisse: React.FC<CaisseProps> = ({
             )}
     </>),
     paiement: (<>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
               {modes.map(m => (
                 <button
                   key={m.v}
@@ -2032,6 +2314,120 @@ const Caisse: React.FC<CaisseProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* Vente à crédit : la dette ira sur la facture du client (donc dans son
+                encours). L'acompte, lui, est de l'argent reçu MAINTENANT, avec son
+                propre mode — c'est lui, et lui seul, qui entre dans le tiroir. */}
+            {estCredit && (
+              <div className="mt-2 p-2.5 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border space-y-2">
+                {!client ? (
+                  <p className="flex items-start gap-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" /> <span>{T.creditClientRequis}</span>
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.acompte}</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        value={acompte}
+                        placeholder="0"
+                        onChange={e => setAcompte(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-24 px-2 py-1.5 rounded-lg text-right font-bold bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
+                      />
+                      <span className="text-[11px] font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+                    </div>
+                    {acompteNum > 0.004 && (
+                      <div className="grid grid-cols-4 gap-1">
+                        {modes.filter(m => m.v !== 'CREDIT').map(m => (
+                          <button
+                            key={m.v}
+                            onClick={() => setAcompteMode(m.v as ModeArgent)}
+                            className={`px-1 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                              acompteMode === m.v
+                                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                                : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                            }`}
+                          >
+                            {m.l}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[11px] font-bold text-slate-600 dark:text-dk-text-soft tabular-nums">
+                      {T.resteDu} : {fmt(partCredit)} {currency}
+                      {creditEncours != null ? ` · ${T.encours} ${fmt(creditEncours)}` : ''}
+                      {plafond != null ? ` · ${T.plafond} ${fmt(plafond)}` : ''}
+                    </p>
+                    {depassePlafond && (
+                      <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 space-y-1.5">
+                        <p className="flex items-start gap-1.5 text-[11px] font-bold text-rose-700 dark:text-rose-400">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+                          <span>{`${T.plafondDepasse} : ${fmt((creditEncours ?? 0) + partCredit)} > ${fmt(plafond ?? 0)} ${currency}`}</span>
+                        </p>
+                        {remisePrivilegiee ? (
+                          plafondConfirme ? (
+                            <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">{T.plafondConfirme}</p>
+                          ) : (
+                            <button
+                              onClick={() => setPlafondConfirme(true)}
+                              className="w-full py-2 rounded-xl text-[11px] font-extrabold bg-rose-600 hover:bg-rose-700 text-white active:scale-[0.99] transition-colors"
+                            >
+                              {T.depasserPlafond}
+                            </button>
+                          )
+                        ) : (
+                          <p className="text-[11px] font-bold text-rose-700 dark:text-rose-400">{T.demanderResponsable}</p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Avoir : un moyen de paiement comme un autre, déduit AVANT le mode
+                choisi. Le solde affiché est un aperçu — le serveur revérifie et
+                consomme l'avoir d'un seul geste à l'encaissement. */}
+            {!isStatic && (
+              <div className="mt-2">
+                {avoir ? (
+                  <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400">
+                    <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
+                    <span className="flex-1 min-w-0 text-[11px] font-bold truncate">
+                      {`${avoir.code} · ${T.reste} ${fmt(avoir.restant)} ${currency} → ${T.applique} ${fmt(avoirApplique)}`}
+                    </span>
+                    <button
+                      onClick={() => { setAvoir(null); setAvoirCodeSaisi(''); setAvoirErreur(null); }}
+                      className="p-1 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-950/50 shrink-0"
+                      aria-label={T.retirerAvoir}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      value={avoirCodeSaisi}
+                      onChange={e => setAvoirCodeSaisi(e.target.value.toUpperCase())}
+                      onKeyDown={e => { if (e.key === 'Enter') void verifierAvoir(avoirCodeSaisi); }}
+                      placeholder={T.codeAvoir}
+                      className="flex-1 min-w-0 px-3 py-2 rounded-xl text-xs font-mono bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                    />
+                    <button
+                      onClick={() => void verifierAvoir(avoirCodeSaisi)}
+                      disabled={!avoirCodeSaisi.trim() || avoirChargement}
+                      className="shrink-0 px-3 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated disabled:opacity-40 flex items-center gap-1.5"
+                    >
+                      {avoirChargement ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : T.appliquer}
+                    </button>
+                  </div>
+                )}
+                {avoirErreur && <p className="mt-1 text-[11px] font-bold text-rose-600 dark:text-rose-400">{avoirErreur}</p>}
+              </div>
+            )}
     </>),
     remise: (<>
             <div className="flex items-center gap-2 text-sm">
@@ -2449,7 +2845,7 @@ const Caisse: React.FC<CaisseProps> = ({
             {total - avoirEnCours.montant > 0.009
               ? tx(lang, { fr: `reste à payer ${fmt(total - avoirEnCours.montant)} ${currency}`, ar: `باقي يتخلص ${fmt(total - avoirEnCours.montant)} ${currency}`, en: `remaining to pay ${fmt(total - avoirEnCours.montant)} ${currency}`, es: `queda por pagar ${fmt(total - avoirEnCours.montant)} ${currency}`, pt: `falta pagar ${fmt(total - avoirEnCours.montant)} ${currency}`, tr: `ödenecek ${fmt(total - avoirEnCours.montant)} ${currency}` })
               : (avoirEnCours.montant - total > 0.009
-                ? tx(lang, { fr: `à rembourser ${fmt(avoirEnCours.montant - total)} ${currency}`, ar: `يترجّع ${fmt(avoirEnCours.montant - total)} ${currency}`, en: `to refund ${fmt(avoirEnCours.montant - total)} ${currency}`, es: `a devolver ${fmt(avoirEnCours.montant - total)} ${currency}`, pt: `a reembolsar ${fmt(avoirEnCours.montant - total)} ${currency}`, tr: `iade edilecek ${fmt(avoirEnCours.montant - total)} ${currency}` })
+                ? tx(lang, { fr: `${fmt(avoirEnCours.montant - total)} ${currency} restent en avoir`, ar: `${fmt(avoirEnCours.montant - total)} ${currency} كتبقى فالرصيد`, en: `${fmt(avoirEnCours.montant - total)} ${currency} stay as credit`, es: `${fmt(avoirEnCours.montant - total)} ${currency} quedan como abono`, pt: `${fmt(avoirEnCours.montant - total)} ${currency} ficam em vale`, tr: `${fmt(avoirEnCours.montant - total)} ${currency} alacak olarak kalır` })
                 : tx(lang, { fr: 'soldé', ar: 'متسوّى', en: 'settled', es: 'saldado', pt: 'saldado', tr: 'kapandı' }))}
           </span>
           <button onClick={() => setAvoirEnCours(null)} className="p-1 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-950/50 shrink-0" aria-label="Fermer">
@@ -2471,6 +2867,21 @@ const Caisse: React.FC<CaisseProps> = ({
               className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 min-w-0"
             />
             {journalCharge && <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-dk-muted shrink-0" />}
+            {/* Le lieu dont c'est la journée : celui de ce poste par défaut, pour que
+                le fond de caisse comparé soit celui de CE tiroir. */}
+            {aDesLieux && (
+              <>
+                <span className="px-2 py-1 rounded-full text-[10px] font-bold text-slate-500 dark:text-dk-muted bg-slate-100 dark:bg-dk-elevated truncate max-w-[42vw] sm:max-w-[200px] min-w-0">
+                  {journalTousLieux ? T.tousLieux : (emplacements.find(e => e.id === emplacementId)?.nom ?? T.depotPrincipal)}
+                </span>
+                <button
+                  onClick={() => { setJournalTousLieux(v => !v); setTicketAConfirmer(null); }}
+                  className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated shrink-0"
+                >
+                  {journalTousLieux ? T.ceLieu : T.tousLieux}
+                </button>
+              </>
+            )}
             <div className="hidden sm:block flex-1 min-w-0" />
             {/* Sur telephone, ces trois chiffres passent en pleine largeur sous
                 la date : cote a cote avec elle ils finissaient ecrases. */}
@@ -2485,8 +2896,16 @@ const Caisse: React.FC<CaisseProps> = ({
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.encaisseJour}</p>
-                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums truncate">{fmt(journal?.totaux.total ?? 0)} {currency}</p>
+                {/* L'argent réellement reçu : le crédit accordé et les avoirs n'y sont
+                    pas, ils sont comptés à part juste à côté. */}
+                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums truncate">{fmt(journal?.totaux.encaisse ?? journal?.totaux.total ?? 0)} {currency}</p>
               </div>
+              {(journal?.totaux.aCredit ?? 0) > 0.004 && (
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">{T.aCredit}</p>
+                  <p className="text-sm font-black text-amber-700 dark:text-amber-400 tabular-nums truncate">{fmt(journal?.totaux.aCredit ?? 0)} {currency}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -2506,11 +2925,22 @@ const Caisse: React.FC<CaisseProps> = ({
           {journal && Object.keys(journal.parMode).length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 sm:px-5 py-3 shrink-0">
               {Object.entries(journal.parMode).map(([mode, agg]) => (
-                <div key={mode} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border min-w-0">
-                  <Banknote className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+                <div
+                  key={mode}
+                  title={mode === 'CREDIT' || mode === 'AVOIR' ? T.horsTiroir : undefined}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border min-w-0 ${
+                    mode === 'CREDIT' || mode === 'AVOIR'
+                      ? 'border-dashed border-slate-300 dark:border-dk-border'
+                      : 'border-slate-200 dark:border-dk-border'}`}
+                >
+                  {mode === 'CREDIT'
+                    ? <Receipt className="w-4 h-4 text-amber-500 shrink-0" />
+                    : mode === 'AVOIR'
+                      ? <ArrowLeftRight className="w-4 h-4 text-indigo-500 shrink-0" />
+                      : <Banknote className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />}
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted truncate">
-                      {modes.find(m => m.v === mode)?.l || T.modeAutre}
+                      {libelleMode(mode)}
                     </p>
                     <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums whitespace-nowrap">
                       {fmt(agg.total)} {currency}
@@ -2540,9 +2970,46 @@ const Caisse: React.FC<CaisseProps> = ({
                 >
                   <User className="w-3.5 h-3.5 shrink-0" />
                   <span className="text-[11px] font-bold truncate max-w-[120px]">{agg.nom}</span>
-                  <span className="text-[11px] font-black tabular-nums">{fmt(agg.total)} {currency}</span>
+                  <span className="text-[11px] font-black tabular-nums">{fmt(agg.encaisse ?? agg.total)} {currency}</span>
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Les avoirs encore ouverts : une dette du magasin envers ses clients, au
+              meme titre que le credit consenti en est une des clients envers lui. */}
+          {avoirsOuverts && avoirsOuverts.avoirs.length > 0 && (
+            <div className="px-3 sm:px-5 pb-3 shrink-0">
+              <div className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden">
+                <button
+                  onClick={() => setAvoirsVisibles(v => !v)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left"
+                >
+                  <ArrowLeftRight className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span className="flex-1 min-w-0 truncate text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">
+                    {T.avoirsOuverts} · {avoirsOuverts.avoirs.length}
+                  </span>
+                  <span className="text-[11px] font-black tabular-nums text-slate-800 dark:text-dk-text whitespace-nowrap">{fmt(avoirsOuverts.total)} {currency}</span>
+                </button>
+                {avoirsVisibles && (
+                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-50 dark:divide-dk-border/50 border-t border-slate-100 dark:border-dk-border">
+                    {avoirsOuverts.avoirs.map(a => (
+                      <div key={a.id} className="flex items-center gap-2 px-3 py-1.5 text-[11px] min-w-0">
+                        <span className="font-mono font-bold text-slate-700 dark:text-dk-text shrink-0">{a.code}</span>
+                        <span className="flex-1 min-w-0 truncate text-slate-400 dark:text-dk-muted">{a.clientNom || a.ticketRef || '—'}</span>
+                        <span className="font-bold tabular-nums whitespace-nowrap text-slate-700 dark:text-dk-text">{fmt(a.restant)} {currency}</span>
+                        <button
+                          onClick={() => { void verifierAvoir(a.code); setJourneeOuverte(false); setVoletMobile('panier'); }}
+                          disabled={isStatic}
+                          className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 disabled:opacity-40"
+                        >
+                          {T.utiliser}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -2625,6 +3092,33 @@ const Caisse: React.FC<CaisseProps> = ({
                       placeholder={tx(lang, { fr: 'Motif (facultatif)', ar: 'السبب (اختياري)', en: 'Reason (optional)', es: 'Motivo (opcional)', pt: 'Motivo (opcional)', tr: 'Gerekçe (opsiyonel)' })}
                       className="w-full px-3 py-2 rounded-xl text-xs bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                     />
+                    {/* Comment rendre la valeur : en espèces (le tiroir rend l'argent) ou en
+                        avoir (le client garde un crédit, code imprimé sur le ticket de
+                        retour). Un ticket réglé à crédit ou par avoir ne peut se
+                        rembourser QU'en avoir : le tiroir n'a jamais reçu cet argent. */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.remboursement}</span>
+                      {(['ESPECES', 'AVOIR'] as const).map(v => {
+                        const bloque = v === 'ESPECES' && !!retourTicket.avoirObligatoire;
+                        const actif = (retourTicket.avoirObligatoire ? 'AVOIR' : retourRemboursement) === v;
+                        return (
+                          <button
+                            key={v}
+                            onClick={() => setRetourRemboursement(v)}
+                            disabled={bloque}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors disabled:opacity-40 ${
+                              actif
+                                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                                : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                          >
+                            {v === 'ESPECES' ? T.remboursEspeces : T.avoirNom}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {retourTicket.avoirObligatoire && (
+                      <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400">{T.avoirObligatoireNote}</p>
+                    )}
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] font-black text-slate-800 dark:text-dk-text tabular-nums">
                         {tx(lang, { fr: 'Avoir', ar: 'الرصيد', en: 'Credit', es: 'Crédito', pt: 'Crédito', tr: 'Kredi' })} : {fmt(retourMontant)} {currency}
@@ -2671,9 +3165,28 @@ const Caisse: React.FC<CaisseProps> = ({
                         <User className="w-3 h-3 shrink-0" /><span className="truncate max-w-[36vw] sm:max-w-[180px]">{t.clientNom}</span>
                       </span>
                     )}
-                    <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-[10px] font-bold text-slate-600 dark:text-dk-muted shrink-0">
-                      {modes.find(m => m.v === t.modePaiement)?.l || T.modeAutre}
-                    </span>
+                    {t.reglements && (t.reglements.length > 1 || t.reglements.some(r => r.mode === 'CREDIT' || r.mode === 'AVOIR')) ? (
+                      // Un ticket réglé en plusieurs moyens (ou à crédit / par avoir) :
+                      // une puce par moyen, avec son montant — c'est ce qui permet de
+                      // vérifier le tiroir ticket par ticket.
+                      t.reglements.map(r => (
+                        <span
+                          key={r.mode}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 tabular-nums ${
+                            r.mode === 'CREDIT'
+                              ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
+                              : r.mode === 'AVOIR'
+                                ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400'
+                                : 'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted'}`}
+                        >
+                          {libelleMode(r.mode)} {fmt(r.montant)}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-[10px] font-bold text-slate-600 dark:text-dk-muted shrink-0">
+                        {libelleMode(t.modePaiement)}
+                      </span>
+                    )}
                     {t.factureNumero && (
                       <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 shrink-0">
                         {t.factureNumero}
@@ -2841,7 +3354,9 @@ const Caisse: React.FC<CaisseProps> = ({
                 {total > 0 && (
                   <button
                     onClick={async () => {
-                      try { await navigator.clipboard.writeText(total.toFixed(2)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
+                      // Le TPE se règle du montant réellement dû en carte/chèque/virement
+                      // (l'avoir déjà déduit), pas du total du panier.
+                      try { await navigator.clipboard.writeText((montantTpe > 0.004 ? montantTpe : total).toFixed(2)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
                       sendToCustomerDisplay(total, currency);
                     }}
                     title="Copier le montant pour le TPE"
@@ -2851,8 +3366,18 @@ const Caisse: React.FC<CaisseProps> = ({
                   </button>
                 )}
               </span>
-              {total > 0 && ['CARTE', 'CHEQUE', 'VIREMENT'].includes(paiement) && (
-                <span className="block text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">→ Saisir {total.toFixed(2)} sur le TPE</span>
+              {avoirApplique > 0.004 && (
+                <span className="block text-[10px] font-bold text-indigo-600 dark:text-indigo-400 mt-0.5 truncate">
+                  {T.avoirNom} −{fmt(avoirApplique)} · {T.aPayer} {fmt(resteApresAvoir)} {currency}
+                </span>
+              )}
+              {venteACredit && (
+                <span className="block text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
+                  {T.aCredit} : {fmt(partCredit)} {currency}
+                </span>
+              )}
+              {montantTpe > 0.004 && (
+                <span className="block text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">→ Saisir {montantTpe.toFixed(2)} sur le TPE</span>
               )}
             </div>
             <button

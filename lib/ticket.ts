@@ -38,6 +38,18 @@ export type TicketData = {
   /** Le caissier qui a tenu la vente — utile dès que la caisse est tenue à
    *  plusieurs, pour retrouver qui a encaissé (ou remboursé) quoi. */
   caissier?: string | null;
+  /** Règlement détaillé, un moyen par ligne (« Avoir AV-K7M2QP », « Espèces »,
+   *  « Acompte espèces »…). Quand il est fourni, il REMPLACE la ligne unique
+   *  `paiement` : un achat réglé en plusieurs moyens ne tient pas sur un seul libellé.
+   *  Un tableau VIDE est valide (vente entièrement à crédit : rien n'a été payé,
+   *  donc aucune ligne de règlement — seul le « reste dû » s'imprime). */
+  reglements?: Array<{ libelle: string; montant: number }> | null;
+  /** Vente à crédit : ce que le client doit encore. Imprimé en gras sous le total —
+   *  c'est la ligne qu'il faut pouvoir lui montrer en cas de litige. */
+  resteDu?: number | null;
+  /** Avoir émis par ce retour : son code est imprimé en gros, c'est lui que le
+   *  client donnera à la caisse la prochaine fois. */
+  avoir?: { code: string; montant: number } | null;
 };
 
 const esc = (s: string) => String(s ?? '')
@@ -96,10 +108,19 @@ export function buildTicketHtml(t: TicketData): string {
         + '<tr><td>Remise</td><td class="p">-' + money(t.remise) + '</td></tr>'
       : '')
     + '<tr><td class="tot">' + (t.type === 'RETOUR' ? 'AVOIR' : 'TOTAL') + '</td><td class="p tot">' + money(t.total) + ' ' + esc(t.currency) + '</td></tr>'
-    + '<tr><td>' + esc(t.paiement) + '</td><td class="p">'
-    + (t.recu != null ? money(t.recu) : '') + '</td></tr>'
+    + (t.reglements
+      ? t.reglements.map(r => '<tr><td>' + esc(r.libelle) + '</td><td class="p">' + money(r.montant) + '</td></tr>').join('')
+      : '<tr><td>' + esc(t.paiement) + '</td><td class="p">' + (t.recu != null ? money(t.recu) : '') + '</td></tr>')
     + (t.rendu != null && t.rendu > 0 ? '<tr><td>Rendu</td><td class="p">' + money(t.rendu) + '</td></tr>' : '')
+    + (t.resteDu != null && t.resteDu > 0
+      ? '<tr><td class="b">À crédit — reste dû</td><td class="p b">' + money(t.resteDu) + ' ' + esc(t.currency) + '</td></tr>'
+      : '')
     + '</table>'
+    + (t.avoir
+      ? '<div class="sep"></div><div class="c">Avoir à présenter en caisse</div>'
+        + '<div class="c ret">' + esc(t.avoir.code) + '</div>'
+        + '<div class="c b">' + money(t.avoir.montant) + ' ' + esc(t.currency) + '</div>'
+      : '')
     + '<div class="sep"></div>'
     + '<div class="c">' + (t.type === 'RETOUR' ? 'Retour enregistré' : 'Merci et à bientôt') + '</div>'
     + '<script>window.print();<\/script></body></html>';
@@ -145,8 +166,19 @@ export function buildTicketZpl(t: TicketData, dpi = 203): string {
   if (t.remise > 0) { line('Remise'); droite('-' + money(t.remise)); }
   line(t.type === 'RETOUR' ? 'AVOIR' : 'TOTAL', dots(5), true);
   droite(money(t.total) + ' ' + t.currency, dots(5));
-  line(t.paiement);
+  if (t.reglements) {
+    for (const r of t.reglements) { line(r.libelle); droite(money(r.montant)); }
+  } else {
+    line(t.paiement);
+  }
   if (t.rendu != null && t.rendu > 0) { line('Rendu'); droite(money(t.rendu)); }
+  if (t.resteDu != null && t.resteDu > 0) { line('A credit - reste du', dots(4), true); droite(money(t.resteDu) + ' ' + t.currency, dots(4)); }
+  if (t.avoir) {
+    trait();
+    line('Avoir a presenter en caisse');
+    line(t.avoir.code, dots(6), true);
+    line(money(t.avoir.montant) + ' ' + t.currency, dots(4), true);
+  }
   out.push('^XZ');
   return out.join('');
 }

@@ -40,6 +40,8 @@ export interface StoreConfig {
     /** Jeton masqué renvoyé par le serveur (jamais en clair). */
     token_masque: string | null;
     location_id: string | null;
+    /** Emplacement de stock qui sert la boutique (null = Dépôt principal). */
+    emplacement_id?: string | null;
     actif: boolean | number;
     marge_securite: number | null;
     derniere_sync: string | null;
@@ -61,12 +63,28 @@ export interface StoreMapping {
     qte_locale: number | null;
 }
 
+/** Une vente en ligne enregistrée au-delà du stock du lieu qui sert la boutique. */
+export interface VenteEnLigneSansStock {
+    id: string;
+    ref: string | null;
+    date: string | null;
+    modele: string;
+    couleur: string | null;
+    taille: string | null;
+    quantite: number;
+    /** Stock actuel de la case à ce lieu (négatif tant qu'elle est en manque). */
+    stock: number;
+    emplacement: string;
+}
+
 export interface StoreStatus {
     actif: boolean;
     derniere_sync: string | null;
     en_attente: number;
     en_erreur: number;
     modeles_mappes: number;
+    /** Absent d'un serveur plus ancien ; vide pour une entreprise sans emplacement. */
+    ventes_sans_stock?: { total: number; lignes: VenteEnLigneSansStock[] };
 }
 
 /* ------------------------------------------------------------------ */
@@ -140,6 +158,13 @@ const fmtMoment = (raw: any, locale: string): string => {
     if (!raw) return '—';
     const d = new Date(raw);
     return isNaN(d.getTime()) ? String(raw) : `${d.toLocaleDateString(locale)} ${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+/** Jour seul (sans l'heure) : une date de vente n'a pas d'heure utile. */
+const fmtJour = (raw: any, locale: string): string => {
+    if (!raw) return '—';
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? String(raw) : d.toLocaleDateString(locale);
 };
 
 const toNum = (v: any): number => Number(v) || 0;
@@ -284,6 +309,32 @@ export function useStoreConfigs() {
     return { configs, loading, indisponible, recharger };
 }
 
+/** Un emplacement de stock tel que renvoyé par `/api/subcontract/emplacements`. */
+interface LieuStock {
+    id: string;
+    nom: string;
+    actif: boolean;
+}
+
+/**
+ * Emplacements de stock de l'entreprise (dépôts, boutiques). Liste VIDE tant que
+ * l'entreprise n'en a créé aucun — ou si la lecture échoue : l'écran n'affiche
+ * alors aucun sélecteur de lieu et se comporte exactement comme avant.
+ */
+function useLieuxStock(actif: boolean): LieuStock[] {
+    const [lieux, setLieux] = useState<LieuStock[]>([]);
+    useEffect(() => {
+        if (STORE_IS_STATIC || !actif) return;
+        let vivant = true;
+        fetch('/api/subcontract/emplacements', { credentials: 'include' })
+            .then(r => (r.ok ? r.json() : []))
+            .then((d: any) => { if (vivant) setLieux(Array.isArray(d) ? d.map((x: any) => ({ id: String(x.id), nom: String(x.nom || x.id), actif: !!x.actif })) : []); })
+            .catch(() => { if (vivant) setLieux([]); });
+        return () => { vivant = false; };
+    }, [actif]);
+    return lieux;
+}
+
 /** Boutique de travail : celle qui est active, sinon la première déclarée. */
 const boutiqueCourante = (configs: StoreConfig[]): StoreConfig | null =>
     configs.find(c => !!c.actif) || configs[0] || null;
@@ -301,6 +352,8 @@ interface DraftBoutique {
      *  jeton vide au serveur, sinon on effacerait l'existant. */
     token: string;
     location_id: string;
+    /** Emplacement de stock qui sert la boutique ('' = Dépôt principal). */
+    emplacement_id: string;
     marge_securite: string;
     actif: boolean;
     token_masque: string | null;
@@ -313,6 +366,7 @@ const draftDepuis = (c: StoreConfig): DraftBoutique => ({
     boutique_url: c.boutique_url || '',
     token: '',
     location_id: c.location_id || '',
+    emplacement_id: c.emplacement_id || '',
     marge_securite: String(toNum(c.marge_securite)),
     actif: !!c.actif,
     token_masque: c.token_masque || null,
@@ -324,6 +378,7 @@ const draftVide = (): DraftBoutique => ({
     boutique_url: '',
     token: '',
     location_id: '',
+    emplacement_id: '',
     marge_securite: '0',
     actif: true,
     token_masque: null,
@@ -396,6 +451,11 @@ export const BoutiqueConfigSection: React.FC<{
      *  attente, arrêté dès que la file est vide. */
     const { status, chargerStatus } = useStoreStatus(open && !STORE_IS_STATIC && !indisponible);
 
+    /** Emplacements de stock : le sélecteur « lieu qui sert la boutique » n'existe
+     *  que si l'entreprise en a au moins un actif. Sans lieu, aucun changement. */
+    const lieux = useLieuxStock(open && !STORE_IS_STATIC && !indisponible);
+    const lieuxActifs = lieux.filter(l => l.actif);
+
     /** Le brouillon suit la boutique enregistrée tant que l'utilisateur n'a
      *  rien saisi : sans cela, un rechargement laisserait un formulaire vide
      *  devant une boutique pourtant configurée. */
@@ -422,6 +482,10 @@ export const BoutiqueConfigSection: React.FC<{
             marge_securite: Math.max(0, Math.floor(Number(draft.marge_securite) || 0)),
             actif: draft.actif,
         };
+        // Le lieu n'est envoyé QUE si le sélecteur est affiché : un écran sans
+        // emplacement ne doit jamais effacer un choix déjà enregistré. `null` =
+        // Dépôt principal.
+        if (lieuxActifs.length > 0 || draft.emplacement_id) corps.emplacement_id = draft.emplacement_id || null;
         // Jeton laissé vide = on conserve celui déjà enregistré côté serveur.
         if (draft.token.trim()) corps.token = draft.token.trim();
 
@@ -668,6 +732,38 @@ export const BoutiqueConfigSection: React.FC<{
                                         </p>
                                     </div>
 
+                                    {/* Lieu qui sert la boutique : visible seulement si l'entreprise a
+                                        créé au moins un emplacement actif. C'est de CE lieu que sortent
+                                        les ventes en ligne et c'est SON stock qui est publié. */}
+                                    {(lieuxActifs.length > 0 || !!draft.emplacement_id) && (
+                                        <div className="space-y-2">
+                                            <label className={etiquette}>
+                                                {tx(lang, { fr: 'Emplacement qui sert la boutique en ligne', ar: 'المكان اللي كيخدم المتجر الإلكتروني', en: 'Location that serves the online shop', es: 'Ubicación que sirve la tienda en línea', pt: 'Localização que serve a loja online', tr: 'Çevrimiçi mağazayı besleyen konum' })}
+                                            </label>
+                                            <select
+                                                value={draft.emplacement_id}
+                                                onChange={e => setDraft({ ...draft, emplacement_id: e.target.value })}
+                                                className={`${champ} cursor-pointer`}
+                                            >
+                                                <option value="">{tx(lang, { fr: 'Dépôt principal', ar: 'المخزن الرئيسي', en: 'Main depot', es: 'Depósito principal', pt: 'Depósito principal', tr: 'Ana depo' })}</option>
+                                                {lieuxActifs.map(l => <option key={l.id} value={l.id}>{l.nom}</option>)}
+                                                {draft.emplacement_id && !lieuxActifs.some(l => l.id === draft.emplacement_id) && (
+                                                    <option value={draft.emplacement_id}>{lieux.find(l => l.id === draft.emplacement_id)?.nom || draft.emplacement_id}</option>
+                                                )}
+                                            </select>
+                                            <p className="text-xs text-slate-500 dark:text-dk-muted">
+                                                {tx(lang, {
+                                                    fr: "Les ventes en ligne sortent de ce lieu et c'est son stock qui est publié sur la boutique, pas le total. Une vente déjà faite en ligne est toujours enregistrée, même si le lieu n'a plus assez de pièces : elle est alors signalée plus bas.",
+                                                    ar: 'المبيعات أونلاين كتخرج من هاد المكان وسطوكو هو اللي كيتنشر فالمتجر، ماشي المجموع. البيع اللي وقع أونلاين كيتسجّل ديما، حتى إلى ما بقاتش القطع كافية فالمكان: كيتعلّم عليه تحت.',
+                                                    en: 'Online sales leave from this location and its stock is what is published to the shop, not the total. A sale already made online is always recorded, even if the location is short of pieces: it is then flagged below.',
+                                                    es: 'Las ventas en línea salen de esta ubicación y es su stock el que se publica en la tienda, no el total. Una venta ya hecha en línea siempre se registra, aunque falten piezas: entonces se señala abajo.',
+                                                    pt: 'As vendas online saem desta localização e é o seu stock que é publicado na loja, não o total. Uma venda já feita online é sempre registada, mesmo que faltem peças: fica então assinalada abaixo.',
+                                                    tr: 'Çevrimiçi satışlar bu konumdan çıkar ve mağazaya toplam değil, bu konumun stoğu yayınlanır. Çevrimiçi yapılmış bir satış, konumda parça yetmese bile her zaman kaydedilir: o zaman aşağıda işaretlenir.',
+                                                })}
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-2">
                                         <label className={etiquette}>
                                             {tx(lang, { fr: 'Synchronisation', ar: 'المزامنة', en: 'Synchronisation', es: 'Sincronización', pt: 'Sincronização', tr: 'Eşitleme' })}
@@ -850,6 +946,71 @@ export const BoutiqueConfigSection: React.FC<{
                                         <span className="block text-[12px] font-bold text-slate-800 dark:text-dk-text mt-0.5">{toNum(status.modeles_mappes).toLocaleString(dateLocale)}</span>
                                     </div>
                                 </div>
+                                {/* Ventes en ligne déjà faites au-delà du stock du lieu : elles sont
+                                    enregistrées (jamais refusées), mais le stock du lieu est négatif.
+                                    On le montre ici pour que ce ne soit pas silencieux ; l'alerte
+                                    disparaît dès que les pièces manquantes sont reçues ou transférées. */}
+                                {toNum(status.ventes_sans_stock?.total) > 0 && (() => {
+                                    const v = status.ventes_sans_stock!;
+                                    const n = toNum(v.total);
+                                    return (
+                                        <div className="px-4 pb-4">
+                                            <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 px-3 py-3 space-y-2">
+                                                <div className="flex items-start gap-2">
+                                                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                                    <div className="min-w-0">
+                                                        <p className="text-[12px] font-bold text-amber-800 dark:text-amber-300">
+                                                            {tx(lang, {
+                                                                fr: `${n} vente(s) en ligne sans stock suffisant`,
+                                                                ar: `${n} عملية بيع أونلاين بلا سطوك كافي`,
+                                                                en: `${n} online sale(s) without enough stock`,
+                                                                es: `${n} venta(s) en línea sin stock suficiente`,
+                                                                pt: `${n} venda(s) online sem stock suficiente`,
+                                                                tr: `${n} çevrimiçi satış yetersiz stokla`,
+                                                            })}
+                                                        </p>
+                                                        <p className="text-[11px] leading-snug text-amber-700 dark:text-amber-400 mt-0.5">
+                                                            {tx(lang, {
+                                                                fr: "Ces ventes ont déjà eu lieu en ligne : elles sont enregistrées, mais le stock du lieu est négatif. Recevez ou transférez les pièces manquantes ; l'alerte disparaît d'elle-même.",
+                                                                ar: 'هاد المبيعات وقعات ديجا أونلاين: مسجّلة، ولكن سطوك المكان ناقص. استلم ولا حوّل القطع الناقصة؛ التنبيه كيمشي بوحدو.',
+                                                                en: 'These sales already happened online: they are recorded, but the location stock is negative. Receive or transfer the missing pieces; the alert clears by itself.',
+                                                                es: 'Estas ventas ya ocurrieron en línea: están registradas, pero el stock de la ubicación es negativo. Reciba o transfiera las piezas que faltan; la alerta desaparece sola.',
+                                                                pt: 'Estas vendas já aconteceram online: estão registadas, mas o stock da localização está negativo. Receba ou transfira as peças em falta; o alerta desaparece sozinho.',
+                                                                tr: 'Bu satışlar çevrimiçi zaten yapıldı: kayıtlıdır, ancak konumun stoğu eksiye düştü. Eksik parçaları teslim alın veya aktarın; uyarı kendiliğinden kalkar.',
+                                                            })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <ul className="space-y-1">
+                                                    {v.lignes.map(l => (
+                                                        <li key={l.id} className="text-[11px] leading-snug text-slate-700 dark:text-dk-text-soft bg-white/70 dark:bg-dk-surface/60 border border-amber-100 dark:border-amber-900/40 rounded-lg px-2.5 py-1.5">
+                                                            <span className="font-bold">{l.modele}</span>
+                                                            {(l.couleur || l.taille) ? <span> · {l.couleur || '—'} / {l.taille || '—'}</span> : null}
+                                                            <span> · {tx(lang, { fr: 'vendu', ar: 'تباع', en: 'sold', es: 'vendido', pt: 'vendido', tr: 'satılan' })} ×{toNum(l.quantite).toLocaleString(dateLocale)}</span>
+                                                            <span className="font-bold text-rose-600 dark:text-rose-400"> · {tx(lang, { fr: 'stock', ar: 'السطوك', en: 'stock', es: 'stock', pt: 'stock', tr: 'stok' })} {toNum(l.stock).toLocaleString(dateLocale)}</span>
+                                                            <span className="block text-[10px] text-slate-500 dark:text-dk-muted">
+                                                                {l.emplacement}{l.date ? ` · ${fmtJour(l.date, dateLocale)}` : ''}{l.ref ? ` · ${l.ref}` : ''}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                                {n > v.lignes.length && (
+                                                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                                                        {tx(lang, {
+                                                            fr: `… et ${n - v.lignes.length} autre(s)`,
+                                                            ar: `… و${n - v.lignes.length} أخرى`,
+                                                            en: `… and ${n - v.lignes.length} more`,
+                                                            es: `… y ${n - v.lignes.length} más`,
+                                                            pt: `… e mais ${n - v.lignes.length}`,
+                                                            tr: `… ve ${n - v.lignes.length} tane daha`,
+                                                        })}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
                                 {toNum(status.en_erreur) > 0 && (
                                     <div className="px-4 pb-4">
                                         <button

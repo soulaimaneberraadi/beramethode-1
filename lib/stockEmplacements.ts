@@ -21,6 +21,10 @@ export interface Emplacement {
   pieces?: number;
   /** Mouvements qui le touchent : > 0 interdit de le supprimer. */
   nbMouvements?: number;
+  /** Noms des boutiques en ligne servies par ce lieu (calculé par le serveur) :
+   *  son stock est celui qui est publié sur la plateforme, donc il ne peut être
+   *  ni désactivé ni supprimé tant qu'il sert une boutique. */
+  boutiquesEnLigne?: string[];
 }
 
 export type FiltreEmplacement = undefined | null | string;

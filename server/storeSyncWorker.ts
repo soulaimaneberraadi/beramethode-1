@@ -2,9 +2,10 @@ import { randomUUID } from 'crypto';
 import db from './db';
 import { getAdapter } from './storeAdapters';
 import type { StoreConfigRow, StoreMappingRow } from './storeAdapters/types';
-import { stockLocalParCellule, quantitePoussee, cellKey, prixOnlineModele, publierModele } from './storeSyncController';
+import { stockLocalParCellule, quantitePoussee, cellKey, prixOnlineModele, publierModele, emplacementServantBoutique, MARQUEUR_STOCK_INSUFFISANT } from './storeSyncController';
 import { dechiffrerConfig } from './storeSecrets';
 import { findOrCreateClient } from './clientsController';
+import { aDesEmplacements, nomEmplacement, stockParCellule, cleCellule } from './emplacementsController';
 
 /**
  * WORKER de synchronisation boutique.
@@ -65,7 +66,10 @@ const executerPushStock = async (config: StoreConfigRow, payload: any): Promise<
     const utilisables = mappings.filter(m => m.sku);
     if (utilisables.length === 0) return; // rien à pousser : tâche considérée faite
 
-    const stock = stockLocalParCellule(config.owner_id, modelId);
+    // Le stock publié est celui du LIEU qui sert cette boutique (NULL = Dépôt
+    // principal), pas le total de tous les lieux : sinon la vitrine vendrait des
+    // pièces qui dorment dans un autre magasin.
+    const stock = stockLocalParCellule(config.owner_id, modelId, emplacementServantBoutique(config.owner_id, config.emplacement_id));
     const items = utilisables.map(mapping => ({
         mapping,
         // Formule documentée dans `storeSyncController.ts` :
@@ -256,7 +260,10 @@ const viderFile = async (): Promise<void> => {
  *
  * Note : on ne REFUSE jamais une sortie pour stock insuffisant. La vente en
  * ligne a DÉJÀ eu lieu ; la nier ne la fait pas disparaître, elle rendrait
- * seulement le stock faux. Un stock négatif est un signal visible, pas un bug.
+ * seulement le stock faux. Un stock négatif est un signal visible, pas un bug :
+ * quand l'entreprise a des emplacements, la sortie est enregistrée AU LIEU qui
+ * sert la boutique et, si ce lieu ne couvre pas la quantité, sa note porte
+ * `MARQUEUR_STOCK_INSUFFISANT` — le bandeau de statut la remonte à l'atelier.
  *
  * @returns nombre de lignes réellement écrites (0 si la commande était déjà connue)
  */
@@ -298,27 +305,60 @@ const enregistrerCommande = (config: StoreConfigRow, commande: any): number => {
     const date = String(commande.date ?? '').slice(0, 10) || nowIso().slice(0, 10);
     const insert = db.prepare(`
         INSERT INTO st_stock_sorties
-            (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, note, date_sortie, canal, external_order_ref)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ONLINE', ?)
+            (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, note, date_sortie, canal, external_order_ref, emplacement_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ONLINE', ?, ?)
     `);
 
+    // Le lieu qui sert la boutique (NULL = Dépôt principal). Une entreprise sans
+    // emplacement a toujours NULL ici : ses sorties restent écrites comme avant.
+    const emplacementId = emplacementServantBoutique(config.owner_id, config.emplacement_id);
+    // Contrôle de stock : seulement si l'entreprise a des emplacements. Sans lieu,
+    // rien ne change (ni note, ni alerte) — l'ancien comportement est conservé.
+    const controleStock = aDesEmplacements(config.owner_id);
+
     let ecrites = 0;
+    let sansStock = 0;
     db.transaction(() => {
         const deja = db.prepare('SELECT id FROM st_stock_sorties WHERE owner_id = ? AND external_order_ref = ? LIMIT 1')
             .get(config.owner_id, ref) as any;
         if (deja) return; // commande déjà enregistrée : on ne touche à rien
 
+        // Stock du lieu AVANT cette commande, relu dans la transaction : deux
+        // lignes de la même case dans une commande se décomptent l'une après
+        // l'autre, la seconde peut donc manquer alors que la première passe.
+        const dispo = controleStock
+            ? stockParCellule(config.owner_id, emplacementId, [...new Set(lignes.map(l => l.modelId))])
+            : null;
+        const lieu = controleStock ? nomEmplacement(config.owner_id, emplacementId) : '';
+
         for (const l of lignes) {
+            let note = `Commande en ligne ${ref}${config.nom ? ` (${config.nom})` : ''}`;
+            if (dispo && l.quantite > 0) {
+                const cle = cleCellule(l.modelId, l.couleur, l.taille);
+                const restant = dispo.get(cle) ?? 0;
+                if (restant < l.quantite) {
+                    // On ENREGISTRE quand même : la vente a eu lieu. Le marqueur
+                    // rend le manque visible au lieu de laisser le stock descendre
+                    // en négatif sans que personne ne le sache.
+                    note += ` ${MARQUEUR_STOCK_INSUFFISANT} stock ${Math.max(0, restant)} à « ${lieu} » pour ${l.quantite} vendue(s)`;
+                    sansStock++;
+                }
+                dispo.set(cle, restant - l.quantite);
+            }
             insert.run(
                 randomUUID(), config.owner_id, l.modelId,
                 client?.id ?? null, client?.nom ?? commande.client_nom ?? null,
                 l.couleur, l.taille, l.quantite, l.prix, batchId,
-                `Commande en ligne ${ref}${config.nom ? ` (${config.nom})` : ''}`,
-                date, ref,
+                note,
+                date, ref, emplacementId,
             );
             ecrites++;
         }
     })();
+
+    if (sansStock > 0) {
+        console.warn(`[storeSync] commande ${ref} : ${sansStock} ligne(s) enregistrée(s) sans stock suffisant au lieu qui sert la boutique`);
+    }
 
     return ecrites;
 };

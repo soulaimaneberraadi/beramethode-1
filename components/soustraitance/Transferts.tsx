@@ -552,6 +552,16 @@ const Transferts: React.FC<TransfertsProps> = ({ onClose, lang, dateLocale, item
                                                 <span className="font-bold text-slate-800 dark:text-dk-text text-[12.5px] truncate">{e.nom}</span>
                                             )}
                                             {!e.actif && <span className="shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'désactivé', ar: 'معطّل', en: 'disabled', es: 'desactivado', pt: 'desativado', tr: 'devre dışı' })}</span>}
+                                            {/* Ce lieu sert la boutique en ligne : c'est SON stock qui est publié
+                                                sur la plateforme (réglé dans Réglages > Boutique en ligne). */}
+                                            {(e.boutiquesEnLigne?.length ?? 0) > 0 && (
+                                                <span
+                                                    title={(e.boutiquesEnLigne || []).join(', ')}
+                                                    className="shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800/50"
+                                                >
+                                                    {tx(lang, { fr: 'sert la boutique en ligne', ar: 'كيخدم المتجر الإلكتروني', en: 'serves the online shop', es: 'sirve la tienda en línea', pt: 'serve a loja online', tr: 'çevrimiçi mağazayı besler' })}
+                                                </span>
+                                            )}
                                             <span className="ml-auto shrink-0 text-[10px] text-slate-400 dark:text-dk-muted">{e.pieces ?? 0} {tx(lang, { fr: 'pièce(s)', ar: 'قطعة', en: 'piece(s)', es: 'pieza(s)', pt: 'peça(s)', tr: 'parça' })}</span>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-1.5">

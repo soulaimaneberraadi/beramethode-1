@@ -20,7 +20,10 @@ const TYPES = new Set(['GROS', 'DETAIL', 'BOUTIQUE']);
 /** Modes de règlement acceptés au comptoir. Tout autre libellé est écarté
  *  plutôt que stocké : un mode inconnu ferait un total de clôture qui ne
  *  tombe juste dans aucune colonne. */
-const MODES_PAIEMENT = new Set(['ESPECES', 'CARTE', 'CHEQUE', 'VIREMENT']);
+// CREDIT = vente laissée en compte (rien n'est encaissé au comptoir pour cette
+// part) ; AVOIR = vente intégralement réglée par un crédit de retour. Ni l'un ni
+// l'autre n'est de l'argent dans le tiroir : la journée de caisse les range à part.
+const MODES_PAIEMENT = new Set(['ESPECES', 'CARTE', 'CHEQUE', 'VIREMENT', 'CREDIT', 'AVOIR']);
 
 /** Sens de la relation. Voir la migration `st_clients.role` : la même entreprise
  *  peut nous acheter ET nous vendre, et deux registres séparés obligeaient à
@@ -443,19 +446,34 @@ export const createStockEntry = (req: Request, res: Response) => {
             });
         }
 
+        // Lieu de réception. Vide = Dépôt principal (NULL), donc une entreprise
+        // sans emplacement envoie toujours vide et n'a aucune différence. Le lieu
+        // est vérifié contre l'entreprise : sans cela, un identifiant d'un autre
+        // atelier rangerait nos pièces dans son stock. Un lieu désactivé est
+        // refusé (comme à l'arrivée d'un transfert) : on ne reçoit pas dans un
+        // endroit que l'atelier a déclaré fermé.
+        const emplacementId = normaliserEmplacement(body.emplacement_id);
+        if (emplacementId) {
+            const lieu = emplacementDe(companyId, emplacementId);
+            if (!lieu) return res.status(400).json({ message: 'Emplacement introuvable.' });
+            if (Number(lieu.actif) !== 1) {
+                return res.status(400).json({ message: `L'emplacement « ${lieu.nom} » est désactivé : réactivez-le avant d'y recevoir du stock.` });
+            }
+        }
+
         const batchId = randomUUID();
         const qualite = QUALITES.has(body.qualite) ? body.qualite : 'ACCEPTED';
         const date = body.date_entree || new Date().toISOString().split('T')[0];
 
         const insert = db.prepare(`
-            INSERT INTO st_stock_entries (id, owner_id, order_id, modelId, couleur, taille, quantite, qualite, note, date_entree, batch_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_stock_entries (id, owner_id, order_id, modelId, couleur, taille, quantite, qualite, note, date_entree, batch_id, emplacement_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         // Transaction : une grille est un tout. La moitié des cellules écrites
         // laisserait un stock faux sans que rien ne le signale.
         db.transaction(() => {
             for (const l of lignes) {
-                insert.run(randomUUID(), companyId, orderId, order.modelId, l.couleur, l.taille, l.quantite, qualite, body.note || null, date, batchId);
+                insert.run(randomUUID(), companyId, orderId, order.modelId, l.couleur, l.taille, l.quantite, qualite, body.note || null, date, batchId, emplacementId);
             }
         })();
 
@@ -880,11 +898,55 @@ export const createClientInvoice = (req: Request, res: Response) => {
         const tauxTva = exonere ? 0 : Math.max(0, Number(body.taux_tva) || 0);
         const totalTva = totalHt * (tauxTva / 100);
         const totalTtc = totalHt + totalTva;
-        const statut = ['BROUILLON', 'ENVOYEE', 'PAYEE'].includes(body.statut) ? body.statut : 'ENVOYEE';
+        const statutDemande = ['BROUILLON', 'ENVOYEE', 'PAYEE'].includes(body.statut) ? body.statut : 'ENVOYEE';
+        const arrondi2 = (n: number) => Math.round(n * 100) / 100;
+
+        // Ce qui a DÉJÀ été payé au moment d'émettre la facture. La caisse envoie
+        // `reglements` (un par moyen : espèces, avoir…) ; la fiche client envoie
+        // `montant_paye` (+ éventuellement `mode_paiement`). CREDIT n'est jamais un
+        // règlement : c'est justement la part qui reste due, elle ne s'enregistre pas.
+        const MODES_REGLEMENT = new Set(['ESPECES', 'CARTE', 'CHEQUE', 'VIREMENT', 'AVOIR']);
+        const modeRegl = (v: unknown): string | null => {
+            const m = String(v ?? '').trim().toUpperCase();
+            return MODES_REGLEMENT.has(m) ? m : null;
+        };
+        const reglements: Array<{ mode: string; montant: number }> = [];
+        if (Array.isArray(body.reglements)) {
+            // Chaque ligne est bornée à ce qu'il reste à payer : la somme ne peut
+            // jamais dépasser le TTC, même si l'appelant se trompe ou triche.
+            let reste = arrondi2(totalTtc);
+            for (const r of body.reglements) {
+                const mode = modeRegl(r?.mode);
+                const m = Math.min(arrondi2(Math.max(0, Number(r?.montant) || 0)), reste);
+                if (!mode || m <= 0) continue;
+                reglements.push({ mode, montant: m });
+                reste = arrondi2(reste - m);
+            }
+        }
         // L'acompte est un RÈGLEMENT déjà perçu : il alimente montant_paye et
         // laisse le TTC intact, sinon la facture serait sous-évaluée. Un statut
-        // "Payée" vaut réglage total, quel que soit l'acompte saisi.
-        const montantPaye = statut === 'PAYEE' ? totalTtc : Math.max(0, Math.min(totalTtc, Number(body.montant_paye) || 0));
+        // "Payée" vaut réglage total, quel que soit l'acompte saisi — sauf si la
+        // caisse a détaillé ses règlements : ils font alors foi.
+        let montantPaye = Array.isArray(body.reglements)
+            ? Math.min(totalTtc, arrondi2(reglements.reduce((a, r) => a + r.montant, 0)))
+            : (statutDemande === 'PAYEE' ? totalTtc : Math.max(0, Math.min(totalTtc, Number(body.montant_paye) || 0)));
+        // Quelques centièmes de flottant sous le TTC ne sont pas un reliquat.
+        if (montantPaye >= totalTtc - 0.005) montantPaye = totalTtc;
+        if (reglements.length === 0 && montantPaye > 0) {
+            // Sans détail, un seul règlement du montant payé. Le mode par défaut est
+            // celui de `savePaiement` (VIREMENT) : on n'invente pas des espèces.
+            reglements.push({ mode: modeRegl(body.mode_paiement) ?? 'VIREMENT', montant: arrondi2(montantPaye) });
+        }
+        // Statut : le même calcul que `updateStatutApresPaiement` (facturation),
+        // pour qu'une facture née déjà payée soit indiscernable d'une facture
+        // payée ensuite. Un brouillon reste brouillon, il n'est pas encore émis.
+        const statut = statutDemande === 'BROUILLON'
+            ? 'BROUILLON'
+            : (montantPaye <= 0 ? 'ENVOYEE' : (montantPaye >= totalTtc ? 'PAYEE' : 'PARTIELLEMENT'));
+        // Marqueur des règlements nés au comptoir : annuler le ticket doit pouvoir
+        // les retirer, alors qu'un règlement saisi plus tard à la main reste intact.
+        const ticketRef = String(body.ticket_ref ?? '').trim().slice(0, 40);
+        const referenceRegl = ticketRef ? `CAISSE:${ticketRef}` : (String(body.reference ?? '').trim().slice(0, 60) || null);
 
         const lignes: any[] = sorties.map(s => ({
             designation: `${s.model_nom || s.modelId || '—'}${[s.couleur, s.taille].filter(Boolean).length ? ' — ' + [s.couleur, s.taille].filter(Boolean).join(' / ') : ''}`,
@@ -927,6 +989,23 @@ export const createClientInvoice = (req: Request, res: Response) => {
 
             const setFacture = db.prepare('UPDATE st_stock_sorties SET facture_id = ? WHERE id = ? AND owner_id = ? AND facture_id IS NULL');
             for (const s of sorties) setFacture.run(id, s.id, companyId);
+
+            // Un règlement perçu à l'émission a sa ligne `paiements`, comme tout
+            // règlement saisi ensuite : le relevé du client et le reçu de versement
+            // lisent CETTE table, pas `montant_paye`. Sans elle, la facture se
+            // dirait payée sans qu'aucun règlement ne figure nulle part. Dans la
+            // même transaction que la facture : jamais l'un sans l'autre.
+            const insPaiement = db.prepare(`
+                INSERT INTO paiements (id, owner_id, facture_id, date_paiement, montant, mode, reference, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+            for (const r of reglements) {
+                insPaiement.run(
+                    'PAY_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    companyId, id, dateFacture, r.montant, r.mode, referenceRegl,
+                    r.mode === 'AVOIR' ? 'Réglé par avoir de caisse' : null,
+                );
+            }
         })();
 
         const facture = db.prepare('SELECT * FROM factures WHERE id = ? AND owner_id = ?').get(id, companyId);

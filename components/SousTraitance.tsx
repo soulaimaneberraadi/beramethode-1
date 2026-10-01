@@ -31,7 +31,7 @@ import { variantAxes, variantCode, resolveVariantByEAN as resolveVariantEAN } fr
 import ReferentielProduits from './ReferentielProduits';
 import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
-import Caisse, { type CaisseLigne, type CaissePaiement, type TypeVente } from './Caisse';
+import Caisse, { type CaisseLigne, type CaissePaiement, type CaisseReglement, type TypeVente } from './Caisse';
 import { buildTicketHtml, buildTicketZpl, parsePrinterHosts, type TicketData } from '../lib/ticket';
 import { lsGetMig, lsSet } from '../lib/storageKeys';
 import { useRouteSegment, useRouteParam } from '../lib/router';
@@ -865,6 +865,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [entryGrid, setEntryGrid] = useState<Record<string, number | ''>>({});
   const [entryQualite, setEntryQualite] = useState<'ACCEPTED' | 'REPAIR' | 'REJECTED'>('ACCEPTED');
   const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  /** Lieu où entre cette saisie ('' = Dépôt principal). Le sélecteur n'existe que
+   *  si l'entreprise a au moins un emplacement actif : sans lieu, rien n'est envoyé
+   *  et la saisie entre au principal, exactement comme avant. */
+  const [entryEmplacement, setEntryEmplacement] = useState<string>('');
 
   const gridKey = (couleur: string, taille: string) => `${couleur}|${taille}`;
 
@@ -904,6 +908,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setEntryGrid({});
     setEntryQualite('ACCEPTED');
     setEntryDate(new Date().toISOString().split('T')[0]);
+    setEntryEmplacement('');
     loadStockEntries(order.id);
   };
 
@@ -935,6 +940,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       return;
     }
 
+    // Le lieu choisi n'est envoyé que s'il existe encore et est actif (il a pu être
+    // désactivé entre-temps) ; sinon la saisie entre au Dépôt principal.
+    const lieuReception = emplacements.some(e => e.actif && e.id === entryEmplacement) ? entryEmplacement : '';
+
     setStockEntrySaving(true);
     setStockEntryError(null);
     try {
@@ -947,6 +956,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           lignes,
           qualite: entryQualite,
           date_entree: entryDate,
+          ...(lieuReception ? { emplacement_id: lieuReception } : {}),
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -2875,6 +2885,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     w?.document.close();
   };
 
+  /** Libelles de reglement imprimes (le ticket est en francais : la ZPL de
+   *  l'imprimante thermique ne sait pas tracer l'arabe). */
+  const LIBELLE_MODE_TICKET: Record<string, string> = { ESPECES: 'Espèces', CARTE: 'Carte', CHEQUE: 'Chèque', VIREMENT: 'Virement' };
+
   const imprimerTicket = (payload: {
     lignes: CaisseLigne[];
     clientNom: string | null;
@@ -2883,8 +2897,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     total: number;
     recu: number | null;
     rendu: number | null;
+    /** Ventilation du reglement. Seule une vente avec avoir ou a credit se
+     *  detaille sur le ticket ; un paiement simple garde la ligne unique. */
+    reglements?: CaisseReglement[];
   }, ticketRef: string) => {
     const now = new Date();
+    const regl = payload.reglements || [];
+    const partCredit = regl.find(r => r.mode === 'CREDIT')?.montant ?? 0;
+    const detaille = regl.some(r => r.mode === 'AVOIR' || r.mode === 'CREDIT');
     const ticket: TicketData = {
       marque: ticketMarque(),
       // Le numero imprime EST la reference enregistree : c'est ce qui permet
@@ -2902,9 +2922,21 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       sousTotal: payload.total + payload.remiseGlobale,
       remise: payload.remiseGlobale,
       total: payload.total,
-      paiement: payload.paiement,
+      paiement: payload.paiement === 'CREDIT' ? 'À crédit' : payload.paiement,
       recu: payload.recu,
       rendu: payload.rendu,
+      // Vente avec avoir ou a credit : un moyen par ligne (la part a credit n'est
+      // PAS un reglement, elle ressort en « reste dû » sous le total). Le mot
+      // « Acompte » n'apparait que si une part reste due.
+      reglements: detaille
+        ? regl.filter(r => r.mode !== 'CREDIT').map(r => ({
+            libelle: r.mode === 'AVOIR'
+              ? `Avoir ${r.avoirCode || ''}`.trim()
+              : `${partCredit > 0 ? 'Acompte ' : ''}${LIBELLE_MODE_TICKET[r.mode] || r.mode}`,
+            montant: r.montant,
+          }))
+        : null,
+      resteDu: partCredit > 0 ? partCredit : null,
       clientNom: payload.clientNom,
       currency,
       type: 'VENTE',
@@ -2922,6 +2954,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     clientNom: string | null;
     lignes: Array<{ modelId: string; couleur: string | null; taille: string | null; quantite: number; prixUnitaire: number }>;
     montant: number;
+    /** Code de l'avoir emis par ce retour (null = rembourse en especes). */
+    avoirCode?: string | null;
   }) => {
     const now = new Date();
     const ticket: TicketData = {
@@ -2938,7 +2972,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       sousTotal: -payload.montant,
       remise: 0,
       total: -payload.montant,
-      paiement: '',
+      // Comment le client a ete rembourse : en especes (rien d'autre a faire), ou
+      // en credit — dans ce cas le CODE s'imprime en gros, c'est lui qu'il
+      // presentera a la prochaine vente.
+      paiement: payload.avoirCode ? 'Remboursé par avoir' : 'Remboursé en espèces',
+      avoir: payload.avoirCode ? { code: payload.avoirCode, montant: payload.montant } : null,
       clientNom: payload.clientNom,
       currency,
       type: 'RETOUR',
@@ -2969,6 +3007,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     recu: number | null;
     rendu: number | null;
     remisePercent: number;
+    /** Comment la vente est reglee, moyen par moyen (somme = total). Absent :
+     *  un seul reglement du total, dans `paiement`. */
+    reglements?: CaisseReglement[];
+    /** Un responsable a confirme le depassement du plafond de credit. */
+    depasserPlafond?: boolean;
   }): Promise<string | null> => {
     if (SANS_SERVEUR) {
       return tx(lang,{fr:"Aucun serveur d'atelier relie : la vente n'est pas enregistree. Ouvrez l'application depuis le serveur de l'atelier (reseau local) pour vendre.",ar:'لا يوجد سيرفر ورشة مربوط: لم تُسجَّل البيعة. افتح التطبيق من سيرفر الورشة (الشبكة المحلية) للبيع.',en:'No workshop server connected: the sale was not recorded. Open the app from the workshop server (local network) to sell.',es:'Sin servidor del taller: la venta no se registro. Abra la aplicacion desde el servidor del taller (red local).',pt:'Sem servidor da oficina: a venda nao foi registada. Abra a aplicacao a partir do servidor da oficina (rede local).',tr:'Atolye sunucusu bagli degil: satis kaydedilmedi. Satmak icin uygulamayi atolye sunucusundan (yerel ag) acin.'});
@@ -3013,7 +3056,60 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // modele. Sans cette cle commune, la journee de caisse compterait la meme
     // vente plusieurs fois et son annulation n'en rendrait qu'un morceau.
     const ticketRef = `TK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    // Le jour est fige UNE fois : le reglement et les sorties doivent tomber dans
+    // la meme journee de caisse, meme si minuit passe entre les deux appels.
+    const dateJour = new Date().toISOString().slice(0, 10);
+
+    /* Comment la vente est REGLEE, moyen par moyen. Un paiement simple n'a qu'une
+     * ligne et n'ecrit rien de plus que le `mode_paiement` du ticket (comme avant).
+     * Un avoir ou une part a credit se detaille cote serveur : sinon la journee
+     * compterait en especes de l'argent qui n'est jamais entre dans le tiroir. */
+    const reglements: CaisseReglement[] = payload.reglements && payload.reglements.length > 0
+      ? payload.reglements
+      : [{ mode: payload.paiement, montant: Number(payload.total) || 0 }];
+    const partCredit = reglements.find(r => r.mode === 'CREDIT')?.montant ?? 0;
+    const aCredit = partCredit > 0.004;
+    const ventilation = aCredit || reglements.some(r => r.mode === 'AVOIR');
+    // Mode porte par les sorties : « CREDIT » des qu'une part reste due ; sinon le
+    // plus gros vrai moyen ; « AVOIR » si le credit de retour a tout couvert.
+    const modeStocke: string = aCredit
+      ? 'CREDIT'
+      : ([...reglements].filter(r => r.mode !== 'AVOIR').sort((a, b) => b.montant - a.montant)[0]?.mode ?? 'AVOIR');
+    // La dette ne s'accroche qu'a une fiche client : sans elle, rien ne la
+    // retrouverait dans l'encours. Garde-fou de la couche appelante (la Caisse
+    // bloque deja), pour qu'aucun autre appelant ne vende a credit « dans le vide ».
+    if (aCredit && !payload.clientId) {
+      return tx(lang,{fr:'Une vente a credit exige un client.',ar:'البيع بالكريدي كيحتاج زبون.',en:'A credit sale requires a customer.',es:'Una venta a credito exige un cliente.',pt:'Uma venda a credito exige um cliente.',tr:'Veresiye satis icin musteri gerekir.'});
+    }
+    const libererReglements = async () => {
+      // Rien n'est parti en stock : l'avoir consomme doit redevenir utilisable.
+      if (ventilation) {
+        await fetch(`/api/subcontract/caisse/reglements/${encodeURIComponent(ticketRef)}`, { method: 'DELETE', credentials: 'include' }).catch(() => {});
+      }
+    };
     try {
+      // Avoir / credit : le reglement s'enregistre AVANT toute sortie de stock. Un
+      // avoir insuffisant, deja depense ou un plafond depasse refuse la vente tant
+      // que rien n'a bouge — l'inverse laisserait des pieces sorties sans paiement.
+      if (ventilation) {
+        const rres = await fetch('/api/subcontract/caisse/reglements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            ticket_ref: ticketRef,
+            date_jour: dateJour,
+            total: payload.total,
+            client_id: payload.clientId,
+            depasser_plafond: payload.depasserPlafond === true,
+            reglements: reglements.map(r => ({ mode: r.mode, montant: r.montant, avoir_code: r.avoirCode })),
+          }),
+        });
+        const rb = await rres.json().catch(() => ({}));
+        if (!rres.ok) {
+          return rb.message || tx(lang,{fr:'Le reglement a ete refuse.',ar:'تم رفض الأداء.',en:'The payment was rejected.',es:'El pago fue rechazado.',pt:'O pagamento foi recusado.',tr:'Odeme reddedildi.'});
+        }
+      }
       for (const [modelId, lignes] of parModele) {
         // Chaque ligne porte son propre prix net (voir plus haut) ; le prix
         // global n'est qu'une valeur de repli pour une ligne qui n'en aurait pas.
@@ -3029,12 +3125,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             client_id: payload.clientId,
             client_nom: payload.clientNom,
             prix_unitaire: prixUnitaire,
-            date_sortie: new Date().toISOString().slice(0, 10),
+            date_sortie: dateJour,
             canal: 'MAGASIN',
-            mode_paiement: payload.paiement,
+            mode_paiement: modeStocke,
             type_vente: payload.typeVente,
             ticket_ref: ticketRef,
-            note: `CAISSE ${payload.typeVente} ${payload.paiement}`,
+            note: `CAISSE ${payload.typeVente} ${modeStocke}`,
             // La vente part du lieu de CETTE caisse (null = Dépôt principal, donc
             // l'ancien comportement) : le serveur y contrôle le stock.
             emplacement_id: caisseEmplacementEffectif,
@@ -3047,7 +3143,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
           const base = body.message || tx(lang,{fr:'La sortie a ete refusee.',ar:'تم رفض الإخراج.',en:'The exit was rejected.',es:'La salida fue rechazada.',pt:'A saida foi recusada.',tr:'Cikis reddedildi.'});
-          return faites === 0 ? base : `${base} (${faites} ${tx(lang,{fr:'deja enregistrees',ar:'مسجّلة سلفاً',en:'already recorded',es:'ya registradas',pt:'ja registadas',tr:'zaten kaydedildi'})})`;
+          // Premiere sortie refusee : la vente n'a pas eu lieu, l'avoir est rendu.
+          if (faites === 0) await libererReglements();
+          return faites === 0 ? base :`${base} (${faites} ${tx(lang,{fr:'deja enregistrees',ar:'مسجّلة سلفاً',en:'already recorded',es:'ya registradas',pt:'ja registadas',tr:'zaten kaydedildi'})})`;
         }
         if (body.batch_id) batchs.push(String(body.batch_id));
         faites++;
@@ -3056,13 +3154,21 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // La facture ne se rattache qu'a une FICHE client. Les sorties qui
       // viennent d'etre ecrites sont retrouvees par leur batch : l'API de
       // sortie ne rend pas les identifiants de lignes.
-      if (payload.facture && payload.clientId && batchs.length > 0) {
+      if ((payload.facture || aCredit) && payload.clientId && batchs.length > 0) {
+        // Une vente a credit sans facture serait une dette invisible : l'encours du
+        // client se calcule SUR LES FACTURES. On le dit en toutes lettres.
+        const detteInvisible = aCredit
+          ? ` ${tx(lang,{fr:"La dette n'est PAS encore au compte du client : facturez ces sorties depuis sa fiche.",ar:'الدين ما تسجّلش بعد فحساب الزبون: دير الفاتورة من بطاقته.',en:"The debt is NOT yet on the customer's account: invoice these exits from their record.",es:'La deuda AUN no esta en la cuenta del cliente: facture estas salidas desde su ficha.',pt:'A divida AINDA nao esta na conta do cliente: fature estas saidas a partir da ficha.',tr:'Borc henuz musterinin hesabinda DEGIL: bu cikislari musteri kartindan faturalayin.'})}`
+          : '';
         const rows = await fetch('/api/subcontract/stock-sorties', { credentials: 'include' })
           .then(r => (r.ok ? r.json() : []))
           .catch(() => []);
         const sortieIds = (Array.isArray(rows) ? rows : [])
           .filter((r: any) => batchs.includes(String(r.batch_id)) && !r.facture_id)
           .map((r: any) => String(r.id));
+        if (sortieIds.length === 0 && aCredit) {
+          return `${tx(lang,{fr:'Vente enregistree, mais ses lignes sont introuvables pour la facture.',ar:'تسجّلت البيعة، لكن ما لقيتش سطورها باش نديرو الفاتورة.',en:'Sale recorded, but its lines could not be found for the invoice.',es:'Venta registrada, pero no se encontraron sus lineas para la factura.',pt:'Venda registada, mas as linhas nao foram encontradas para a fatura.',tr:'Satis kaydedildi, fakat fatura icin satirlari bulunamadi.'})}${detteInvisible}`;
+        }
         if (sortieIds.length > 0) {
           const fres = await fetch('/api/subcontract/clients/facturer', {
             method: 'POST',
@@ -3070,12 +3176,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             credentials: 'include',
             // Remise deja incluse dans le prix de chaque sortie : la repasser
             // ici la deduirait une seconde fois de la facture.
-            body: JSON.stringify({ clientId: payload.clientId, sortieIds, discount: 0 }),
+            // `reglements` = ce qui a ete REELLEMENT paye au comptoir (jamais la
+            // part a credit) : sans lui la facture naitrait « impayee » alors que
+            // le client a deja paye — son encours serait faux d'autant. Le
+            // `ticket_ref` marque ces reglements comme nes au comptoir : annuler
+            // le ticket peut ainsi les retirer avec la facture.
+            body: JSON.stringify({
+              clientId: payload.clientId,
+              sortieIds,
+              discount: 0,
+              ticket_ref: ticketRef,
+              reglements: reglements.filter(r => r.mode !== 'CREDIT').map(r => ({ mode: r.mode, montant: r.montant })),
+            }),
           });
           if (!fres.ok) {
             const fb = await fres.json().catch(() => ({}));
             // La vente EST passee : le dire, sinon on la refera.
-            return `${tx(lang,{fr:'Vente enregistree, mais la facture a echoue.',ar:'تسجّلت البيعة، لكن الفاتورة فشلت.',en:'Sale recorded, but the invoice failed.',es:'Venta registrada, pero la factura fallo.',pt:'Venda registada, mas a fatura falhou.',tr:'Satis kaydedildi, fakat fatura basarisiz.'})} ${fb.message || ''}`.trim();
+            return `${tx(lang,{fr:'Vente enregistree, mais la facture a echoue.',ar:'تسجّلت البيعة، لكن الفاتورة فشلت.',en:'Sale recorded, but the invoice failed.',es:'Venta registrada, pero la factura fallo.',pt:'Venda registada, mas a fatura falhou.',tr:'Satis kaydedildi, fakat fatura basarisiz.'})} ${fb.message || ''}${detteInvisible}`.trim();
           }
         }
       }
@@ -3084,8 +3201,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
        * obligeait le vendeur à la fermer, client devant lui. La vente, elle,
        * est enregistrée dans tous les cas et reste réimprimable depuis la
        * Journée. */
-      if ((payload as any).imprimerTicket !== false) imprimerTicket(payload, ticketRef);
+      if ((payload as any).imprimerTicket !== false) {
+        // Une impression qui echoue ne doit jamais passer pour une vente ratee.
+        try { imprimerTicket({ ...payload, reglements }, ticketRef); } catch { /* ticket reimprimable depuis la Journee */ }
+      }
       return null;
+    } catch (e: any) {
+      // Reseau coupe en plein encaissement : plutot qu'un rejet non gere (le
+      // bouton resterait bloque sur « enregistrement »), un message clair. Si
+      // RIEN n'est encore sorti, l'avoir consomme est rendu.
+      if (faites === 0) await libererReglements();
+      const base = tx(lang,{fr:"Connexion interrompue pendant l'encaissement.",ar:'انقطع الاتصال أثناء الأداء.',en:'Connection lost during checkout.',es:'Conexion interrumpida durante el cobro.',pt:'Ligacao interrompida durante o pagamento.',tr:'Tahsilat sirasinda baglanti kesildi.'});
+      return faites === 0 ? base : `${base} (${faites} ${tx(lang,{fr:'deja enregistrees',ar:'مسجّلة سلفاً',en:'already recorded',es:'ya registradas',pt:'ja registadas',tr:'zaten kaydedildi'})})`;
     } finally {
       // Le stock affiche doit suivre, meme apres un echec partiel.
       await loadStockMovements();
@@ -3103,6 +3230,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     montant: number;
     lignes: Array<{ modelId: string; couleur: string | null; taille: string | null; quantite: number; prixUnitaire: number }>;
     imprimer: boolean;
+    /** Code de l'avoir cree par ce retour (null = rembourse en especes). */
+    avoirCode?: string | null;
   }) => {
     if (payload.imprimer) {
       imprimerTicketRetour({
@@ -3110,6 +3239,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         clientNom: payload.clientNom,
         lignes: payload.lignes,
         montant: payload.montant,
+        avoirCode: payload.avoirCode ?? null,
       });
     }
     await loadStockMovements();
@@ -3463,6 +3593,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [achatTiersId, setAchatTiersId] = useState('');
   const [achatFactureRef, setAchatFactureRef] = useState('');
   const [achatMontantPaye, setAchatMontantPaye] = useState<number | ''>('');
+  /** Lieu où la marchandise achetée est reçue ('' = Dépôt principal). Sélecteur
+   *  visible seulement si l'entreprise a un emplacement actif. */
+  const [achatEmplacement, setAchatEmplacement] = useState<string>('');
   const [achatGrid, setAchatGrid] = useState<Record<string, number | ''>>({});
   /** Création d'un fournisseur sans quitter l'écran : aller le saisir dans
    *  l'onglet Tiers puis revenir casse le geste et fait perdre la saisie. */
@@ -3578,6 +3711,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setAchatTiersId('');
     setAchatFactureRef('');
     setAchatMontantPaye('');
+    setAchatEmplacement('');
     setAchatNote('');
     setAchatGrid({});
     setAchatNewTiers(false);
@@ -3658,6 +3792,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         })
         .filter(l => l.quantite > 0);
 
+      // Lieu de réception : envoyé seulement s'il existe encore et est actif.
+      const lieuAchat = emplacements.some(e => e.actif && e.id === achatEmplacement) ? achatEmplacement : '';
+
       const resAchat = await fetch('/api/subcontract/achats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3671,6 +3808,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           montantPaye: Number(achatMontantPaye) || 0,
           note: achatNote.trim() || null,
           lignes,
+          ...(lieuAchat ? { emplacement_id: lieuAchat } : {}),
         }),
       });
       if (!resAchat.ok) throw new Error((await resAchat.json().catch(() => null))?.message || '');
@@ -8596,7 +8734,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
-                        {filteredOrders.map(order => (
+                        {filteredOrders.map(order => {
+                          // Même calcul que la vue cartes : sans lui, un retard visible
+                          // en cartes disparaissait en basculant sur le tableau.
+                          // `COMPLETED` sort du calcul (commande clôturée).
+                          const deliveryDateObj = order.deliveryDate ? new Date(order.deliveryDate) : null;
+                          const daysLate = (order.status !== 'COMPLETED' && deliveryDateObj && !isNaN(deliveryDateObj.getTime()))
+                            ? Math.floor((Date.now() - deliveryDateObj.getTime()) / 86400000)
+                            : 0;
+                          const isLate = daysLate > 0;
+                          return (
                           <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors group">
                             <td className="px-6 py-4 font-semibold">
                               <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">{order.clientName || 'N/A'}</span>
@@ -8611,6 +8758,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             </td>
                             <td className="px-6 py-4 text-slate-500 dark:text-dk-muted">
                               {new Date(order.deliveryDate).toLocaleDateString('fr-FR')}
+                              {isLate && (
+                                <span className="mt-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 flex w-fit items-center gap-1 whitespace-nowrap">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  {tx(lang,{fr:`En retard de ${daysLate} j`,ar:`متأخر ب ${daysLate} يوم`,en:`Late by ${daysLate} d`,es:`Con retraso de ${daysLate} d`,pt:`Com atraso de ${daysLate} d`,tr:`${daysLate} gün gecikti`})}
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <select 
@@ -8640,7 +8793,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -9533,6 +9687,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                       lang={lang}
                                     />
                                   )}
+                                  {/* Même cloche que la vue cartes : sans elle, le seuil de
+                                      stock bas n'était réglable (ni visible) qu'en cartes.
+                                      Pleine dès qu'un seuil existe, rouge dès qu'il est atteint. */}
+                                  <SeuilBell
+                                    has={stockSeuils.some(s => s.modelId === item.model.id)}
+                                    low={lowStockModelIds.has(item.model.id)}
+                                    onClick={() => setSeuilFormModel(item.model)}
+                                    title={tx(lang,{fr:'Seuil de stock bas',ar:'عتبة المخزون المنخفض',en:'Low-stock threshold',es:'Umbral de stock bajo',pt:'Limite de stock baixo',tr:'Düşük stok eşiği'})}
+                                  />
                                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap ${
                                     item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
                                     item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
@@ -9602,7 +9765,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               </span>
                               <ChevronRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
                               <span
-                                className={`inline-flex items-center gap-1 font-bold ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                                className={`inline-flex items-center gap-1 font-bold ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : lowStockModelIds.has(item.model.id) ? 'px-1.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}
                                 title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande, aucune vente n'est possible en l'état.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية، والبيع مستحيل هكّاك.',en:'Stock not itemised by color and size: this total comes from the order counters, no sale is possible as is.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido, no es posible vender así.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda, nao e possivel vender assim.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor, bu haliyle satis mumkun degil.'}) : tx(lang,{fr:'Stock Restant',ar:'المخزون المتبقي',en:'Remaining Stock',es:'Stock Restante',pt:'Stock Restante',tr:'Kalan Stok'})}
                               >
                                 <Warehouse className="w-3.5 h-3.5 shrink-0" />
@@ -9615,6 +9778,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             {item.exitedQty !== item.invoicedQty && (
                               <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
                                 {(item.exitedQty - item.invoicedQty).toLocaleString(dateLocale)} {tx(lang,{fr:'non facturées',ar:'غير مفوترة',en:'not invoiced',es:'sin facturar',pt:'nao faturadas',tr:'faturasiz'})}
+                              </span>
+                            )}
+                            {lowStockModelIds.has(item.model.id) && (
+                              <span className="inline-flex items-center gap-1 mt-1 mr-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 align-middle">
+                                <BellRing className="w-2.5 h-2.5" />
+                                {tx(lang,{fr:'stock bas',ar:'مخزون منخفض',en:'low stock',es:'stock bajo',pt:'stock baixo',tr:'düşük stok'})}
                               </span>
                             )}
                             {item.stockSource === 'FALLBACK' && (
@@ -10653,7 +10822,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
                       {tx(lang,{fr:'Nouvelle entrée',ar:'إدخال جديد',en:'New entry',es:'Nueva entrada',pt:'Nova entrada',tr:'Yeni giris'})}
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Lieu de réception : n'apparaît que si l'entreprise a un
+                          emplacement actif. Par défaut le Dépôt principal, donc une
+                          saisie sans réflexion se range là où elle allait avant. */}
+                      {emplacements.some(e => e.actif) && (
+                        <select
+                          value={entryEmplacement}
+                          onChange={e => setEntryEmplacement(e.target.value)}
+                          aria-label={tx(lang,{fr:'Lieu de réception',ar:'مكان الاستلام',en:'Receiving location',es:'Lugar de recepción',pt:'Local de receção',tr:'Teslim yeri'})}
+                          title={tx(lang,{fr:'Lieu de réception',ar:'مكان الاستلام',en:'Receiving location',es:'Lugar de recepción',pt:'Local de receção',tr:'Teslim yeri'})}
+                          className="min-w-0 max-w-[11rem] truncate bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1 text-[10px] font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        >
+                          <option value="">{tx(lang,{fr:'Dépôt principal',ar:'المخزن الرئيسي',en:'Main depot',es:'Depósito principal',pt:'Depósito principal',tr:'Ana depo'})}</option>
+                          {emplacements.filter(e => e.actif).map(e => <option key={e.id} value={e.id}>{e.nom}</option>)}
+                        </select>
+                      )}
                       {/* Le sélecteur porte la couleur de la qualité choisie : c'est
                           elle qui décide si les pièces entrent au stock vendable,
                           et un mauvais choix passait inaperçu sur un menu neutre. */}
@@ -10824,6 +11008,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             </span>
                             <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft">{batch.total.toLocaleString()} pcs</span>
                             <span className="text-[10px] text-slate-400 dark:text-dk-muted">{batch.date ? fmtDate(batch.date) : '—'}</span>
+                            {/* Où la saisie est entrée : seulement quand ce n'est pas le
+                                Dépôt principal (cas de toutes les entrées d'avant). */}
+                            {(batch.lignes[0] as any)?.emplacement_id && (
+                              <span className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 truncate">
+                                → {emplacements.find(e => e.id === (batch.lignes[0] as any).emplacement_id)?.nom || (batch.lignes[0] as any).emplacement_id}
+                              </span>
+                            )}
                           </span>
                           <button
                             type="button"
@@ -13970,6 +14161,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </label>
                   <input type="date" value={achatDate} onChange={e => setAchatDate(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
                 </div>
+                {/* Lieu de réception : seulement si l'entreprise a un emplacement
+                    actif. Par défaut le Dépôt principal, comme avant. */}
+                {emplacements.some(e => e.actif) && (
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                      {tx(lang,{fr:'Lieu de réception',ar:'مكان الاستلام',en:'Receiving location',es:'Lugar de recepción',pt:'Local de receção',tr:'Teslim yeri'})}
+                    </label>
+                    <select
+                      value={achatEmplacement}
+                      onChange={e => setAchatEmplacement(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                    >
+                      <option value="">{tx(lang,{fr:'Dépôt principal',ar:'المخزن الرئيسي',en:'Main depot',es:'Depósito principal',pt:'Depósito principal',tr:'Ana depo'})}</option>
+                      {emplacements.filter(e => e.actif).map(e => <option key={e.id} value={e.id}>{e.nom}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Fournisseur — choisi dans le registre, ou créé sur place :

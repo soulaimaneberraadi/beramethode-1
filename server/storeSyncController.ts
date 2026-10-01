@@ -4,6 +4,7 @@ import db from './db';
 import { getAdapter, PLATEFORMES } from './storeAdapters';
 import type { StoreConfigRow, StoreMappingRow } from './storeAdapters/types';
 import { chiffrerToken, dechiffrerToken, dechiffrerConfig } from './storeSecrets';
+import { normaliserEmplacement, emplacementDe, aDesEmplacements, nomEmplacement, stockParCellule, cleCellule, nomModele as nomModeleOuArticle } from './emplacementsController';
 
 /**
  * Synchronisation avec une BOUTIQUE EN LIGNE.
@@ -52,6 +53,8 @@ const publicConfig = (row: any) => ({
     boutique_url: row.boutique_url,
     token_masque: masquerToken(dechiffrerToken(row.token)),
     location_id: row.location_id,
+    // Emplacement de stock qui sert la boutique (null = Dépôt principal).
+    emplacement_id: normaliserEmplacement(row.emplacement_id),
     actif: Number(row.actif) ? 1 : 0,
     marge_securite: Number(row.marge_securite) || 0,
     derniere_sync: row.derniere_sync,
@@ -68,23 +71,48 @@ export const lireConfig = (companyId: number | string, storeId: string): StoreCo
 export const cellKey = (couleur: any, taille: any) => `${String(couleur ?? '')}|${String(taille ?? '')}`;
 
 /**
- * STOCK LOCAL par cellule, pour un modèle.
+ * Emplacement qui SERT une boutique en ligne (NULL = Dépôt principal).
+ *
+ * Un identifiant qui ne correspond plus à un lieu de l'entreprise (base
+ * restaurée, lieu supprimé à la main) retombe sur le Dépôt principal plutôt que
+ * de lever une erreur : le worker doit pouvoir enregistrer une vente en ligne
+ * déjà faite, quoi qu'il arrive à la configuration. On le dit dans le journal.
+ */
+export const emplacementServantBoutique = (companyId: number | string, brut: unknown): string | null => {
+    const id = normaliserEmplacement(brut);
+    if (!id) return null;
+    if (!emplacementDe(companyId, id)) {
+        console.warn(`[storeSync] l'emplacement « ${id} » de la boutique n'existe plus : Dépôt principal utilisé`);
+        return null;
+    }
+    return id;
+};
+
+/**
+ * STOCK LOCAL par cellule, pour un modèle, AU LIEU qui sert la boutique.
  *
  *   stock_local_cellule = Σ entrées ACCEPTED (couleur, taille)
  *                       − Σ sorties        (couleur, taille)
+ *   … restreint à `emplacementId` (NULL = Dépôt principal).
  *
  * Seules les entrées ACCEPTED comptent : les pièces en REPAIR ou REJECTED
  * existent physiquement mais ne sont PAS vendables — les mettre en ligne
  * reviendrait à vendre un article défectueux.
+ *
+ * Le filtre par lieu est ce qui évite de publier le total de tous les magasins :
+ * une pièce qui dort dans la boutique de Casablanca ne peut pas être vendue
+ * depuis le dépôt qui expédie les colis en ligne. Sans aucun emplacement, toutes
+ * les lignes sont à NULL : le résultat est exactement le total d'avant.
  */
-export const stockLocalParCellule = (companyId: number | string, modelId: string): Map<string, number> => {
+export const stockLocalParCellule = (companyId: number | string, modelId: string, emplacementId: string | null): Map<string, number> => {
     const dispo = new Map<string, number>();
+    const emp = emplacementId ?? '';
     const entrees = db.prepare(
-        "SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_entries WHERE owner_id = ? AND modelId = ? AND qualite = 'ACCEPTED' GROUP BY couleur, taille"
-    ).all(companyId, modelId) as any[];
+        "SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_entries WHERE owner_id = ? AND modelId = ? AND qualite = 'ACCEPTED' AND COALESCE(emplacement_id, '') = ? GROUP BY couleur, taille"
+    ).all(companyId, modelId, emp) as any[];
     const sorties = db.prepare(
-        'SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_sorties WHERE owner_id = ? AND modelId = ? GROUP BY couleur, taille'
-    ).all(companyId, modelId) as any[];
+        "SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_sorties WHERE owner_id = ? AND modelId = ? AND COALESCE(emplacement_id, '') = ? GROUP BY couleur, taille"
+    ).all(companyId, modelId, emp) as any[];
 
     for (const r of entrees) dispo.set(cellKey(r.couleur, r.taille), (dispo.get(cellKey(r.couleur, r.taille)) || 0) + Number(r.q));
     for (const r of sorties) dispo.set(cellKey(r.couleur, r.taille), (dispo.get(cellKey(r.couleur, r.taille)) || 0) - Number(r.q));
@@ -200,9 +228,31 @@ export const saveStoreConfig = (req: Request, res: Response) => {
         const tokenClair = tokenValide ?? dechiffrerToken(existant?.token ?? null);
         const token = chiffrerToken(tokenClair);
 
+        // Emplacement qui sert la boutique. Champ ABSENT (`undefined`) = on garde
+        // l'existant : un écran sans emplacement ne l'envoie jamais et ne doit pas
+        // l'effacer. `null` ou vide = Dépôt principal. Un lieu choisi doit
+        // appartenir à l'entreprise et être actif (un lieu fermé ne peut pas servir
+        // des colis). On ne revalide que si la valeur CHANGE : une boutique déjà
+        // branchée garde son lieu même si l'on corrige juste son nom.
+        const emplacementAvant = normaliserEmplacement(existant?.emplacement_id);
+        let emplacementId: string | null = emplacementAvant;
+        if (p.emplacement_id !== undefined) {
+            const demande = normaliserEmplacement(p.emplacement_id);
+            if (demande !== emplacementAvant) {
+                if (demande) {
+                    const lieu = emplacementDe(companyId, demande);
+                    if (!lieu) return res.status(400).json({ message: 'Emplacement introuvable.' });
+                    if (Number(lieu.actif) !== 1) {
+                        return res.status(400).json({ message: `L'emplacement « ${lieu.nom} » est désactivé : réactivez-le avant de lui confier la boutique en ligne.` });
+                    }
+                }
+                emplacementId = demande;
+            }
+        }
+
         db.prepare(`
-            INSERT INTO st_store_config (id, owner_id, plateforme, nom, boutique_url, token, location_id, actif, marge_securite)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_store_config (id, owner_id, plateforme, nom, boutique_url, token, location_id, actif, marge_securite, emplacement_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 plateforme = excluded.plateforme,
                 nom = excluded.nom,
@@ -211,6 +261,7 @@ export const saveStoreConfig = (req: Request, res: Response) => {
                 location_id = excluded.location_id,
                 actif = excluded.actif,
                 marge_securite = excluded.marge_securite,
+                emplacement_id = excluded.emplacement_id,
                 updated_at = CURRENT_TIMESTAMP
         `).run(
             id,
@@ -222,7 +273,19 @@ export const saveStoreConfig = (req: Request, res: Response) => {
             p.location_id ? String(p.location_id).trim() : (existant?.location_id ?? null),
             p.actif ? 1 : 0,
             Math.max(0, Math.floor(Number(p.marge_securite) || 0)),
+            emplacementId,
         );
+
+        // Le lieu qui sert la boutique vient de changer : la quantité publiée en
+        // ligne était celle de l'ANCIEN lieu. Sans repousse, la vitrine afficherait
+        // un stock périmé jusqu'au prochain passage de synchronisation manuelle.
+        if (existant && emplacementId !== emplacementAvant && p.actif) {
+            const modeles = db.prepare('SELECT DISTINCT modelId FROM st_store_mapping WHERE owner_id = ? AND store_id = ?')
+                .all(companyId, id) as any[];
+            db.transaction(() => {
+                for (const m of modeles) enfilerTache(companyId, id, 'PUSH_STOCK', { modelId: String(m.modelId) });
+            })();
+        }
 
         const saved = db.prepare('SELECT * FROM st_store_config WHERE id = ? AND owner_id = ?').get(id, companyId);
         res.json(publicConfig(saved));
@@ -286,10 +349,17 @@ export const getStoreMapping = (req: Request, res: Response) => {
         // `qte_locale` est recalculée à la lecture, jamais stockée : une quantité
         // figée en base se périmerait à la première entrée de stock et l'écran
         // afficherait un chiffre faux avec l'aplomb d'un chiffre vrai.
+        // Le stock affiché est celui du lieu qui sert CHAQUE boutique (deux
+        // boutiques peuvent être servies par deux lieux différents).
+        const lieuParBoutique = new Map<string, string | null>(
+            (db.prepare('SELECT id, emplacement_id FROM st_store_config WHERE owner_id = ?').all(companyId) as any[])
+                .map(b => [String(b.id), emplacementServantBoutique(companyId, b.emplacement_id)] as [string, string | null])
+        );
         const stocks = new Map<string, Map<string, number>>();
-        const stockDe = (mid: string) => {
-            if (!stocks.has(mid)) stocks.set(mid, stockLocalParCellule(companyId, mid));
-            return stocks.get(mid)!;
+        const stockDe = (mid: string, boutiqueId: string) => {
+            const cle = `${boutiqueId}|${mid}`;
+            if (!stocks.has(cle)) stocks.set(cle, stockLocalParCellule(companyId, mid, lieuParBoutique.get(boutiqueId) ?? null));
+            return stocks.get(cle)!;
         };
 
         res.json(rows.map(r => ({
@@ -303,7 +373,7 @@ export const getStoreMapping = (req: Request, res: Response) => {
             statut: r.statut,
             derniere_erreur: r.derniere_erreur,
             derniere_qte_poussee: r.derniere_qte_poussee,
-            qte_locale: stockDe(r.modelId).get(cellKey(r.couleur, r.taille)) ?? 0,
+            qte_locale: stockDe(r.modelId, String(r.store_id)).get(cellKey(r.couleur, r.taille)) ?? 0,
         })));
     } catch (error) {
         console.error('Get store mapping error:', error);
@@ -330,7 +400,8 @@ export const generateStoreMapping = (req: Request, res: Response) => {
     if (!modelId || !storeId) return res.status(400).json({ message: 'modelId et storeId sont obligatoires' });
 
     try {
-        if (!lireConfig(companyId, storeId)) return res.status(404).json({ message: 'Boutique introuvable' });
+        const boutique = lireConfig(companyId, storeId);
+        if (!boutique) return res.status(404).json({ message: 'Boutique introuvable' });
 
         const cellules = cellulesDuModele(companyId, modelId);
         if (cellules.length === 0) {
@@ -381,7 +452,7 @@ export const generateStoreMapping = (req: Request, res: Response) => {
 
         const rows = db.prepare('SELECT * FROM st_store_mapping WHERE owner_id = ? AND store_id = ? AND modelId = ? ORDER BY couleur, taille')
             .all(companyId, storeId, modelId) as any[];
-        const stock = stockLocalParCellule(companyId, modelId);
+        const stock = stockLocalParCellule(companyId, modelId, emplacementServantBoutique(companyId, boutique.emplacement_id));
 
         res.json({
             crees,
@@ -680,6 +751,98 @@ export const retryStoreOutbox = (req: Request, res: Response) => {
     }
 };
 
+/**
+ * Marqueur écrit dans la `note` d'une sortie en ligne enregistrée alors que le
+ * stock du lieu qui sert la boutique ne couvrait pas la quantité vendue.
+ *
+ * La vente est TOUJOURS enregistrée (elle a déjà eu lieu sur la plateforme : la
+ * refuser ne la ferait pas disparaître, elle rendrait seulement le stock faux).
+ * Le marqueur sert à ne pas laisser le stock négatif passer en silence : le
+ * bandeau de statut liste ces ventes tant que la case reste en manque.
+ */
+export const MARQUEUR_STOCK_INSUFFISANT = '[STOCK_INSUFFISANT]';
+
+export interface VenteEnLigneSansStock {
+    id: string;
+    ref: string | null;
+    date: string | null;
+    modelId: string;
+    modele: string;
+    couleur: string | null;
+    taille: string | null;
+    quantite: number;
+    /** Stock ACTUEL de la case au lieu concerné (négatif tant qu'elle est en manque). */
+    stock: number;
+    emplacement: string;
+}
+
+/** Nombre de lignes détaillées renvoyées : le total, lui, est exact. */
+const VENTES_SANS_STOCK_MAX = 30;
+
+/**
+ * Ventes en ligne enregistrées SANS stock suffisant et dont la case est
+ * TOUJOURS en manque au moment de la lecture.
+ *
+ * Le contrôle est refait à la lecture, pas figé à l'écriture : dès que
+ * l'atelier reçoit ou transfère les pièces manquantes, la case repasse à zéro ou
+ * plus et l'alerte disparaît d'elle-même. Garder l'alerte pour toujours
+ * apprendrait à l'ignorer.
+ *
+ * Sans aucun emplacement, le contrôle n'est pas fait à l'écriture (comportement
+ * historique inchangé) : cette liste est alors vide, sans même interroger la base.
+ */
+const ventesEnLigneSansStock = (companyId: number | string): { total: number; lignes: VenteEnLigneSansStock[] } => {
+    if (!aDesEmplacements(companyId)) return { total: 0, lignes: [] };
+
+    const rows = db.prepare(`
+        SELECT id, modelId, couleur, taille, quantite, date_sortie, external_order_ref, emplacement_id
+        FROM st_stock_sorties
+        WHERE owner_id = ? AND canal = 'ONLINE' AND instr(COALESCE(note, ''), ?) > 0
+        ORDER BY COALESCE(date_sortie, created_at) DESC, created_at DESC
+        LIMIT 500
+    `).all(companyId, MARQUEUR_STOCK_INSUFFISANT) as any[];
+    if (rows.length === 0) return { total: 0, lignes: [] };
+
+    // Une lecture de stock par lieu (et non par ligne) : ces lieux sont peu nombreux.
+    const parLieu = new Map<string, any[]>();
+    for (const r of rows) {
+        const k = String(r.emplacement_id ?? '');
+        parLieu.set(k, [...(parLieu.get(k) ?? []), r]);
+    }
+
+    const enManque: Array<{ r: any; stock: number; lieu: string }> = [];
+    for (const [lieu, liste] of parLieu) {
+        const dispo = stockParCellule(companyId, lieu || null, [...new Set(liste.map(r => String(r.modelId)))]);
+        for (const r of liste) {
+            const stock = dispo.get(cleCellule(r.modelId, r.couleur, r.taille)) ?? 0;
+            if (stock < 0) enManque.push({ r, stock, lieu });
+        }
+    }
+    enManque.sort((a, b) => String(b.r.date_sortie ?? '').localeCompare(String(a.r.date_sortie ?? '')));
+
+    const noms = new Map<string, string>();
+    const nomDe = (mid: string) => {
+        if (!noms.has(mid)) noms.set(mid, nomModeleOuArticle(companyId, mid));
+        return noms.get(mid)!;
+    };
+
+    return {
+        total: enManque.length,
+        lignes: enManque.slice(0, VENTES_SANS_STOCK_MAX).map(({ r, stock, lieu }) => ({
+            id: String(r.id),
+            ref: r.external_order_ref ?? null,
+            date: r.date_sortie ?? null,
+            modelId: String(r.modelId),
+            modele: nomDe(String(r.modelId)),
+            couleur: r.couleur ?? null,
+            taille: r.taille ?? null,
+            quantite: Number(r.quantite) || 0,
+            stock,
+            emplacement: nomEmplacement(companyId, lieu || null),
+        })),
+    };
+};
+
 /** Bandeau de statut : ce que l'exploitant doit voir sans cliquer. */
 export const getStoreStatus = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
@@ -711,6 +874,8 @@ export const getStoreStatus = (req: Request, res: Response) => {
             en_attente: Number(enAttente?.n) || 0,
             en_erreur: Number(enErreur?.n) || 0,
             modeles_mappes: Number(modeles?.n) || 0,
+            // Ventes en ligne passées au-delà du stock du lieu (vide sans emplacement).
+            ventes_sans_stock: ventesEnLigneSansStock(companyId),
         });
     } catch (error) {
         console.error('Get store status error:', error);

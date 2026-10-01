@@ -39,6 +39,18 @@ export const emplacementDe = (companyId: number | string, id: string): Emplaceme
 export const aDesEmplacements = (companyId: number | string): boolean =>
     !!db.prepare('SELECT 1 FROM st_emplacements WHERE owner_id = ? LIMIT 1').get(companyId);
 
+/** Noms des boutiques en ligne servies par cet emplacement (vide = aucune).
+ *  Une boutique en ligne publie le stock de SON lieu : désactiver ou supprimer ce
+ *  lieu la ferait publier un stock qui n'existe plus. */
+export const boutiquesServies = (companyId: number | string, emplacementId: string): string[] => {
+    try {
+        return (db.prepare("SELECT COALESCE(NULLIF(TRIM(nom), ''), plateforme) AS nom FROM st_store_config WHERE owner_id = ? AND emplacement_id = ?")
+            .all(companyId, emplacementId) as Array<{ nom: string }>).map(r => String(r.nom));
+    } catch {
+        return []; // table boutique absente (base très ancienne) : aucun lien possible
+    }
+};
+
 /** Vrai si l'entreprise a déjà transféré du stock : c'est la seule situation où
  *  le stock d'un emplacement peut s'écarter du stock total. */
 export const aDesTransferts = (companyId: number | string): boolean =>
@@ -55,7 +67,7 @@ export const cleCellule = (modelId: unknown, couleur: unknown, taille: unknown):
     `${String(modelId ?? '')}|${String(couleur ?? '')}|${String(taille ?? '')}`;
 
 /** Nom d'un modèle ou d'un article acheté, pour des messages lisibles. */
-const nomModele = (companyId: number | string, modelId: string): string => {
+export const nomModele = (companyId: number | string, modelId: string): string => {
     try {
         const article = db.prepare('SELECT nom FROM st_articles WHERE id = ? AND owner_id = ?').get(modelId, companyId) as { nom?: string } | undefined;
         if (article?.nom) return article.nom;
@@ -146,6 +158,7 @@ export const getEmplacements = (req: Request, res: Response) => {
             createdAt: r.createdAt,
             pieces: pieces.get(String(r.id)) || 0,
             nbMouvements: nbMouvements(companyId, String(r.id)),
+            boutiquesEnLigne: boutiquesServies(companyId, String(r.id)),
         })));
     } catch (error) {
         console.error('Get emplacements error:', error);
@@ -197,6 +210,10 @@ export const saveEmplacement = (req: Request, res: Response) => {
         // des sélecteurs tout en les comptant dans le stock total : on demande
         // de les transférer d'abord.
         if (actif === 0 && Number(existant.actif) === 1) {
+            const servies = boutiquesServies(companyId, id);
+            if (servies.length > 0) {
+                return res.status(409).json({ message: `Cet emplacement sert la boutique en ligne « ${servies.join(', ')} » : choisissez un autre emplacement pour la boutique (Réglages) avant de le désactiver.` });
+            }
             const restant = piecesParEmplacement(companyId).get(id) || 0;
             if (restant > 0) {
                 return res.status(409).json({ message: `Cet emplacement porte encore ${restant} pièce(s) : transférez-les d'abord ailleurs avant de le désactiver.` });
@@ -219,6 +236,10 @@ export const deleteEmplacement = (req: Request, res: Response) => {
     const id = req.params.id;
     try {
         if (!emplacementDe(companyId, id)) return res.status(404).json({ message: 'Emplacement introuvable.' });
+        const servies = boutiquesServies(companyId, id);
+        if (servies.length > 0) {
+            return res.status(409).json({ message: `Cet emplacement sert la boutique en ligne « ${servies.join(', ')} » : choisissez un autre emplacement pour la boutique (Réglages) avant de le supprimer.` });
+        }
         if (nbMouvements(companyId, id) > 0) {
             return res.status(409).json({ message: 'Cet emplacement a des mouvements de stock : on ne peut que le désactiver, pour garder son historique lisible.' });
         }
@@ -451,13 +472,17 @@ const cellulesNegatives = (companyId: number | string, modelIds: string[]): Map<
  * et l'annule si elle creuse un emplacement en négatif. Renvoie le message de
  * refus, ou `null` si tout est passé.
  *
- * Ne change RIEN pour une entreprise qui n'a jamais transféré de stock : sans
- * transfert, le stock d'un lieu ne peut pas diverger du total, que les
- * contrôles historiques vérifient déjà.
+ * Ne change RIEN pour une entreprise sans emplacement : sans lieu, le stock ne
+ * peut pas diverger du total, que les contrôles historiques vérifient déjà.
  */
 export const supprimerEntreesSansCreuser = (companyId: number | string, modelIds: Array<string | null | undefined>, suppression: () => void): string | null => {
     const ids = [...new Set(modelIds.filter((m): m is string => !!m).map(String))];
-    const surveille = aDesTransferts(companyId) && ids.length > 0;
+    // Un lieu peut diverger du total dès qu'on a créé un emplacement : par un
+    // transfert, mais aussi par une réception ou un achat rangé directement dans
+    // un lieu (`emplacement_id` choisi à la saisie). Surveiller seulement les
+    // transferts laisserait supprimer une réception dont les pièces sont déjà
+    // sorties de ce lieu. Sans aucun emplacement : rien n'est surveillé, comme avant.
+    const surveille = (aDesTransferts(companyId) || aDesEmplacements(companyId)) && ids.length > 0;
     try {
         db.transaction(() => {
             const avant = surveille ? cellulesNegatives(companyId, ids) : null;

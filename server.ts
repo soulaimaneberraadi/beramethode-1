@@ -86,7 +86,8 @@ import {
   deleteMaterialMove,
 } from './server/subcontractController';
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
-import { getCaisseJournal, annulerTicketCaisse, getCaisseTicket, retournerTicketCaisse } from './server/caisseController';
+import { convertirDevis } from './server/devisController';
+import { getCaisseJournal, annulerTicketCaisse, getCaisseTicket, retournerTicketCaisse, getAvoirCaisse, listAvoirsCaisse, enregistrerReglementsCaisse, annulerReglementsCaisse } from './server/caisseController';
 import { getVentesDashboard, getVentesEncours, getVentesEncoursClient, getClientHistorique, getRecuPaiement } from './server/ventesDashboardController';
 import { getVentesAxe } from './server/ventesAxeController';
 import { getGaranties, saveGarantie, changerStatutGarantie, deleteGarantie } from './server/garantiesController';
@@ -830,6 +831,17 @@ async function startServer() {
   // reste bornee a un seul jour.
   app.get('/api/subcontract/caisse/ticket/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseTicket);
   app.post('/api/subcontract/caisse/retour', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), retournerTicketCaisse);
+  // Avoirs de caisse (credit de retour) : lecture d'un code, liste des avoirs
+  // ouverts. `/avoirs` AVANT `/avoir/:code` n'est pas necessaire (chemins
+  // distincts), mais tout reste sous `/caisse/` : le shim hors-ligne les route
+  // vers le serveur par le simple fait qu'ils contiennent un « / ».
+  app.get('/api/subcontract/caisse/avoirs', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), listAvoirsCaisse);
+  app.get('/api/subcontract/caisse/avoir/:code', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getAvoirCaisse);
+  // Ventilation du reglement d'un ticket (avoir, acompte, credit) : consomme les
+  // avoirs de facon atomique, AVANT les sorties de stock ; la route DELETE rend
+  // l'avoir si la vente n'a finalement pas eu lieu.
+  app.post('/api/subcontract/caisse/reglements', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), enregistrerReglementsCaisse);
+  app.delete('/api/subcontract/caisse/reglements/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), annulerReglementsCaisse);
   // Facture de VENTE construite à partir de sorties déjà réalisées — c'est ce
   // qui relie enfin « ce qui est sorti » à « ce qui est payé ».
   app.post('/api/subcontract/clients/facturer', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createClientInvoice);
@@ -887,6 +899,9 @@ async function startServer() {
   app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
   app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
   app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);
+  // Devis → vente atomique : stock + sorties + statut ACCEPTE en une transaction
+  // (permission 'edit' sous-traitance : elle sort du stock fini, comme /stock-sorties).
+  app.post('/api/subcontract/devis/:factureId/convertir', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), convertirDevis);
   // Fiche client agrégée (ventes, CA, tarifs négociés).
   app.get('/api/clients/:id/dossier', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClientDossier);
 

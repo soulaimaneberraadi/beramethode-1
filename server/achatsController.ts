@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import db from './db';
-import { supprimerEntreesSansCreuser } from './emplacementsController';
+import { supprimerEntreesSansCreuser, normaliserEmplacement, emplacementDe } from './emplacementsController';
 
 /**
  * ACHAT DE MARCHANDISE FINIE.
@@ -239,6 +239,19 @@ export const createAchat = (req: Request, res: Response) => {
             tiersId = tiers ? demande : null;
         }
 
+        // Lieu de réception de la marchandise. Vide = Dépôt principal (NULL) : une
+        // entreprise sans emplacement n'envoie rien et ne voit aucune différence.
+        // Le lieu doit appartenir à l'entreprise et être actif — même règle que la
+        // réception d'une commande de sous-traitance et l'arrivée d'un transfert.
+        const emplacementId = normaliserEmplacement(body.emplacement_id);
+        if (emplacementId) {
+            const lieu = emplacementDe(companyId, emplacementId);
+            if (!lieu) return res.status(400).json({ message: 'Emplacement introuvable.' });
+            if (Number(lieu.actif) !== 1) {
+                return res.status(400).json({ message: `L'emplacement « ${lieu.nom} » est désactivé : réactivez-le avant d'y recevoir du stock.` });
+            }
+        }
+
         const totalQty = normalisees.reduce((a, l) => a + l.quantite, 0);
         const montantDu = totalQty * prixAchat;
         // Jamais plus payé que dû : un trop-payé est une faute de frappe, pas
@@ -269,8 +282,8 @@ export const createAchat = (req: Request, res: Response) => {
             const batchId = randomUUID();
             const insert = db.prepare(`
                 INSERT INTO st_stock_entries
-                    (id, owner_id, order_id, modelId, couleur, taille, quantite, qualite, note, date_entree, batch_id, source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'ACCEPTED', ?, ?, ?, 'ACHAT')
+                    (id, owner_id, order_id, modelId, couleur, taille, quantite, qualite, note, date_entree, batch_id, source, emplacement_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'ACCEPTED', ?, ?, ?, 'ACHAT', ?)
             `);
             for (const l of normalisees) {
                 insert.run(
@@ -284,6 +297,7 @@ export const createAchat = (req: Request, res: Response) => {
                     String(body.note ?? '').trim() || null,
                     dateAchat,
                     batchId,
+                    emplacementId,
                 );
             }
         });

@@ -48,6 +48,9 @@ export interface StoreConfigRow {
     derniere_sync: string | null;
     derniere_erreur: string | null;
     orders_cursor: string | null;
+    /** Emplacement de stock qui sert cette boutique (NULL = Dépôt principal).
+     *  Optionnel : une ligne lue avant la migration n'a pas la colonne. */
+    emplacement_id?: string | null;
 }
 
 /** Commande lue chez la plateforme, réduite à ce dont le stock a besoin. */

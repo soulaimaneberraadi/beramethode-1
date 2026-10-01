@@ -1735,11 +1735,11 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
         }
     };
 
-    /** Transforme un devis en vente réelle : vérifie le stock cellule par
-     *  cellule AVANT tout envoi (un refus partiel laisserait un devis à moitié
-     *  transformé, invisible depuis cet écran), poste une sortie de stock PAR
-     *  MODÈLE — même découpage que `submitSortie` du parent, l'endpoint ne
-     *  connaît qu'un modèle à la fois — puis marque le devis ACCEPTE.
+    /** Transforme un devis en vente réelle. Le contrôle de stock local ci-dessous
+     *  n'est qu'un confort (réponse immédiate, sans aller-retour) ; la conversion
+     *  elle-même est ATOMIQUE côté serveur (`POST /api/subcontract/devis/:id/convertir`) :
+     *  sorties de stock par modèle + passage du devis en ACCEPTE dans une seule
+     *  transaction, et refus 409 si le devis est déjà transformé.
      */
     const convertDevisToVente = async (devis: any) => {
         setDevisActionError(null);
@@ -1764,34 +1764,40 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
 
         setDevisActionId(devis.id);
         try {
-            const parModele = new Map<string, any[]>();
-            lignes.forEach((l: any) => {
-                const arr = parModele.get(l.modelId) || [];
-                arr.push(l);
-                parModele.set(l.modelId, arr);
+            // UN seul appel : le serveur contrôle le stock, écrit les sorties et
+            // passe le devis en ACCEPTE dans la même transaction. Plus d'état
+            // intermédiaire possible (stock sorti mais devis encore transformable).
+            const res = await fetch(`/api/subcontract/devis/${encodeURIComponent(String(devis.id))}/convertir`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}',
             });
-            const batchIds: string[] = [];
-            for (const [modelId, lignesModele] of parModele) {
-                const res = await fetch('/api/subcontract/stock-sorties', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        modelId,
-                        client_id: record?.id || null,
-                        client_nom: record?.nom || null,
-                        date_sortie: new Date().toISOString().split('T')[0],
-                        type_vente: 'GROS',
-                        note: `Devis ${devis.numero}`,
-                        lignes: lignesModele.map((l: any) => ({ couleur: l.couleur, taille: l.taille, quantite: l.quantite, prix_unitaire: l.prix_unitaire })),
-                    }),
-                });
-                const body = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(body?.message || 'sortie');
-                batchIds.push(body.batch_id);
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                // Le serveur a refusé : rien n'a été écrit. Stock réellement
+                // insuffisant (autre vente entre-temps) → même encart que le
+                // contrôle local ; devis déjà transformé ailleurs → on rafraîchit.
+                if (body?.code === 'STOCK_INSUFFISANT' && Array.isArray(body.cells)) {
+                    setDevisShortfall({
+                        devisId: devis.id,
+                        cells: body.cells.map((c: any) => ({
+                            modelNom: models.find(m => m.id === c.modelId)?.meta_data?.nom_modele || c.modelNom || String(c.modelId),
+                            couleur: c.couleur || '—',
+                            taille: c.taille || '—',
+                            manque: Number(c.manque) || 0,
+                        })),
+                    });
+                    return;
+                }
+                if (body?.code === 'DEJA_CONVERTI') {
+                    loadClientDevis();
+                    onInvoiced?.();
+                }
+                throw new Error(body?.message || body?.error || 'convertir');
             }
 
-            await updateDevisStatut(devis, 'ACCEPTE', `${devis.notes ? devis.notes + ' — ' : ''}Transformé en vente (lot ${batchIds.join(', ')})`);
+            loadClientDevis();
             onInvoiced?.();
         } catch (e: any) {
             setDevisActionError(e?.message || tx(lang, { fr: 'La transformation en vente a échoué.', ar: 'فشل التحويل إلى بيع.', en: 'Converting to a sale failed.', es: 'La conversión en venta falló.', pt: 'A conversão em venda falhou.', tr: 'Satışa dönüştürme başarısız.' }));

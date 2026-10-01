@@ -1214,6 +1214,13 @@ db.exec(`
 `);
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_store_config_owner ON st_store_config (owner_id)'); } catch { /* index déjà présent */ }
 
+// Emplacement de stock qui SERT la boutique en ligne. NULL = Dépôt principal
+// (l'absence d'emplacement, comme partout ailleurs). C'est de CE lieu que sont
+// décomptées les ventes en ligne et c'est SON stock qui est publié sur la
+// plateforme : sans cela, la boutique en ligne annoncerait le total de tous les
+// lieux et vendrait des pièces qui dorment dans un autre magasin.
+try { db.exec('ALTER TABLE st_store_config ADD COLUMN emplacement_id TEXT'); } catch { /* colonne déjà présente */ }
+
 // Le PONT, à la maille CELLULE (modèle × couleur × taille).
 //
 // L'atelier raisonne « un modèle, une matrice couleur × taille ». Une boutique
@@ -1440,6 +1447,56 @@ db.exec(`
   )
 `);
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_transferts_owner ON st_transferts (owner_id, created_at)'); } catch { /* déjà présent */ }
+
+// ── Avoirs de caisse (crédit client) et ventilation des règlements ──────────
+// Un avoir naît d'un retour que le client préfère garder en crédit plutôt qu'en
+// espèces : aucun argent ne sort du tiroir, mais le magasin DOIT désormais cette
+// valeur. `montant_utilise` grimpe à chaque encaissement qui s'en sert ; la
+// ligne n'est jamais supprimée (l'historique d'un avoir soldé reste lisible).
+// Le code est unique PAR ENTREPRISE : deux entreprises peuvent tirer le même
+// code court sans se voir ni se bloquer.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_avoirs (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    code TEXT NOT NULL,
+    client_id TEXT,
+    ticket_ref TEXT,
+    montant REAL NOT NULL DEFAULT 0,
+    montant_utilise REAL NOT NULL DEFAULT 0,
+    statut TEXT NOT NULL DEFAULT 'OUVERT',   -- OUVERT | SOLDE | ANNULE
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_st_avoirs_owner_code ON st_avoirs (owner_id, code)'); } catch { /* déjà présent */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_avoirs_owner_statut ON st_avoirs (owner_id, statut)'); } catch { /* déjà présent */ }
+
+// Comment UN ticket de caisse a été réglé, moyen par moyen. Sans cette table, un
+// ticket n'a qu'un seul `mode_paiement` : impossible de dire qu'un achat de 300
+// a été payé 100 d'avoir + 50 d'acompte espèces + 150 à crédit, et le fond de
+// caisse compterait ces 300 en espèces. Montant POSITIF = vente réglée ainsi ;
+// NÉGATIF = retour remboursé ainsi (ex. un avoir émis). `date_jour` est le jour
+// des sorties que la ligne couvre : un retour fait le lendemain tombe dans la
+// journée du lendemain, pas dans celle de la vente. `avoir_id` est renseigné
+// pour les lignes AVOIR : c'est ce lien qui permet de rendre un avoir quand on
+// annule le ticket qui l'a consommé.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_caisse_reglements (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    ticket_ref TEXT NOT NULL,
+    date_jour TEXT NOT NULL,
+    mode TEXT NOT NULL,                      -- ESPECES | CARTE | CHEQUE | VIREMENT | AVOIR | CREDIT
+    montant REAL NOT NULL,
+    avoir_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_caisse_reglements_ticket ON st_caisse_reglements (owner_id, ticket_ref)'); } catch { /* déjà présent */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_caisse_reglements_jour ON st_caisse_reglements (owner_id, date_jour)'); } catch { /* déjà présent */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS subcontractor_profiles (
@@ -2485,6 +2542,15 @@ for (const col of ['tiers_type', 'tiers_ville']) {
     // colonne déjà présente
   }
 }
+
+// Mentions legales (emetteur, delai, penalite) : leurs ALTER plus haut tournent
+// AVANT le CREATE TABLE factures. Sur une base neuve (premiere installation,
+// nouvelle entreprise) ils echouaient donc en silence, et la premiere facture
+// tombait sur « no column named emetteur ». On les rejoue ici, une fois la
+// table creee ; sur une base existante, ils ne font rien.
+try { db.exec("ALTER TABLE factures ADD COLUMN emetteur TEXT"); } catch { /* deja presente */ }
+try { db.exec("ALTER TABLE factures ADD COLUMN conditions_paiement TEXT"); } catch { /* deja presente */ }
+try { db.exec("ALTER TABLE factures ADD COLUMN penalite_retard REAL"); } catch { /* deja presente */ }
 
 try {
   const legacyInvoices = db
