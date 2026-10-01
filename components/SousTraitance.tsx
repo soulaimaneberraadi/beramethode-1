@@ -17,6 +17,11 @@ import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import VentesDashboard, { VentesDetailKey } from './VentesDashboard';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
 import Inventaire, { InventaireItem } from './soustraitance/Inventaire';
+import Transferts from './soustraitance/Transferts';
+import {
+  type Emplacement, CHOIX_TOUS, CHOIX_PRINCIPAL, filtreDepuisChoix, construireMatriceStock, statsAuLieu,
+  lireEmplacementCaisse, ecrireEmplacementCaisse,
+} from '../lib/stockEmplacements';
 import SeuilForm, { StockSeuil, isModelLowStock, SeuilBell } from './soustraitance/SeuilsStock';
 import MatieresSousTraitant from './soustraitance/MatieresSousTraitant';
 import CompteSousTraitant from './soustraitance/CompteSousTraitant';
@@ -37,7 +42,7 @@ import {
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
-  Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload, TrendingUp, BellRing, ClipboardList
+  Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload, TrendingUp, BellRing, ClipboardList, ArrowLeftRight
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -1154,6 +1159,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  XL bleus), donc l'écran a besoin du détail, pas seulement des totaux. */
   const [allStockEntries, setAllStockEntries] = useState<any[]>([]);
   const [allStockSorties, setAllStockSorties] = useState<any[]>([]);
+  /** Emplacements de stock (dépôts, boutiques). Vide tant que l'entreprise n'en
+   *  a créé aucun : tout l'écran se comporte alors EXACTEMENT comme avant. Le
+   *  Dépôt principal n'en fait pas partie — c'est le stock sans emplacement. */
+  const [emplacements, setEmplacements] = useState<Emplacement[]>([]);
+  /** Lieu regardé dans l'onglet Stock : 'ALL' (le total, défaut), 'PRINCIPAL'
+   *  ou l'identifiant d'un emplacement. */
+  const [stockEmplacement, setStockEmplacement] = useState<string>(CHOIX_TOUS);
+  const [transfertsOpen, setTransfertsOpen] = useState(false);
+  /** Lieu de CETTE caisse : préférence du poste (localStorage), pas du compte —
+   *  deux caisses d'une même entreprise ne sont pas dans la même boutique.
+   *  null = Dépôt principal. */
+  const [caisseEmplacementId, setCaisseEmplacementId] = useState<string | null>(() => lireEmplacementCaisse());
   /** Pile des fiches ouvertes (modèle ↔ client). Une pile, et pas un simple
    *  identifiant, parce qu'on doit pouvoir descendre « modèle → client → autre
    *  modèle » puis remonter : sans elle, chaque fiche serait un cul-de-sac. */
@@ -3018,6 +3035,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             type_vente: payload.typeVente,
             ticket_ref: ticketRef,
             note: `CAISSE ${payload.typeVente} ${payload.paiement}`,
+            // La vente part du lieu de CETTE caisse (null = Dépôt principal, donc
+            // l'ancien comportement) : le serveur y contrôle le stock.
+            emplacement_id: caisseEmplacementEffectif,
             lignes,
             // Rejoue cote serveur la limite « remise max vendeur » : l'ecran
             // a deja bloque au-dela, ceci empeche un appel direct de passer a cote.
@@ -3238,6 +3258,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setStockSeuils(Array.isArray(data) ? data : []);
     } catch {
       // Hors-ligne : aucune alerte de stock bas tant que la liste n'est pas revenue.
+    }
+  };
+
+  /** Emplacements de stock : lus avec les mouvements, car le sélecteur de lieu,
+   *  la caisse et l'inventaire en ont besoin dès l'ouverture. Une liste vide
+   *  (aucun emplacement créé, ou pas de serveur) laisse l'écran inchangé. */
+  const loadEmplacements = async () => {
+    try {
+      const res = await fetch('/api/subcontract/emplacements', { credentials: 'include' });
+      const data = res.ok ? await res.json() : [];
+      setEmplacements(Array.isArray(data) ? data : []);
+    } catch {
+      // Hors-ligne : on garde la dernière liste connue plutôt que de la vider.
     }
   };
 
@@ -3683,6 +3716,54 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   }, [allStockEntries, allStockSorties]);
   stockMatrixRef.current = stockMatrixByModel;
 
+  /** Stock d'UN emplacement (null = Dépôt principal), même forme que
+   *  `stockMatrixByModel`. Ce dernier reste le TOTAL tous lieux confondus, que
+   *  lisent les étiquettes, le référentiel, les seuils et le reste de l'écran. */
+  const matriceEmplacement = useCallback(
+    (emplacementId: string | null) => construireMatriceStock(allStockEntries, allStockSorties, emplacementId),
+    [allStockEntries, allStockSorties],
+  );
+
+  /** Stock du Dépôt principal : celui d'où partent la sortie de stock, la
+   *  commande « normale » et la conversion d'un devis (le serveur les contrôle
+   *  au principal). Sans aucun emplacement créé, c'est le total lui-même — le
+   *  même objet — donc rien ne change pour qui n'a qu'un seul lieu. */
+  const stockMatrixPrincipal = useMemo(
+    () => (emplacements.length === 0 ? stockMatrixByModel : matriceEmplacement(null)),
+    [emplacements.length, stockMatrixByModel, matriceEmplacement],
+  );
+
+  /** Lieu réellement utilisé par CETTE caisse. Un identifiant gardé dans le
+   *  navigateur mais désactivé ou supprimé depuis retombe sur le Dépôt
+   *  principal : mieux vaut vendre du stock qu'on voit que d'un lieu fermé. */
+  const caisseEmplacementEffectif = useMemo(
+    () => (caisseEmplacementId && emplacements.some(e => e.actif && e.id === caisseEmplacementId) ? caisseEmplacementId : null),
+    [caisseEmplacementId, emplacements],
+  );
+
+  /** Stock que voit la caisse : celui de SON lieu, pour que les plafonds de
+   *  vente collent à ce qu'il y a dans la boutique. Sans emplacement : le total. */
+  const stockMatrixCaisse = useMemo(
+    () => (emplacements.length === 0 ? stockMatrixByModel : matriceEmplacement(caisseEmplacementEffectif)),
+    [emplacements.length, stockMatrixByModel, matriceEmplacement, caisseEmplacementEffectif],
+  );
+
+  /** Lieu regardé dans l'onglet Stock. Sans emplacement, ou si celui choisi a
+   *  disparu depuis, on retombe sur « Tous » : l'écran d'avant. */
+  const stockEmplacementEffectif = useMemo(() => {
+    if (emplacements.length === 0) return CHOIX_TOUS;
+    if (stockEmplacement === CHOIX_TOUS || stockEmplacement === CHOIX_PRINCIPAL) return stockEmplacement;
+    return emplacements.some(e => e.id === stockEmplacement) ? stockEmplacement : CHOIX_TOUS;
+  }, [emplacements, stockEmplacement]);
+
+  /** Le stock que l'onglet Stock affiche dans la grille de chaque carte. */
+  const stockMatrixVue = useMemo(
+    () => (stockEmplacementEffectif === CHOIX_TOUS
+      ? stockMatrixByModel
+      : matriceEmplacement(filtreDepuisChoix(stockEmplacementEffectif) ?? null)),
+    [stockEmplacementEffectif, stockMatrixByModel, matriceEmplacement],
+  );
+
   /** Le stock réel, remis à la forme attendue par l'étiqueteuse (couleur →
    *  taille → quantité). Une étiquette se colle sur une pièce QUI EXISTE : on
    *  part des mouvements, pas de la quantité commandée. Les cellules vides ou
@@ -3821,12 +3902,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   useEffect(() => {
     const rafraichir = (e: Event) => {
       const quoi = (e as CustomEvent)?.detail?.scope as string | undefined;
-      if (!quoi || quoi === 'stock') { void loadMagasinData(); void loadStockMovements(); }
+      if (!quoi || quoi === 'stock') { void loadMagasinData(); void loadStockMovements(); void loadEmplacements(); }
       if (!quoi || quoi === 'clients') { void loadAtelierClients(); }
       if (!quoi || quoi === 'commandes') { void fetchData(); }
     };
     const auRetour = () => {
-      if (document.visibilityState === 'visible') { void loadMagasinData(); void loadStockMovements(); }
+      if (document.visibilityState === 'visible') { void loadMagasinData(); void loadStockMovements(); void loadEmplacements(); }
     };
     window.addEventListener('bera:soustraitance-refresh', rafraichir);
     document.addEventListener('visibilitychange', auRetour);
@@ -3845,6 +3926,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     loadStockMovements();
     loadAtelierClients();
     loadStockSeuils();
+    loadEmplacements();
     return () => controller.abort();
   }, []);
 
@@ -5351,13 +5433,41 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   modelStockStatsRef.current = modelStockStats;
 
+  /** Les cartes de l'onglet Stock, vues depuis UN emplacement quand on en a
+   *  choisi un. « Tous » renvoie `modelStockStats` tel quel (même objet) : c'est
+   *  le calcul historique, inchangé. `modelStockStats` lui-même reste le TOTAL —
+   *  la caisse, les seuils et les fiches en dépendent. */
+  const modelStockStatsVue = useMemo(() => {
+    if (stockEmplacementEffectif === CHOIX_TOUS) return modelStockStats;
+    return statsAuLieu(modelStockStats, allStockEntries, allStockSorties, filtreDepuisChoix(stockEmplacementEffectif) ?? null);
+  }, [stockEmplacementEffectif, modelStockStats, allStockEntries, allStockSorties]);
+
+  /** Même calcul pour la fenêtre d'inventaire, qui compte UN lieu à la fois. */
+  const itemsInventairePour = useCallback(
+    (emplacementId: string | null): InventaireItem[] =>
+      statsAuLieu(modelStockStats, allStockEntries, allStockSorties, emplacementId)
+        .map(it => ({ model: it.model, remainingStock: it.remainingStock, price: it.price })),
+    [modelStockStats, allStockEntries, allStockSorties],
+  );
+
+  /** Ce que la fenêtre d'inventaire lit pour le lieu qu'elle compte : ses
+   *  cartes (restant par modèle) et sa matrice couleur × taille. */
+  const vueInventairePour = useCallback(
+    (emplacementId: string | null) => ({ items: itemsInventairePour(emplacementId), matrix: matriceEmplacement(emplacementId) }),
+    [itemsInventairePour, matriceEmplacement],
+  );
+
   /** Modèles sélectionnables pour la commande « normale » : uniquement ceux
    *  avec du stock VENDABLE (réception détaillée faite, reste > 0). Un modèle
    *  non ventilé ou épuisé dans la liste serait une promesse de vente
    *  impossible à tenir. */
   const commandeModelOptions = useMemo(
-    () => modelStockStats.filter(it => it.stockSource === 'DETAIL' && it.remainingStock > 0),
-    [modelStockStats]
+    // Une commande sort du Dépôt principal : dès qu'il existe d'autres lieux,
+    // « du stock vendable » s'entend AU PRINCIPAL, pas dans la boutique d'à côté.
+    // Sans emplacement, c'est le total (même liste qu'avant).
+    () => (emplacements.length === 0 ? modelStockStats : statsAuLieu(modelStockStats, allStockEntries, allStockSorties, null))
+      .filter(it => it.stockSource === 'DETAIL' && it.remainingStock > 0),
+    [modelStockStats, emplacements.length, allStockEntries, allStockSorties]
   );
 
   /** Au moins une ligne de la commande sous le plancher → le garde-fou
@@ -5396,7 +5506,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  par intention. « Non ventilé » isole les lignes qui bloquent une vente. */
   const filteredStockStats = useMemo(() => {
     const q = stockSearch.trim().toLowerCase();
-    return modelStockStats.filter(it => {
+    return modelStockStatsVue.filter(it => {
       if (q) {
         const nom = (it.model.meta_data?.nom_modele || '').toLowerCase();
         const client = (it.model.ficheData?.client || '').toLowerCase();
@@ -5409,7 +5519,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (stockFilter === 'lowStock') return lowStockModelIds.has(it.model.id);
       return true;
     });
-  }, [modelStockStats, stockSearch, stockFilter, lowStockModelIds]);
+  }, [modelStockStatsVue, stockSearch, stockFilter, lowStockModelIds]);
 
   /** Indicateurs de tête. La valeur est calculée au prix de REVIENT (valorisation
    *  comptable du stock) et ignore les modèles sans prix fiable plutôt que de
@@ -5425,14 +5535,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  alerte sur le catalogue entier, pas sur ce qu'on regarde à l'instant. */
   const stockKpis = useMemo(() => {
     let value = 0, available = 0, exited = 0, noPrice = 0;
-    modelStockStats.forEach(it => {
+    modelStockStatsVue.forEach(it => {
       available += it.remainingStock;
       exited += it.exitedQty;
       if (it.price != null) value += it.remainingStock * it.price;
       if (!(it.salePrice != null && it.salePrice > 0)) noPrice += 1;
     });
     return { value, available, exited, noPrice, lowStock: lowStockModelIds.size };
-  }, [modelStockStats, lowStockModelIds]);
+  }, [modelStockStatsVue, lowStockModelIds]);
 
   /** Puces de filtre de l'onglet Stock & Ventes. « Stock bas » n'apparaît que
    *  si au moins un seuil existe : sinon le filtre listerait toujours zéro
@@ -8935,6 +9045,35 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
+              {/* Lieu regardé : n'apparaît qu'à partir du moment où l'entreprise a
+                  créé un second emplacement. « Tous » = le total, l'écran
+                  historique ; les autres puces ne montrent que le stock de CE lieu. */}
+              {emplacements.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold mr-0.5">
+                    {tx(lang,{fr:'Emplacement',ar:'المكان',en:'Location',es:'Ubicación',pt:'Localização',tr:'Konum'})}
+                  </span>
+                  {[
+                    { id: CHOIX_TOUS, label: tx(lang,{fr:'Tous',ar:'الكل',en:'All',es:'Todos',pt:'Todos',tr:'Tümü'}) },
+                    { id: CHOIX_PRINCIPAL, label: tx(lang,{fr:'Dépôt principal',ar:'المخزن الرئيسي',en:'Main depot',es:'Depósito principal',pt:'Depósito principal',tr:'Ana depo'}) },
+                    ...emplacements
+                      .filter(e => e.actif || stockEmplacementEffectif === e.id || (e.pieces ?? 0) > 0)
+                      .map(e => ({ id: e.id, label: e.nom })),
+                  ].map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setStockEmplacement(p.id)}
+                      className={stockEmplacementEffectif === p.id
+                        ? 'px-3 py-1.5 rounded-lg text-[11px] font-bold border bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent transition-colors max-w-[200px] truncate'
+                        : 'px-3 py-1.5 rounded-lg text-[11px] font-bold border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors max-w-[200px] truncate'}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Recherche + filtres d'intention */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                 {/* Cartes vs tableau : la grille couleur x taille reste ouverte
@@ -9009,6 +9148,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 >
                   <ClipboardList className="w-3.5 h-3.5" />
                   {tx(lang,{fr:'Inventaire',ar:'الجرد',en:'Inventory',es:'Inventario',pt:'Inventário',tr:'Envanter'})}
+                </button>
+                {/* Répartir le stock entre dépôt et boutiques, et créer ces
+                    lieux. Le stock total ne bouge pas : un transfert n'est
+                    pas une vente. */}
+                <button
+                  type="button"
+                  onClick={() => setTransfertsOpen(true)}
+                  className="shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:border-indigo-400 dark:hover:border-dk-accent hover:text-indigo-600 dark:hover:text-dk-accent transition-colors"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  {tx(lang,{fr:'Transférer',ar:'تحويل',en:'Transfer',es:'Transferir',pt:'Transferir',tr:'Aktar'})}
                 </button>
                 {/* Acheter n'est pas commander : ici on fait entrer de la
                     marchandise DÉJÀ FINIE, sans gamme ni jalons. Deux gestes
@@ -9575,7 +9725,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           const fiche: any = item.model.ficheData || {};
                           const colors: Array<{ id: string; name: string }> = fiche.colors || [];
                           const sizes: string[] = fiche.sizes || [];
-                          const matrix = stockMatrixByModel.get(item.model.id) || new Map<string, number>();
+                          // La grille suit le lieu choisi (« Tous » = le total d'avant).
+                          const matrix = stockMatrixVue.get(item.model.id) || new Map<string, number>();
                           const at = (c: string, t: string) => matrix.get(`${c}|${t}`) || 0;
                           const hasGrid = colors.length > 0 && sizes.length > 0;
                           return (
@@ -10857,7 +11008,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   const fiche: any = model?.ficheData || {};
                   const colors: Array<{ id: string; name: string }> = fiche.colors || [];
                   const sizes: string[] = fiche.sizes || [];
-                  const matrix = stockMatrixByModel.get(l.modelId) || new Map<string, number>();
+                  // Plafonds au Dépôt principal : c'est là que le serveur contrôle.
+                  const matrix = stockMatrixPrincipal.get(l.modelId) || new Map<string, number>();
                   const dispoCell = (c: string, t: string) => matrix.get(`${c}|${t}`) || 0;
                   const lineQty = commandeLigneTotalQty(l);
                   const lineTotal = lineQty * (Number(l.prix) || 0);
@@ -11277,7 +11429,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           canSeeCost={canSeeCostHere}
           items={modelStockStats.map((it): InventaireItem => ({ model: it.model, remainingStock: it.remainingStock, price: it.price }))}
           stockMatrixByModel={stockMatrixByModel}
-          onValidated={() => { void loadStockMovements(); }}
+          emplacements={emplacements}
+          vueEmplacement={vueInventairePour}
+          onValidated={() => { void loadStockMovements(); void loadEmplacements(); }}
+        />
+      )}
+
+      {/* Transferts entre emplacements + gestion des emplacements. */}
+      {transfertsOpen && (
+        <Transferts
+          onClose={() => setTransfertsOpen(false)}
+          lang={lang}
+          dateLocale={dateLocale}
+          items={modelStockStats.map(it => ({ model: it.model }))}
+          emplacements={emplacements}
+          matriceDe={matriceEmplacement}
+          onEmplacementsChanged={loadEmplacements}
+          onTransferred={async () => { await loadStockMovements(); await loadEmplacements(); }}
         />
       )}
 
@@ -11303,7 +11471,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         onClose={() => setCaisseOpen(false)}
         candidats={caisseCandidats}
         clients={atelierClients}
-        stockMatrix={stockMatrixByModel}
+        stockMatrix={stockMatrixCaisse}
+        emplacements={emplacements}
+        emplacementId={caisseEmplacementEffectif}
+        onEmplacementChange={id => { setCaisseEmplacementId(id); ecrireEmplacementCaisse(id); }}
         currency={currency}
         lang={lang}
         isStatic={SANS_SERVEUR}
@@ -11666,7 +11837,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 const fiche: any = sortieForm.model.ficheData || {};
                 const colors: Array<{ id: string; name: string }> = fiche.colors || [];
                 const sizes: string[] = fiche.sizes || [];
-                const matrix = stockMatrixByModel.get(sortieForm.model.id) || new Map<string, number>();
+                // Plafonds au Dépôt principal : la sortie classique part de là
+                // (le serveur le contrôle). Sans emplacement créé, c'est le total.
+                const matrix = stockMatrixPrincipal.get(sortieForm.model.id) || new Map<string, number>();
                 const dispo = (c: string, t: string) => matrix.get(`${c}|${t}`) || 0;
                 if (colors.length === 0 || sizes.length === 0) {
                   return (
@@ -12120,6 +12293,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           sorties={allStockSorties}
           stats={modelStockStats}
           stockMatrix={stockMatrixByModel}
+          stockMatrixVente={stockMatrixPrincipal}
           currency={currency}
           dateLocale={dateLocale}
           onEditClient={editClientFromSheet}

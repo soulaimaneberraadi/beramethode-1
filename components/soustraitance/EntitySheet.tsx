@@ -65,6 +65,10 @@ interface EntitySheetProps {
     stats: ModelStockStat[];
     /** Stock disponible par modèle, clé « couleur|taille ». */
     stockMatrix: Map<string, Map<string, number>>;
+    /** Stock du Dépôt principal — d'où part la conversion d'un devis en vente
+     *  (le serveur y contrôle le stock). Absent : on retombe sur `stockMatrix`,
+     *  ce qui est exact tant que l'entreprise n'a qu'un seul lieu. */
+    stockMatrixVente?: Map<string, Map<string, number>>;
     currency: string;
     dateLocale: string;
     /** Renvoie vers le formulaire client existant (ClientsPanel) : on ne
@@ -1119,7 +1123,7 @@ interface ClientSheetProps extends Omit<EntitySheetProps, 'stack' | 'onBack' | '
 
 const ClientSheet: React.FC<ClientSheetProps> = ({
     clientId, clientNom, autoOpenInvoice, clients, models, sorties, currency, dateLocale, onPush, onEditClient, onInvoiced, onPrintInvoice,
-    stockMatrix, companyIdentity,
+    stockMatrix, stockMatrixVente, companyIdentity,
 }) => {
     const { lang } = useLang();
     const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
@@ -1745,7 +1749,8 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
 
         const shortfallCells: Array<{ modelNom: string; couleur: string; taille: string; manque: number }> = [];
         lignes.forEach((l: any) => {
-            const dispo = stockMatrix?.get(String(l.modelId))?.get(`${l.couleur || '—'}|${l.taille || '—'}`) || 0;
+            // Le devis devient une sortie du Dépôt principal : c'est SON stock qui plafonne.
+            const dispo = (stockMatrixVente ?? stockMatrix)?.get(String(l.modelId))?.get(`${l.couleur || '—'}|${l.taille || '—'}`) || 0;
             const demande = Number(l.quantite) || 0;
             if (demande > dispo) {
                 const modelNom = models.find(m => m.id === l.modelId)?.meta_data?.nom_modele || String(l.modelId);
@@ -2935,6 +2940,7 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                             sorties={props.sorties}
                             stats={props.stats}
                             stockMatrix={props.stockMatrix}
+                            stockMatrixVente={props.stockMatrixVente}
                             currency={props.currency}
                             dateLocale={props.dateLocale}
                             onPush={props.onPush}

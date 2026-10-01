@@ -357,8 +357,8 @@ export const retournerTicketCaisse = (req: Request, res: Response) => {
             INSERT INTO st_stock_sorties (
                 id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire,
                 batch_id, note, date_sortie, canal, mode_paiement, type_vente, ticket_ref, retour_de,
-                vendeur_id, vendeur_nom
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                vendeur_id, vendeur_nom, emplacement_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         const batchId = randomUUID();
         let montant = 0;
@@ -375,6 +375,9 @@ export const retournerTicketCaisse = (req: Request, res: Response) => {
                     motif ? `RETOUR ${ticket} : ${motif}` : `RETOUR ${ticket}`,
                     date, 'MAGASIN', o.mode_paiement || null, o.type_vente || null, ticket, d.sortieId,
                     vendeurId, vendeurNom,
+                    // La pièce revient là d'où elle est partie : l'emplacement de
+                    // la vente d'origine (NULL = Dépôt principal, comme avant).
+                    o.emplacement_id || null,
                 );
                 montant += Math.abs(d.quantite) * pu;
                 lignesRetournees.push({

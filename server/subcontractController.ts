@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import db from './db';
 import { randomUUID } from 'crypto';
 import { generateNumero } from './facturationController';
+import { supprimerEntreesSansCreuser } from './emplacementsController';
 
 /** Statuts autorisés d'une commande de sous-traitance. */
 const ORDER_STATUSES = ['PENDING', 'IN_COUPE', 'IN_COUTURE', 'IN_FINITION', 'LIVRE_PARTIEL', 'COMPLETED'] as const;
@@ -342,11 +343,14 @@ export const deleteSubcontractOrder = (req: Request, res: Response) => {
 
         // La commande et ses entrées partent ensemble : à moitié supprimée,
         // elle laisserait exactement le stock fantôme qu'on cherche à éviter.
-        const run = db.transaction(() => {
+        // Pièces déjà transférées vers une boutique : le total passe le
+        // contrôle ci-dessus (le transfert se compense) mais le lieu de
+        // réception passerait en négatif — le garde-fou le vérifie par lieu.
+        const refus = supprimerEntreesSansCreuser(companyId, [order.modelId], () => {
             db.prepare('DELETE FROM st_stock_entries WHERE owner_id = ? AND order_id = ?').run(companyId, id);
             db.prepare('DELETE FROM subcontract_orders WHERE id = ? AND owner_id = ?').run(id, companyId);
         });
-        run();
+        if (refus) return res.status(409).json({ message: refus });
 
         res.json({ message: 'Subcontract order deleted successfully', entreesSupprimees: aEntrer });
     } catch (error) {

@@ -17,6 +17,7 @@ import { fmt } from '../app/constants';
 import { resolveScan, attachScannerListener, variantAxes } from '../lib/scanner';
 import { sendToCustomerDisplay, autoConnectDisplay, connectDisplay, isWebSerialSupported, getDisplayConfig } from '../lib/customerDisplay';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
+import type { Emplacement } from '../lib/stockEmplacements';
 import {
   X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check, ArrowLeft,
   Receipt, RotateCcw, Banknote, MoreVertical, Eye, EyeOff, ArrowLeftRight, RefreshCw, GripVertical, Copy,
@@ -124,8 +125,15 @@ export interface CaisseProps {
   /** modèles ET articles achetés, déjà fondus dans la même forme */
   candidats: ModelData[];
   clients: AtelierClient[];
-  /** modelId → « couleur|taille » → quantité réellement disponible */
+  /** modelId → « couleur|taille » → quantité réellement disponible. Quand
+   *  l'entreprise a plusieurs emplacements, c'est le stock du lieu de CETTE caisse. */
   stockMatrix: Map<string, Map<string, number>>;
+  /** Emplacements de stock de l'entreprise (le Dépôt principal n'y figure pas).
+   *  Vide ou absent : la caisse n'a pas de choix de lieu à proposer. */
+  emplacements?: Emplacement[];
+  /** Lieu de cette caisse (null = Dépôt principal). Préférence du POSTE. */
+  emplacementId?: string | null;
+  onEmplacementChange?: (id: string | null) => void;
   currency: string;
   lang: string;
   /** Enregistre la vente. Renvoie un message d'erreur, ou null si tout est passé. */
@@ -348,6 +356,7 @@ const Caisse: React.FC<CaisseProps> = ({
   open, onClose, candidats, clients, stockMatrix, currency, lang, onEncaisser, isStatic,
   initialRecherche, pendingScan, onCreateClient, onTicketAnnule, onClientsChanged,
   onRetourEffectue, remiseMaxVendeur = null, remisePrivilegiee = false,
+  emplacements = [], emplacementId = null, onEmplacementChange,
 }) => {
   const [lignes, setLignes] = useState<CaisseLigne[]>([]);
   const [clientId, setClientId] = useState<string>('');
@@ -1371,6 +1380,10 @@ const Caisse: React.FC<CaisseProps> = ({
     champs: tx(lang, { fr: 'Champs affiches', ar: 'الحقول الظاهرة', en: 'Visible fields', es: 'Campos visibles', pt: 'Campos visiveis', tr: 'Gorunen alanlar' }),
     champMasque: tx(lang, { fr: 'Masquer un champ ne change rien a la vente enregistree.', ar: 'إخفاء حقل ما كيبدّلش البيعة المسجّلة.', en: 'Hiding a field does not change the recorded sale.', es: 'Ocultar un campo no cambia la venta registrada.', pt: 'Ocultar um campo nao muda a venda registada.', tr: 'Bir alani gizlemek kaydedilen satisi degistirmez.' }),
     defaut: tx(lang, { fr: 'Reglages par defaut', ar: 'الإعدادات الأصلية', en: 'Reset layout', es: 'Ajustes originales', pt: 'Definicoes originais', tr: 'Varsayilana don' }),
+    emplacementCaisse: tx(lang, { fr: 'Emplacement de cette caisse', ar: 'مكان هاد الصندوق', en: 'Location of this till', es: 'Ubicacion de esta caja', pt: 'Localizacao desta caixa', tr: 'Bu kasanin konumu' }),
+    emplacementAide: tx(lang, { fr: "Les ventes de ce poste sortent du stock de ce lieu, et les plafonds de vente suivent. Ce choix vaut pour cet appareil seulement.", ar: 'مبيعات هاد الجهاز كتخرج من سطوك هاد المكان، والحدود كتتبعو. هاد الاختيار خاص بهاد الجهاز.', en: "Sales from this device leave this location's stock, and sale limits follow. This choice applies to this device only.", es: 'Las ventas de este equipo salen del stock de este lugar. Esta eleccion vale solo para este equipo.', pt: 'As vendas deste posto saem do stock deste local. Esta escolha vale so para este dispositivo.', tr: 'Bu cihazdaki satislar bu konumun stogundan cikar. Bu secim yalnizca bu cihaz icin gecerlidir.' }),
+    emplacementPanier: tx(lang, { fr: 'Videz le panier avant de changer le lieu de la caisse.', ar: 'فرّغ السلّة قبل ما تبدّل مكان الصندوق.', en: 'Empty the cart before changing the till location.', es: 'Vacie la cesta antes de cambiar la ubicacion de la caja.', pt: 'Esvazie o cesto antes de mudar a localizacao da caixa.', tr: 'Kasa konumunu degistirmeden once sepeti bosaltin.' }),
+    depotPrincipal: tx(lang, { fr: 'Depot principal', ar: 'المخزن الرئيسي', en: 'Main depot', es: 'Deposito principal', pt: 'Deposito principal', tr: 'Ana depo' }),
     voirPanier: tx(lang, { fr: 'Voir le panier', ar: 'شوف السلّة', en: 'View cart', es: 'Ver la cesta', pt: 'Ver o cesto', tr: 'Sepeti gor' }),
     auRayon: tx(lang, { fr: 'Au rayon', ar: 'للرفوف', en: 'Back to shelf', es: 'Al estante', pt: 'As prateleiras', tr: 'Rafa don' }),
     videz: tx(lang, { fr: 'Vider', ar: 'فرّغ', en: 'Clear', es: 'Vaciar', pt: 'Limpar', tr: 'Temizle' }),
@@ -2161,6 +2174,13 @@ const Caisse: React.FC<CaisseProps> = ({
       <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border shrink-0">
         <Store className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />
         <span className="font-extrabold text-slate-800 dark:text-dk-text text-sm sm:text-base truncate">{T.titre}</span>
+        {/* Quel stock cette caisse vend : visible dès qu'il y a plusieurs lieux,
+            pour que le vendeur sache d'où partent les pièces. */}
+        {emplacements.some(e => e.actif) && (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-500 dark:text-dk-muted bg-slate-100 dark:bg-dk-elevated truncate max-w-[110px] sm:max-w-[180px] shrink min-w-0">
+            {emplacements.find(e => e.id === emplacementId)?.nom ?? T.depotPrincipal}
+          </span>
+        )}
         <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
           <ScanLine className="w-4 h-4 animate-pulse" /> {T.scan}
         </span>
@@ -2296,6 +2316,34 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Le lieu de CETTE caisse : une préférence du poste, pas de la mise en
+              page. N'apparaît qu'une fois un emplacement créé ; tant qu'il n'y en
+              a aucun, la caisse vend du stock unique comme avant. Figé pendant
+              qu'un panier est en cours : ses plafonds sont ceux de l'ancien lieu. */}
+          {onEmplacementChange && emplacements.some(e => e.actif) && (
+            <div className="flex items-center gap-2" title={lignes.length > 0 ? T.emplacementPanier : T.emplacementAide}>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.emplacementCaisse}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[{ id: null as string | null, nom: T.depotPrincipal }, ...emplacements.filter(e => e.actif).map(e => ({ id: e.id as string | null, nom: e.nom }))].map(l => {
+                  const choisi = (emplacementId ?? null) === l.id;
+                  return (
+                    <button
+                      key={l.id ?? 'principal'}
+                      type="button"
+                      disabled={lignes.length > 0 && !choisi}
+                      onClick={() => onEmplacementChange(l.id)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${choisi
+                        ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                        : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                    >
+                      <span className="truncate max-w-[160px] block">{l.nom}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Ce que ce commerce pratique. Ce n'est pas de la mise en page :
               c'est le tarif qui part avec la vente. */}

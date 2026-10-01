@@ -4,6 +4,7 @@ import db from './db';
 import { verifierVenteSousCout } from './commercialPolicy';
 import { generateNumero } from './facturationController';
 import { loadUserContext } from './permissionsController';
+import { normaliserEmplacement, emplacementDe, aDesEmplacements, nomEmplacement, supprimerEntreesSansCreuser } from './emplacementsController';
 
 /**
  * Clients de l'atelier (acheteurs des pièces finies).
@@ -358,7 +359,10 @@ const QUALITES = new Set(['ACCEPTED', 'REPAIR', 'REJECTED']);
  *  pouvoir diverger. */
 const syncOrderTotals = (companyId: number, orderId: string) => {
     const rows = db
-        .prepare('SELECT qualite, SUM(quantite) AS total FROM st_stock_entries WHERE owner_id = ? AND order_id = ? GROUP BY qualite')
+        // Un transfert entre emplacements (source 'TRANSFERT') n'est JAMAIS une
+        // réception de commande : ses lignes se compensent (−q / +q) et ne
+        // doivent en aucun cas influencer les compteurs qtyAccepted/…
+        .prepare("SELECT qualite, SUM(quantite) AS total FROM st_stock_entries WHERE owner_id = ? AND order_id = ? AND COALESCE(source, 'ORDER') != 'TRANSFERT' GROUP BY qualite")
         .all(companyId, orderId) as Array<{ qualite: string; total: number }>;
     const byQualite = (q: string) => rows.find(r => r.qualite === q)?.total || 0;
     db.prepare('UPDATE subcontract_orders SET qtyAccepted = ?, qtyToRepair = ?, qtyRejected = ? WHERE id = ? AND owner_id = ?')
@@ -420,7 +424,7 @@ export const createStockEntry = (req: Request, res: Response) => {
             .get(orderId, companyId) as any;
         if (!order) return res.status(404).json({ message: 'Commande introuvable' });
 
-        const already = db.prepare('SELECT COALESCE(SUM(quantite), 0) AS total FROM st_stock_entries WHERE owner_id = ? AND order_id = ?')
+        const already = db.prepare("SELECT COALESCE(SUM(quantite), 0) AS total FROM st_stock_entries WHERE owner_id = ? AND order_id = ? AND COALESCE(source, 'ORDER') != 'TRANSFERT'")
             .get(companyId, orderId) as any;
         const ajout = lignes.reduce((a, l) => a + l.quantite, 0);
         const cumul = (already.total || 0) + ajout;
@@ -467,11 +471,22 @@ export const createStockEntry = (req: Request, res: Response) => {
 export const deleteStockBatch = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     try {
-        const row = db.prepare('SELECT order_id FROM st_stock_entries WHERE batch_id = ? AND owner_id = ? LIMIT 1')
+        const row = db.prepare('SELECT order_id, source FROM st_stock_entries WHERE batch_id = ? AND owner_id = ? LIMIT 1')
             .get(req.params.batchId, companyId) as any;
         if (!row) return res.status(404).json({ message: 'Entrée introuvable' });
+        // Les lignes d'un transfert se compensent deux à deux : en retirer une
+        // seule créerait des pièces de nulle part. Il s'annule en entier, par
+        // sa propre route (qui vérifie le stock à l'arrivée).
+        if (row.source === 'TRANSFERT') {
+            return res.status(409).json({ message: 'Cette entrée appartient à un transfert entre emplacements : annulez le transfert lui-même.' });
+        }
 
-        db.prepare('DELETE FROM st_stock_entries WHERE batch_id = ? AND owner_id = ?').run(req.params.batchId, companyId);
+        const modelIds = (db.prepare('SELECT DISTINCT modelId FROM st_stock_entries WHERE batch_id = ? AND owner_id = ?')
+            .all(req.params.batchId, companyId) as any[]).map(r => r.modelId);
+        const refus = supprimerEntreesSansCreuser(companyId, modelIds, () => {
+            db.prepare("DELETE FROM st_stock_entries WHERE batch_id = ? AND owner_id = ? AND COALESCE(source, 'ORDER') != 'TRANSFERT'").run(req.params.batchId, companyId);
+        });
+        if (refus) return res.status(409).json({ message: refus });
         const totals = syncOrderTotals(companyId, row.order_id);
         res.json({ message: 'Entrée supprimée', totals });
     } catch (error) {
@@ -483,11 +498,17 @@ export const deleteStockBatch = (req: Request, res: Response) => {
 export const deleteStockEntry = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     try {
-        const row = db.prepare('SELECT order_id FROM st_stock_entries WHERE id = ? AND owner_id = ?')
+        const row = db.prepare('SELECT order_id, modelId, source FROM st_stock_entries WHERE id = ? AND owner_id = ?')
             .get(req.params.id, companyId) as any;
         if (!row) return res.status(404).json({ message: 'Entrée introuvable' });
+        if (row.source === 'TRANSFERT') {
+            return res.status(409).json({ message: 'Cette entrée appartient à un transfert entre emplacements : annulez le transfert lui-même.' });
+        }
 
-        db.prepare('DELETE FROM st_stock_entries WHERE id = ? AND owner_id = ?').run(req.params.id, companyId);
+        const refus = supprimerEntreesSansCreuser(companyId, [row.modelId], () => {
+            db.prepare('DELETE FROM st_stock_entries WHERE id = ? AND owner_id = ?').run(req.params.id, companyId);
+        });
+        if (refus) return res.status(409).json({ message: refus });
         const totals = syncOrderTotals(companyId, row.order_id);
         res.json({ message: 'Entrée supprimée', totals });
     } catch (error) {
@@ -544,6 +565,14 @@ export const createStockSortie = (req: Request, res: Response) => {
 
     if (lignes.length === 0) return res.status(400).json({ message: 'Aucune quantité saisie' });
 
+    // Emplacement d'où partent les pièces (vide = Dépôt principal). Un
+    // identifiant qui n'est pas à CETTE entreprise est refusé : sinon on
+    // vendrait du stock d'un lieu qui n'existe pas pour elle.
+    const emplacementId = normaliserEmplacement(body.emplacement_id);
+    if (emplacementId && !emplacementDe(companyId, emplacementId)) {
+        return res.status(400).json({ message: 'Emplacement inconnu.' });
+    }
+
     // Garde-fou « vente à perte », rejoué ici parce que celui de l'écran est
     // contournable par un appel direct à cette route. Même formule de coût et
     // mêmes réglages que l'interface ; silencieux si le coût est incalculable.
@@ -581,12 +610,15 @@ export const createStockSortie = (req: Request, res: Response) => {
         // Stock disponible, cellule par cellule : on refuse de sortir ce qui
         // n'existe pas, sinon le stock passerait en négatif sans que rien ne le
         // signale — et c'est ce stock qui sert de base aux ventes suivantes.
+        // Le stock se lit AU LIEU de la sortie : NULL = Dépôt principal, donc
+        // tout le stock historique. Pour une entreprise sans emplacement, toutes
+        // les lignes sont à NULL et ce filtre les retient toutes.
         const entrees = db.prepare(
-            "SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_entries WHERE owner_id = ? AND modelId = ? AND qualite = 'ACCEPTED' GROUP BY couleur, taille"
-        ).all(companyId, modelId) as any[];
+            "SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_entries WHERE owner_id = ? AND modelId = ? AND qualite = 'ACCEPTED' AND COALESCE(emplacement_id,'') = ? GROUP BY couleur, taille"
+        ).all(companyId, modelId, emplacementId ?? '') as any[];
         const sorties = db.prepare(
-            'SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_sorties WHERE owner_id = ? AND modelId = ? GROUP BY couleur, taille'
-        ).all(companyId, modelId) as any[];
+            "SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_sorties WHERE owner_id = ? AND modelId = ? AND COALESCE(emplacement_id,'') = ? GROUP BY couleur, taille"
+        ).all(companyId, modelId, emplacementId ?? '') as any[];
 
         const key = (c: any, t: any) => `${String(c ?? '')}|${String(t ?? '')}`;
         const dispo = new Map<string, number>();
@@ -605,8 +637,11 @@ export const createStockSortie = (req: Request, res: Response) => {
         });
         const insuffisant = [...demande.values()].find(d => (dispo.get(key(d.couleur, d.taille)) || 0) < d.quantite);
         if (insuffisant) {
+            // Dès que l'entreprise a plusieurs lieux, « disponible » n'a de sens
+            // qu'AVEC le lieu : on le nomme. Sans emplacement, message inchangé.
+            const lieu = aDesEmplacements(companyId) ? ` à « ${nomEmplacement(companyId, emplacementId)} »` : '';
             return res.status(400).json({
-                message: `Stock insuffisant pour ${insuffisant.couleur || '—'} / ${insuffisant.taille || '—'} : ${dispo.get(key(insuffisant.couleur, insuffisant.taille)) || 0} disponible(s), ${insuffisant.quantite} demandée(s)`,
+                message: `Stock insuffisant pour ${insuffisant.couleur || '—'} / ${insuffisant.taille || '—'}${lieu} : ${dispo.get(key(insuffisant.couleur, insuffisant.taille)) || 0} disponible(s), ${insuffisant.quantite} demandée(s)`,
             });
         }
 
@@ -636,15 +671,15 @@ export const createStockSortie = (req: Request, res: Response) => {
         const vendeurNom = (req as any).user?.name ?? null;
 
         const insert = db.prepare(`
-            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie, canal, mode_paiement, type_vente, ticket_ref, vendeur_id, vendeur_nom)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie, canal, mode_paiement, type_vente, ticket_ref, vendeur_id, vendeur_nom, emplacement_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         // Transaction : une sortie est un tout. La moitié des cellules écrites
         // laisserait un stock faux sans que rien ne le signale.
         db.transaction(() => {
             for (const l of lignes) {
                 insert.run(randomUUID(), companyId, modelId, body.client_id || null, body.client_nom || null,
-                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date, canal, modePaiement, typeVente, ticketRef, vendeurId, vendeurNom);
+                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date, canal, modePaiement, typeVente, ticketRef, vendeurId, vendeurNom, emplacementId);
             }
         })();
 
@@ -698,11 +733,13 @@ export const createCommandeNormale = (req: Request, res: Response) => {
         // Stock disponible, cellule par cellule (modèle × couleur × taille) : on
         // refuse de sortir ce qui n'existe pas, sinon le stock passerait en
         // négatif sans que rien ne le signale.
+        // Une commande « normale » sort du Dépôt principal (emplacement NULL) :
+        // pour une entreprise sans emplacement, c'est tout son stock, comme avant.
         const entrees = db.prepare(
-            "SELECT modelId, couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_entries WHERE owner_id = ? AND qualite = 'ACCEPTED' GROUP BY modelId, couleur, taille"
+            "SELECT modelId, couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_entries WHERE owner_id = ? AND qualite = 'ACCEPTED' AND COALESCE(emplacement_id,'') = '' GROUP BY modelId, couleur, taille"
         ).all(companyId) as any[];
         const sorties = db.prepare(
-            'SELECT modelId, couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_sorties WHERE owner_id = ? GROUP BY modelId, couleur, taille'
+            "SELECT modelId, couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_sorties WHERE owner_id = ? AND COALESCE(emplacement_id,'') = '' GROUP BY modelId, couleur, taille"
         ).all(companyId) as any[];
         const key = (m: any, c: any, t: any) => `${String(m ?? '')}|${String(c ?? '')}|${String(t ?? '')}`;
         const dispo = new Map<string, number>();

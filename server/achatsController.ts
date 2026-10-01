@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import db from './db';
+import { supprimerEntreesSansCreuser } from './emplacementsController';
 
 /**
  * ACHAT DE MARCHANDISE FINIE.
@@ -325,11 +326,14 @@ export const deleteAchat = (req: Request, res: Response) => {
             });
         }
 
-        const run = db.transaction(() => {
+        // Si une partie de cet achat a été TRANSFÉRÉE vers une boutique, le
+        // total passe le contrôle ci-dessus (le transfert se compense) mais le
+        // lieu d'origine passerait en négatif : le garde-fou le vérifie par lieu.
+        const refus = supprimerEntreesSansCreuser(companyId, [achat.article_id], () => {
             db.prepare('DELETE FROM st_stock_entries WHERE owner_id = ? AND order_id = ?').run(companyId, id);
             db.prepare('DELETE FROM st_achats WHERE id = ? AND owner_id = ?').run(id, companyId);
         });
-        run();
+        if (refus) return res.status(409).json({ message: refus });
 
         res.json({ message: 'Achat supprimé' });
     } catch (error) {
@@ -378,7 +382,10 @@ const trouverOrphelins = (companyId: number | string): OrphelinRow[] =>
         -- Un inventaire n'a ni commande ni achat pour parent — c'est normal,
         -- son parent est st_inventaires. Sans cette exclusion, chaque écart
         -- d'inventaire remontait comme orphelin et la réparation l'effaçait.
-        WHERE e.owner_id = ? AND o.id IS NULL AND a.id IS NULL AND (e.source IS NULL OR e.source != 'INVENTAIRE')
+        -- Même chose pour un transfert entre emplacements : son parent est
+        -- st_transferts, et en effacer une seule ligne (−q ou +q) ferait
+        -- apparaître ou disparaître des pièces.
+        WHERE e.owner_id = ? AND o.id IS NULL AND a.id IS NULL AND (e.source IS NULL OR e.source NOT IN ('INVENTAIRE', 'TRANSFERT'))
         GROUP BY e.order_id, e.modelId
         ORDER BY quantite DESC
     `).all(companyId) as OrphelinRow[];

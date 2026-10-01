@@ -93,6 +93,7 @@ import { getGaranties, saveGarantie, changerStatutGarantie, deleteGarantie } fro
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
 import { getInventaires, createInventaire, deleteInventaire, getSeuils, saveSeuil } from './server/inventaireController';
+import { getEmplacements, saveEmplacement, deleteEmplacement, getTransferts, createTransfert, deleteTransfert } from './server/emplacementsController';
 import { sendZpl } from './server/printBridge';
 import { deposerTrace, lireDossierTraceur } from './server/traceurBridge';
 import {
@@ -875,6 +876,14 @@ async function startServer() {
   // Seuils de stock bas, a la maille modele ou modele x couleur x taille.
   app.get('/api/subcontract/seuils', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSeuils);
   app.post('/api/subcontract/seuils', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSeuil);
+  // Emplacements de stock (dépôts, boutiques) et transferts entre eux. Le
+  // Dépôt principal n'est pas une ligne : c'est `emplacement_id IS NULL`.
+  app.get('/api/subcontract/emplacements', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getEmplacements);
+  app.post('/api/subcontract/emplacements', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveEmplacement);
+  app.delete('/api/subcontract/emplacements/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_emplacements', 'owner_id'), deleteEmplacement);
+  app.get('/api/subcontract/transferts', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getTransferts);
+  app.post('/api/subcontract/transferts', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createTransfert);
+  app.delete('/api/subcontract/transferts/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_transferts', 'owner_id'), deleteTransfert);
   app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
   app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
   app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);

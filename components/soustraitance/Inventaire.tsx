@@ -8,6 +8,7 @@ import type { Lang } from '../../app/constants';
 import { fmt } from '../../app/constants';
 import type { ModelData } from '../../types';
 import { resolveScan, variantAxes } from '../../lib/scanner';
+import { CHOIX_PRINCIPAL, type Emplacement } from '../../lib/stockEmplacements';
 import SheetModal, { useSheetFullscreen } from '../shared/SheetModal';
 
 /**
@@ -41,6 +42,8 @@ interface InventaireHistoryRow {
     nbLignes: number;
     ecartPieces: number;
     createdAt: string;
+    /** Lieu compté (null = Dépôt principal). */
+    emplacementId?: string | null;
 }
 
 interface InventaireProps {
@@ -52,6 +55,12 @@ interface InventaireProps {
     items: InventaireItem[];
     /** Même Map que le reste de l'onglet : modelId → (couleur|taille → quantité). */
     stockMatrixByModel: Map<string, Map<string, number>>;
+    /** Emplacements de l'entreprise (le Dépôt principal n'y figure pas). Sans
+     *  emplacement actif, aucun sélecteur : l'inventaire compte tout le stock. */
+    emplacements?: Emplacement[];
+    /** Cartes et matrice du stock d'UN lieu (null = Dépôt principal). C'est le
+     *  THÉORIQUE de ce lieu — et de lui seul — que le comptage doit comparer. */
+    vueEmplacement?: (emplacementId: string | null) => { items: InventaireItem[]; matrix: Map<string, Map<string, number>> };
     /** Le stock a changé (validation ou annulation) : le parent recharge ses mouvements. */
     onValidated: () => void;
 }
@@ -66,6 +75,8 @@ interface Draft {
     counts: CountsState;
     date: string;
     note: string;
+    /** Lieu compté ; absent d'un ancien brouillon = Dépôt principal. */
+    emplacement?: string;
 }
 
 const DRAFT_KEY = 'bera_inventaire_draft_v1';
@@ -78,7 +89,7 @@ const readDraft = (): Draft | null => {
         if (!raw) return null;
         const d = JSON.parse(raw);
         if (!d || typeof d !== 'object') return null;
-        return { scope: d.scope ?? null, counts: d.counts ?? {}, date: d.date || todayISO(), note: d.note || '' };
+        return { scope: d.scope ?? null, counts: d.counts ?? {}, date: d.date || todayISO(), note: d.note || '', emplacement: d.emplacement || CHOIX_PRINCIPAL };
     } catch {
         return null;
     }
@@ -100,7 +111,7 @@ const hasGridOf = (model: ModelData): boolean => {
     return (fiche.colors || []).length > 0 && (fiche.sizes || []).length > 0;
 };
 
-const Inventaire: React.FC<InventaireProps> = ({ onClose, lang, currency, dateLocale, canSeeCost, items, stockMatrixByModel, onValidated }) => {
+const Inventaire: React.FC<InventaireProps> = ({ onClose, lang, currency, dateLocale, canSeeCost, items: itemsTotal, stockMatrixByModel: matriceTotale, emplacements = [], vueEmplacement, onValidated }) => {
     const initialDraft = useRef<Draft | null>(readDraft()).current;
     const draftRestored = draftHasContent(initialDraft);
     const [fullscreen, toggleFullscreen] = useSheetFullscreen();
@@ -121,6 +132,22 @@ const Inventaire: React.FC<InventaireProps> = ({ onClose, lang, currency, dateLo
     const [historyLoading, setHistoryLoading] = useState(false);
     const [cancellingId, setCancellingId] = useState<string | null>(null);
     const [dismissedRestoreBanner, setDismissedRestoreBanner] = useState(!draftRestored);
+    const [emplacementChoix, setEmplacementChoix] = useState<string>(initialDraft?.emplacement || CHOIX_PRINCIPAL);
+
+    // Plusieurs lieux → on compte UN lieu à la fois, et le théorique est celui
+    // de ce lieu : compter une boutique contre le total de l'entreprise ferait
+    // apparaître tout le stock du dépôt comme « manquant ». Sans emplacement
+    // actif, `items` et `stockMatrixByModel` sont exactement ceux du parent.
+    const lieuxActifs = useMemo(() => emplacements.filter(e => e.actif), [emplacements]);
+    const multiLieux = !!vueEmplacement && lieuxActifs.length > 0;
+    const emplacementId: string | null = multiLieux && lieuxActifs.some(e => e.id === emplacementChoix) ? emplacementChoix : null;
+    const vueLieu = useMemo(
+        () => (multiLieux && vueEmplacement ? vueEmplacement(emplacementId) : null),
+        [multiLieux, vueEmplacement, emplacementId],
+    );
+    const items = vueLieu ? vueLieu.items : itemsTotal;
+    const stockMatrixByModel = vueLieu ? vueLieu.matrix : matriceTotale;
+    const nomLieu = (id: string | null) => (id ? (emplacements.find(e => e.id === id)?.nom || id) : tx(lang, { fr: 'Dépôt principal', ar: 'المخزن الرئيسي', en: 'Main depot', es: 'Depósito principal', pt: 'Depósito principal', tr: 'Ana depo' }));
 
     const scanInputRef = useRef<HTMLInputElement>(null);
     const countsRef = useRef<CountsState>(counts);
@@ -130,8 +157,19 @@ const Inventaire: React.FC<InventaireProps> = ({ onClose, lang, currency, dateLo
     // fermeture — seule une validation réussie ou un « recommencer » explicite
     // le vide.
     useEffect(() => {
-        writeDraft({ scope, counts, date, note });
-    }, [scope, counts, date, note]);
+        writeDraft({ scope, counts, date, note, emplacement: emplacementChoix });
+    }, [scope, counts, date, note, emplacementChoix]);
+
+    // Un brouillon pris dans un lieu qui n'est plus actif n'est plus vérifiable :
+    // ses comptes seraient comparés au théorique d'un AUTRE lieu et écriraient de
+    // faux écarts. On repart de zéro plutôt que de le laisser passer.
+    useEffect(() => {
+        if (emplacementChoix !== CHOIX_PRINCIPAL && !lieuxActifs.some(e => e.id === emplacementChoix)) {
+            setEmplacementChoix(CHOIX_PRINCIPAL);
+            setCounts({});
+            setScope(null);
+        }
+    }, [emplacementChoix, lieuxActifs]);
 
     const itemsById = useMemo(() => new Map(items.map(i => [i.model.id, i])), [items]);
 
@@ -256,7 +294,8 @@ const Inventaire: React.FC<InventaireProps> = ({ onClose, lang, currency, dateLo
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date, note: note.trim() || undefined, lignes: lignesAEcrire }),
+                // `emplacement_id` null = Dépôt principal : l'écart s'écrit au lieu compté.
+                body: JSON.stringify({ date, note: note.trim() || undefined, lignes: lignesAEcrire, emplacement_id: emplacementId }),
             });
             if (!res.ok) {
                 const d = await res.json().catch(() => ({}));
@@ -356,6 +395,7 @@ const Inventaire: React.FC<InventaireProps> = ({ onClose, lang, currency, dateLo
                                     <span className="block text-[10px] text-slate-400 dark:text-dk-muted mt-0.5">
                                         {h.nbLignes} {tx(lang, { fr: 'case(s) en écart', ar: 'حالة(ات) فيها فرق', en: 'cell(s) with a gap', es: 'celda(s) con diferencia', pt: 'célula(s) com diferença', tr: 'farklı hücre' })}
                                         {h.note ? ` · ${h.note}` : ''}
+                                        {emplacements.length > 0 ? ` · ${nomLieu(h.emplacementId ?? null)}` : ''}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
@@ -381,6 +421,32 @@ const Inventaire: React.FC<InventaireProps> = ({ onClose, lang, currency, dateLo
                 ) : scope === null ? (
                     /* ── Étape 1 : choix du périmètre ─────────────────────────── */
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {/* Quel lieu on compte. N'apparaît qu'une fois un emplacement
+                            créé. Changer de lieu efface les comptes saisis : ils ne
+                            seraient plus comparés au bon théorique. */}
+                        {multiLieux && (
+                            <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-2.5 space-y-1.5">
+                                <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                                    {tx(lang, { fr: 'Lieu à compter', ar: 'المكان لي غادي تجرد', en: 'Location to count', es: 'Lugar a contar', pt: 'Local a contar', tr: 'Sayılacak konum' })}
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {[{ id: CHOIX_PRINCIPAL, nom: nomLieu(null) }, ...lieuxActifs.map(e => ({ id: e.id, nom: e.nom }))].map(l => (
+                                        <button
+                                            key={l.id}
+                                            type="button"
+                                            onClick={() => { if (l.id !== emplacementChoix) { setEmplacementChoix(l.id); setCounts({}); } }}
+                                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors max-w-full truncate ${
+                                                (emplacementId ?? CHOIX_PRINCIPAL) === l.id
+                                                    ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                                                    : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                                            }`}
+                                        >
+                                            {l.nom}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {!dismissedRestoreBanner && (
                             <div className="flex items-center justify-between gap-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/50 rounded-xl px-3.5 py-2.5">
                                 <span className="text-[11px] text-indigo-700 dark:text-indigo-300 font-semibold flex items-center gap-1.5"><Info className="w-3.5 h-3.5 shrink-0" />
@@ -436,6 +502,9 @@ const Inventaire: React.FC<InventaireProps> = ({ onClose, lang, currency, dateLo
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span className="font-bold text-slate-800 dark:text-dk-text text-[13px] truncate">{scopeLabel}</span>
+                                    {multiLieux && (
+                                        <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted max-w-[140px] truncate">{nomLieu(emplacementId)}</span>
+                                    )}
                                     <button type="button" onClick={() => setScope(null)} className="text-[10px] font-bold text-indigo-600 dark:text-dk-accent underline underline-offset-2 shrink-0">
                                         {tx(lang, { fr: 'Changer', ar: 'بدّل', en: 'Change', es: 'Cambiar', pt: 'Mudar', tr: 'Değiştir' })}
                                     </button>

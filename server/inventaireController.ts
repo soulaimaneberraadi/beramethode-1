@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import db from './db';
+import { normaliserEmplacement, emplacementDe, supprimerEntreesSansCreuser } from './emplacementsController';
 
 /**
  * INVENTAIRE (comptage physique du stock fini).
@@ -49,6 +50,7 @@ export const getInventaires = (req: Request, res: Response) => {
     try {
         const rows = db.prepare(`
             SELECT id, date, note, nb_lignes AS nbLignes, ecart_pieces AS ecartPieces,
+                   emplacement_id AS emplacementId,
                    created_by AS createdBy, created_at AS createdAt
             FROM st_inventaires
             WHERE owner_id = ?
@@ -75,6 +77,14 @@ export const createInventaire = (req: Request, res: Response) => {
         return res.status(400).json({ message: 'Aucun écart à enregistrer : le compte correspond au théorique sur toutes les cases.' });
     }
 
+    // Lieu compté (vide = Dépôt principal, donc tout le stock historique). Le
+    // « théorique » envoyé par l'écran est celui de CE lieu : l'écart écrit plus
+    // bas s'ajoute donc au bon endroit, pas au total.
+    const emplacementId = normaliserEmplacement(body.emplacement_id);
+    if (emplacementId && !emplacementDe(companyId, emplacementId)) {
+        return res.status(400).json({ message: 'Emplacement inconnu.' });
+    }
+
     const date = String(body.date || '').trim() || new Date().toISOString().split('T')[0];
     const note = body.note ? String(body.note).trim().slice(0, 500) : null;
     const inventaireId = `inv-${randomUUID()}`;
@@ -85,17 +95,17 @@ export const createInventaire = (req: Request, res: Response) => {
 
     try {
         const insHeader = db.prepare(`
-            INSERT INTO st_inventaires (id, owner_id, date, note, nb_lignes, ecart_pieces, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_inventaires (id, owner_id, date, note, nb_lignes, ecart_pieces, created_by, emplacement_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
         const insEntry = db.prepare(`
-            INSERT INTO st_stock_entries (id, owner_id, order_id, modelId, couleur, taille, quantite, qualite, note, date_entree, batch_id, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, '${QUALITE}', ?, ?, ?, '${SOURCE}')
+            INSERT INTO st_stock_entries (id, owner_id, order_id, modelId, couleur, taille, quantite, qualite, note, date_entree, batch_id, source, emplacement_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, '${QUALITE}', ?, ?, ?, '${SOURCE}', ?)
         `);
         db.transaction(() => {
-            insHeader.run(inventaireId, companyId, date, note, lignes.length, ecartPieces, userId);
+            insHeader.run(inventaireId, companyId, date, note, lignes.length, ecartPieces, userId, emplacementId);
             for (const l of lignes) {
-                insEntry.run(randomUUID(), companyId, inventaireId, l.modelId, l.couleur, l.taille, l.compte - l.theorique, noteEntree, date, inventaireId);
+                insEntry.run(randomUUID(), companyId, inventaireId, l.modelId, l.couleur, l.taille, l.compte - l.theorique, noteEntree, date, inventaireId, emplacementId);
             }
         })();
         res.json({ id: inventaireId, nbLignes: lignes.length, ecartPieces });
@@ -117,10 +127,15 @@ export const deleteInventaire = (req: Request, res: Response) => {
         const row = db.prepare('SELECT id FROM st_inventaires WHERE id = ? AND owner_id = ?').get(id, companyId);
         if (!row) return res.status(404).json({ message: 'Inventaire introuvable' });
 
-        db.transaction(() => {
+        // Annuler un comptage qui avait AJOUTÉ des pièces à un lieu peut le
+        // creuser en négatif si elles ont été transférées ou vendues depuis.
+        const modelIds = (db.prepare("SELECT DISTINCT modelId FROM st_stock_entries WHERE owner_id = ? AND order_id = ? AND source = 'INVENTAIRE'")
+            .all(companyId, id) as any[]).map(r => r.modelId);
+        const refus = supprimerEntreesSansCreuser(companyId, modelIds, () => {
             db.prepare("DELETE FROM st_stock_entries WHERE owner_id = ? AND order_id = ? AND source = 'INVENTAIRE'").run(companyId, id);
             db.prepare('DELETE FROM st_inventaires WHERE id = ? AND owner_id = ?').run(id, companyId);
-        })();
+        });
+        if (refus) return res.status(409).json({ message: refus });
         res.json({ message: 'Inventaire annulé' });
     } catch (error) {
         console.error('Delete inventaire error:', error);

@@ -969,6 +969,17 @@ try { db.exec('ALTER TABLE st_stock_entries ADD COLUMN batch_id TEXT'); } catch 
 //   'ACHAT' → `order_id` pointe un achat (`st_achats`)
 try { db.exec("ALTER TABLE st_stock_entries ADD COLUMN source TEXT DEFAULT 'ORDER'"); } catch { /* colonne déjà présente */ }
 try { db.exec("UPDATE st_stock_entries SET source = 'ORDER' WHERE source IS NULL OR source = ''"); } catch { /* table vide */ }
+//   'INVENTAIRE' → `order_id` pointe un comptage physique (`st_inventaires`)
+//   'TRANSFERT'  → `order_id` pointe un transfert entre emplacements
+//                  (`st_transferts`) : deux lignes par case, −q là d'où part la
+//                  pièce et +q là où elle arrive. Le stock total ne bouge pas.
+
+// EMPLACEMENT de la pièce : NULL = « Dépôt principal » (le stock historique,
+// donc aucune ligne existante ne change de sens). Une entreprise qui n'ouvre
+// jamais de boutique ni de second dépôt garde toutes ses lignes à NULL et ne
+// voit aucune différence.
+try { db.exec('ALTER TABLE st_stock_entries ADD COLUMN emplacement_id TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_entries_emplacement ON st_stock_entries (owner_id, emplacement_id)'); } catch { /* index déjà présent */ }
 
 // Marchandise achetée pour être revendue. VOLONTAIREMENT hors de `models` : un
 // modèle, ici, c'est un parcours complet (fiche technique, gamme, chrono,
@@ -1328,6 +1339,13 @@ try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN vendeur_id INTEGER'); } c
 try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN vendeur_nom TEXT'); } catch { /* colonne déjà présente */ }
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_vendeur ON st_stock_sorties (owner_id, vendeur_id, date_sortie)'); } catch { /* index déjà présent */ }
 
+// Emplacement d'où la pièce est sortie (NULL = Dépôt principal). Sans lui, la
+// vente d'une boutique retirerait des pièces du dépôt, et le stock de chaque
+// lieu ne serait plus qu'une estimation. Une ligne de retour caisse recopie
+// l'emplacement de la vente d'origine : la pièce revient là d'où elle est partie.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN emplacement_id TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_emplacement ON st_stock_sorties (owner_id, emplacement_id)'); } catch { /* index déjà présent */ }
+
 // Canal d'application d'un tarif. NULL = tous canaux (comportement historique).
 // Le même modèle ne se vend pas au même prix en gros, en boutique physique et
 // en ligne : la vente en ligne porte des frais de livraison et une commission
@@ -1358,6 +1376,10 @@ db.exec(`
   )
 `);
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_inventaires_owner ON st_inventaires (owner_id, date)'); } catch { /* déjà présent */ }
+// Lieu compté (NULL = Dépôt principal) : l'historique doit dire QUEL stock a été
+// compté, pas seulement quand — deux comptages du même jour dans deux boutiques
+// ne sont pas le même geste.
+try { db.exec('ALTER TABLE st_inventaires ADD COLUMN emplacement_id TEXT'); } catch { /* colonne déjà présente */ }
 
 // ── Seuils de stock bas ──────────────────────────────────────────────────────
 // Un seuil à la maille MODÈLE (couleur et taille NULL) s'applique à toutes ses
@@ -1381,6 +1403,43 @@ db.exec(`
 // soient traités comme différents, ce que ferait un index UNIQUE classique en
 // SQL (NULL ≠ NULL), et laisserait deux seuils contradictoires coexister.
 try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_st_stock_seuils_scope ON st_stock_seuils (owner_id, modelId, COALESCE(couleur,''), COALESCE(taille,''))"); } catch { /* déjà présent */ }
+
+// ── Emplacements de stock (dépôts, boutiques) et transferts ─────────────────
+// Le « Dépôt principal » n'est PAS une ligne de cette table : c'est l'absence
+// d'emplacement (`emplacement_id IS NULL` sur les mouvements). Une entreprise
+// qui n'en crée aucun n'a donc rien à migrer et garde exactement son
+// comportement d'avant. Un emplacement qui a des mouvements ne se supprime
+// jamais — on le désactive (`actif = 0`), son historique reste lisible.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_emplacements (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    nom TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'BOUTIQUE',
+    actif INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_emplacements_owner ON st_emplacements (owner_id, actif)'); } catch { /* déjà présent */ }
+
+// L'en-tête d'UN transfert. Ses lignes vivent dans `st_stock_entries`
+// (source = 'TRANSFERT', order_id = batch_id = cet id) : −q à l'emplacement de
+// départ, +q à l'arrivée. `de` / `vers` NULL = Dépôt principal.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_transferts (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    de TEXT,
+    vers TEXT,
+    note TEXT,
+    nb_pieces INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_transferts_owner ON st_transferts (owner_id, created_at)'); } catch { /* déjà présent */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS subcontractor_profiles (
