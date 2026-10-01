@@ -23,6 +23,8 @@ import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import SuiviPostes from './suivi/SuiviPostes';
 import { addTombstone } from '../src/lib/apiShim';
+import { cleChaine, effectifChaineJour, type DonneesRH, type EffectifResolu, type SourceEffectif } from '../lib/effectifChaine';
+import { wipCoupe } from '../lib/suiviCoupe';
 
 interface Props {
     models: ModelData[];
@@ -111,6 +113,35 @@ type SuiviLabels = Record<keyof typeof SUIVI_LABELS, string>;
 type EffectifsSnapshot = Pick<SuiviData, 'chaf' | 'recta' | 'sujet' | 'transp' | 'man' | 'sp' | 'stager'> & { customEffectifs?: SuiviData['customEffectifs'] };
 
 const EFFECTIF_ZERO: EffectifsSnapshot = { chaf: 0, recta: 0, sujet: 0, transp: 0, man: 0, sp: 0, stager: 0 };
+
+/* Minutes de travail encore a venir, de maintenant jusqu'a la fin du jour
+   `finYmd` inclus, selon l'horaire reel de chaque jour (vendredi court, jours
+   de repos). Le « reste par heure » divisait par 48 h fixes, quelle que soit
+   l'echeance de l'OF. 0 = echeance passee ; null = horaire non regle (on ne
+   devine pas de grille). */
+function minutesOuvreesRestantes(settings: AppSettings, finYmd: string, maintenant = new Date()): number | null {
+    const aujourdHui = maintenant.toLocaleDateString('en-CA');
+    if (finYmd < aujourdHui) return 0;
+    const minutesMaintenant = maintenant.getHours() * 60 + maintenant.getMinutes();
+    const jour = new Date(`${aujourdHui}T00:00:00`);
+    let total = 0;
+    for (let i = 0; i < 400; i++) {
+        if (jour.toLocaleDateString('en-CA') > finYmd) break;
+        const g = deriveHourGrid(settings, jour);
+        if (g.fallback) return null;
+        if (!g.closed) {
+            for (const b of g.blocks) {
+                if (i > 0) { total += b.duration; continue; }
+                if (b.endMin <= minutesMaintenant) continue;
+                const debut = Math.max(b.startMin, minutesMaintenant);
+                const etendue = b.endMin - b.startMin;
+                total += etendue > 0 ? b.duration * ((b.endMin - debut) / etendue) : 0;
+            }
+        }
+        jour.setDate(jour.getDate() + 1);
+    }
+    return Math.round(total);
+}
 
 /* Effectifs d'une nouvelle ligne de suivi : ils viennent de la page Effectifs,
    jamais d'une valeur inventee. On prend d'abord une ligne du meme jour et de
@@ -381,11 +412,63 @@ export default function SuiviProduction({
         }
     }, [globalDate, weekDays, selectedChartDate]);
 
-    // Supervisors map
-    const [supervisors, setSupervisors] = useState<Record<string, string>>({
-        'CHAINE 2': 'REDA',
-        'CHAINE 3': 'MOHAMED',
-    });
+    /* Donnees RH : ouvriers (chaine, nom), pointage et competences. Elles
+       fournissent l'effectif quand la page Effectifs n'a rien pour le jour, les
+       noms proposes pour le responsable de ligne, et la verification des
+       competences de la gamme. Un compte sans acces a la RH les voit refusees :
+       la page fonctionne alors sans elles et le dit. */
+    const [rh, setRh] = useState<(DonneesRH & { workers: any[]; skills: any[] | null }) | null>(null);
+    useEffect(() => {
+        let annule = false;
+        const lire = async (url: string) => {
+            try {
+                const r = await fetch(url, { credentials: 'include' });
+                if (!r.ok) return null;
+                const d = await r.json();
+                return Array.isArray(d) ? d : null;
+            } catch { return null; }
+        };
+        (async () => {
+            const [workers, pointages, skills] = await Promise.all([lire('/api/hr/workers'), lire('/api/hr/pointage'), lire('/api/worker-skills')]);
+            if (annule || !workers) return;
+            setRh({ workers, pointages: pointages || [], skills });
+        })();
+        return () => { annule = true; };
+    }, []);
+
+    /* Responsable de ligne : range dans les parametres de l'entreprise (synchronises),
+       une valeur par chaine. Il etait tenu dans un etat local, pre-rempli de noms de
+       demonstration, et perdu au premier rechargement. */
+    const responsables = settings.responsablesLigne || {};
+    const setResponsable = (chaine: string, nom: string) => {
+        if (!setSettings) return;
+        setSettings(prev => {
+            const next = { ...(prev.responsablesLigne || {}) };
+            if (nom.trim()) next[chaine] = nom; else delete next[chaine];
+            return { ...prev, responsablesLigne: next };
+        });
+    };
+    const nomsChaine = useMemo(() => {
+        if (!rh) return [] as string[];
+        const cle = cleChaine(selectedChaineId);
+        const actifs = rh.workers.filter((w: any) => w.full_name && w.is_active !== 0 && w.is_active !== false);
+        // Ceux de la chaine d'abord, puis les autres (un chef peut venir d'une autre ligne).
+        const tri = [...actifs].sort((a: any, b: any) => Number(cleChaine(b.chaine_id) === cle) - Number(cleChaine(a.chaine_id) === cle));
+        return Array.from(new Set(tri.map((w: any) => String(w.full_name).toUpperCase())));
+    }, [rh, selectedChaineId]);
+
+    /* Effectif du jour pour la chaine : la page Effectifs, sinon le pointage RH,
+       sinon l'effectif prevu a l'equilibrage (theorique). Une seule fonction pour
+       la colonne Effectif, le rendement par creneau et le rendement du jour. */
+    const effectifDuJour = React.useCallback((dateStr: string): EffectifResolu => effectifChaineJour({
+        chaineId: selectedChaineId, date: dateStr, suivis, planningEvents, models, rh,
+    }), [selectedChaineId, suivis, planningEvents, models, rh]);
+    const libelleSource = (s: SourceEffectif | null, court = false): string => {
+        if (s === 'effectifs') return court ? 'EFF' : tx(lang, { fr: 'Page Effectifs', ar: 'صفحة العمالة', en: 'Headcount page', es: 'Página Plantilla', pt: 'Página Efetivos', tr: 'Personel sayfası' });
+        if (s === 'rh') return court ? 'RH' : tx(lang, { fr: 'Pointage RH', ar: 'تنقيط الموارد البشرية', en: 'HR clock-in', es: 'Fichaje RR. HH.', pt: 'Ponto RH', tr: 'İK puantaj' });
+        if (s === 'equilibrage') return court ? 'ÉQ' : tx(lang, { fr: 'Équilibrage (théorique)', ar: 'التوازن (نظري)', en: 'Balancing (theoretical)', es: 'Equilibrado (teórico)', pt: 'Balanceamento (teórico)', tr: 'Dengeleme (teorik)' });
+        return '';
+    };
 
     // Audio chime helper
     const playChime = () => {
@@ -579,7 +662,12 @@ export default function SuiviProduction({
 
         const byOF = new Map<string, {
             id: string; name: string; reference: string; sam: number; target: number;
-            produced: number; remaining: number; restPerHour: string; style: OFStyle;
+            produced: number; remaining: number; style: OFStyle;
+            /* Pieces a sortir par heure de travail restante jusqu'a l'echeance de l'OF ;
+               null = pas d'echeance ou horaire non regle ; `enRetard` = echeance passee. */
+            restePerHeure: number | null; enRetard: boolean; finYmd: string;
+            /* SAM reellement chiffre dans la gamme (sinon valeur par defaut du Planning). */
+            samConnu: boolean;
             planningId: string; modelId: string; ofTag?: string; image?: string | null; gamme: any[];
             producedThisWeek: number;
             /* true = couleur choisie a la main ou heritee du Planning : intouchable. */
@@ -599,18 +687,22 @@ export default function SuiviProduction({
                meme teinte et la grille cessait de les distinguer. */
             const choixManuel = ofColorOverrides[ofKey] || null;
             const style = getOFColor(ofKey, choixManuel || ev?.color || null);
-            const target = ev?.qteTotal || m?.meta_data?.quantity || 1500;
+            // Pas de cible inventee (c'etait 1500) : sans quantite, on affiche « — ».
+            const target = Number(ev?.qteTotal) || Number(m?.meta_data?.quantity) || 0;
             const image = m?.image || m?.images?.front || m?.meta_data?.photo_url || null;
             byOF.set(ofKey, {
                 id: ofKey,
                 name,
                 reference: ref,
                 sam,
+                samConnu: Number(m?.meta_data?.total_temps) > 0,
                 target,
                 produced: 0,
                 producedThisWeek: 0,
                 remaining: target,
-                restPerHour: '0.00',
+                restePerHeure: null,
+                enRetard: false,
+                finYmd: String(ev?.estimatedEndDate || ev?.dateExport || ev?.dateFin || '').split('T')[0],
                 style,
                 colorLocked: Boolean(choixManuel),
                 planningId,
@@ -710,11 +802,15 @@ export default function SuiviProduction({
             am.produced = globalProd;
             am.producedThisWeek = weekProd;
             am.remaining = am.target - globalProd;
-            am.restPerHour = (am.target - globalProd) > 0 ? ((am.target - globalProd) / 48).toFixed(2) : '0.00';
+            if (am.target > 0 && am.remaining > 0 && am.finYmd) {
+                const minutes = minutesOuvreesRestantes(settings, am.finYmd);
+                am.enRetard = minutes === 0;
+                am.restePerHeure = minutes && minutes > 0 ? Math.ceil(am.remaining / (minutes / 60)) : null;
+            }
         });
 
         return list;
-    }, [selectedChaineId, weekDays, suivis, planningEvents, models, ofColorOverrides, entryOFKey]);
+    }, [selectedChaineId, weekDays, suivis, planningEvents, models, ofColorOverrides, entryOFKey, settings]);
 
     /* Selection de l'OF : on restaure celui memorise pour cette chaine s'il est
        toujours actif, sinon le premier. On ne memorise QUE des OF encore presents,
@@ -807,17 +903,14 @@ export default function SuiviProduction({
        minutes gagnees (pieces x SAM du modele) divisees par les minutes de presence
        (effectif x duree reelle du creneau, arret declare deduit). Sur telephone on
        saisit une heure puis on veut savoir tout de suite ce qu'elle vaut, sans
-       attendre le total du jour. Sans effectif saisi il n'y a pas de denominateur :
-       on ne montre rien plutot qu'un pourcentage invente. */
+       attendre le total du jour. Sans effectif connu (Effectifs, pointage RH ou
+       equilibrage) il n'y a pas de denominateur : on ne montre rien plutot qu'un
+       pourcentage invente. */
     const rendementCreneau = React.useCallback((dateStr: string, h: { key: string; duration: number }): number | null => {
         const cell = getCellMeta(dateStr, h.key);
         if (!cell) return null;
 
-        const effectifEntries = suivis.filter(s => s.chaineId === selectedChaineId && s.date === dateStr);
-        const effectif = effectifEntries.reduce((max, s) => {
-            const w = typeof s.totalWorkers === 'number' ? s.totalWorkers : 0;
-            return w > max ? w : max;
-        }, 0);
+        const effectif = effectifDuJour(dateStr).n;
         if (effectif <= 0) return null;
 
         let minutesGagnees = 0;
@@ -836,7 +929,7 @@ export default function SuiviProduction({
         if (minutesUtiles <= 0) return null;
 
         return Math.round((minutesGagnees / (effectif * minutesUtiles)) * 100);
-    }, [getCellMeta, suivis, selectedChaineId]);
+    }, [getCellMeta, effectifDuJour]);
 
     // Handle cell updates (quantity, model, downtime, defects)
     const handleSaveCell = (
@@ -1157,19 +1250,9 @@ export default function SuiviProduction({
         const firstEntry = dayEntries[0] || {
             chaf: 0, recta: 0, sujet: 0, transp: 0, man: 0, sp: 0, stager: 0, totalWorkers: 0
         };
-        // L'effectif est saisi UNIQUEMENT dans la page Effectifs (source de vérité).
-        // Suivi le lit avec la MÊME logique de rattachement chaîne que la page Effectifs :
-        // (plan.chaineId || s.chaineId) === chaîne sélectionnée — sinon une saisie liée à
-        // l'OF (planningId) ne serait pas retrouvée. On prend le plus grand totalWorkers.
-        const effectifEntries = suivis.filter(s => {
-            if (s.date !== dateStr) return false;
-            const plan = planningEvents.find(p => p.id === s.planningId);
-            return (plan?.chaineId || s.chaineId) === selectedChaineId;
-        });
-        const totalM = effectifEntries.reduce((max, s) => {
-            const w = typeof s.totalWorkers === 'number' ? s.totalWorkers : 0;
-            return w > max ? w : max;
-        }, 0);
+        // Effectif : page Effectifs, sinon pointage RH, sinon equilibrage (voir effectifDuJour).
+        const effectifResolu = effectifDuJour(dateStr);
+        const totalM = effectifResolu.n;
 
         let totalActiveMinutes = 0;
         let downtimeMinutes = 0;
@@ -1244,16 +1327,20 @@ export default function SuiviProduction({
         });
 
         let rTotalDay = 0;
+        /* Minutes gagnees et minutes de presence du jour, gardees pour la moyenne
+           de la semaine : elle se calcule sur les totaux (ponderee), pas en faisant
+           la moyenne des pourcentages de jours de durees differentes. */
+        let earnedMinutes = 0;
+        let presenceMinutes = 0;
         if (totalM > 0 && activeMinutes > 0 && totalPiece > 0) {
-            let totalEarnedMinutes = 0;
             dayEntries.forEach(s => {
                 const mInfo = activeModels.find(x => x.id === entryOFKey(s));
                 if (mInfo) {
-                    totalEarnedMinutes += (s.totalHeure || 0) * mInfo.sam;
+                    earnedMinutes += (s.totalHeure || 0) * mInfo.sam;
                 }
             });
-            const totalPresenceMinutes = totalM * activeMinutes;
-            rTotalDay = Math.round((totalEarnedMinutes / totalPresenceMinutes) * 100);
+            presenceMinutes = totalM * activeMinutes;
+            rTotalDay = Math.round((earnedMinutes / presenceMinutes) * 100);
         }
 
         // Advanced OEE/TRS calculation values
@@ -1267,6 +1354,9 @@ export default function SuiviProduction({
             totalHeur: totalHeur.toFixed(2),
             firstEntry,
             totalM,
+            sourceEffectif: effectifResolu.source,
+            earnedMinutes,
+            presenceMinutes,
             yields,
             rTotalDay,
             availability,
@@ -1285,7 +1375,9 @@ export default function SuiviProduction({
 
     // Sizing & WIP calculations
     const sizingData = useMemo(() => {
-        const defaultSizes = ['S', 'M', 'L', 'XL'];
+        // Les tailles du modele (plus de S, M, L, XL imposes a tous les modeles).
+        const fiche: any = models.find(x => x.id === activeModel?.modelId) || {};
+        const defaultSizes: string[] = fiche.ficheData?.sizes || fiche.meta_data?.sizes || [];
         if (!selectedActiveModelId) return [];
 
         const chainSuivis = suivis.filter(s => s.chaineId === selectedChaineId && entryOFKey(s) === selectedActiveModelId);
@@ -1310,32 +1402,56 @@ export default function SuiviProduction({
                 entree: vals.entree,
                 sortie: vals.sortie,
                 encours,
-                isBottleneck: encours > 50,
             };
         });
-    }, [selectedActiveModelId, selectedChaineId, suivis, entryOFKey]);
+    }, [selectedActiveModelId, selectedChaineId, suivis, entryOFKey, models, activeModel]);
 
-    // Skill Matching Verification
-    const skillCheckResults = useMemo(() => {
-        if (!activeModel) return { status: 'OK', errors: [] };
-
-        const requiredMachines = activeModel.gamme.map(o => o.machineName || '').filter(Boolean);
-        const chainWorkers = settings.chainStaff?.[selectedChaineId] || [];
-        const workerSpecialties = chainWorkers.map(w => w.role || '').filter(Boolean);
-
-        const missing: string[] = [];
-        requiredMachines.forEach(machine => {
-            const match = workerSpecialties.some(s => s.toLowerCase().includes(machine.toLowerCase()));
-            if (!match && !missing.includes(machine)) {
-                missing.push(machine);
-            }
+    /* Serie de coupe de chaque OF actif : commande, coupe, entre sur la chaine,
+       sorti, encours — relus dans La Coupe (voir lib/suiviCoupe). Un paquet entre
+       sans chaine notee n'est attribue que si le modele n'a qu'une chaine au Planning. */
+    const coupeParOF = useMemo(() => {
+        const out = new Map<string, ReturnType<typeof wipCoupe>>();
+        activeModels.forEach(am => {
+            const m = models.find(x => x.id === am.modelId);
+            const chaines = planningEvents.filter(p => p.modelId === am.modelId && p.chaineId).map(p => p.chaineId);
+            out.set(am.id, wipCoupe(m, selectedChaineId, chaines.length ? chaines : [selectedChaineId]));
         });
+        return out;
+    }, [activeModels, models, planningEvents, selectedChaineId]);
+    const wipActif = activeModel ? coupeParOF.get(activeModel.id) || null : null;
 
-        return {
-            status: missing.length > 0 ? 'WARNING' : 'OK',
-            errors: missing,
+    /* Competences : pour chaque operation de la gamme, les ouvriers de la chaine
+       (RH, champ « chaine ») dont une competence enregistree correspond a
+       l'operation ou a sa machine, plus le personnel de chaine des parametres.
+       L'ancienne verification comparait le code machine au seul « role » du
+       personnel de chaine et signalait presque toujours tout comme manquant. */
+    const skillCheckResults = useMemo(() => {
+        const ops: any[] = (activeModel?.gamme || []).filter((o: any) => o && (o.machineName || o.description));
+        const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+        const correspond = (mot: any, op: any) => {
+            const k = norm(mot);
+            if (k.length < 3) return false;
+            return [op.description, op.machineName].some(v => {
+                const d = norm(v);
+                return d.length >= 3 && (d.includes(k) || k.includes(d));
+            });
         };
-    }, [activeModel, selectedChaineId, settings]);
+        const cle = cleChaine(selectedChaineId);
+        const ouvriers = (rh?.workers || []).filter((w: any) => cleChaine(w.chaine_id) === cle && w.is_active !== 0 && w.is_active !== false);
+        const ids = new Set(ouvriers.map((w: any) => String(w.id)));
+        const competences = (rh?.skills || []).filter((s: any) => ids.has(String(s.worker_id)));
+        const staff = settings.chainStaff?.[selectedChaineId] || [];
+        const parOp = ops.map(op => {
+            const qualifies = new Set<string>();
+            competences.forEach((s: any) => { if (correspond(s.poste_keyword, op)) qualifies.add(String(s.worker_id)); });
+            staff.forEach(w => { if (correspond(w.role, op)) qualifies.add(`staff:${w.id}`); });
+            return { op, n: qualifies.size };
+        });
+        // Sans competences lisibles (pas d'acces RH, matrice vide) on ne peut rien affirmer.
+        const sansDonnees = competences.length === 0 && staff.length === 0;
+        const status: 'EMPTY' | 'NO_DATA' | 'WARNING' | 'OK' = !ops.length ? 'EMPTY' : sansDonnees ? 'NO_DATA' : parOp.some(x => x.n === 0) ? 'WARNING' : 'OK';
+        return { status, parOp, ouvriersChaine: ouvriers.length, accesRH: Boolean(rh?.skills) };
+    }, [activeModel, selectedChaineId, settings, rh]);
 
     // Generate SVG Sparkline coordinates for hourly production
     const chartPathData = useMemo(() => {
@@ -1362,21 +1478,39 @@ export default function SuiviProduction({
 
     const activeChartMetrics = useMemo(() => {
         return selectedChartDate ? getDailyMetrics(selectedChartDate) : null;
-    }, [selectedChartDate, suivis]);
+    }, [selectedChartDate, suivis, effectifDuJour, activeModels, settings]);
+    /* Performance et TRS n'ont de sens qu'avec de la production ET un effectif :
+       sinon on affiche « — » au lieu d'un 100 % / 0 % qui ne mesure rien. */
+    const trsCalculable = Boolean(activeChartMetrics && activeChartMetrics.totalPiece > 0 && activeChartMetrics.totalM > 0);
 
-    // Weekly yield summary calculation
-    const weeklyAverageYield = useMemo(() => {
-        let sum = 0;
-        let count = 0;
+    /* Rendement moyen de la semaine : total des minutes gagnees sur total des
+       minutes de presence des jours produits. La moyenne des pourcentages
+       donnait le meme poids a un samedi de 4 h qu'a un lundi de 9 h. On garde
+       aussi le nombre de jours comptes et les sources d'effectif utilisees,
+       pour dire sur quoi repose le chiffre. */
+    const weeklyYield = useMemo(() => {
+        let gagnees = 0;
+        let presence = 0;
+        let jours = 0;
+        let joursSansEffectif = 0;
+        const sources = new Set<SourceEffectif>();
         weekDays.forEach(day => {
-            const metrics = getDailyMetrics(day.dateStr);
-            if (metrics.rTotalDay > 0) {
-                sum += metrics.rTotalDay;
-                count++;
-            }
+            const m = getDailyMetrics(day.dateStr);
+            if (m.totalPiece <= 0) return;
+            if (m.presenceMinutes <= 0) { joursSansEffectif++; return; }
+            gagnees += m.earnedMinutes;
+            presence += m.presenceMinutes;
+            jours++;
+            if (m.sourceEffectif) sources.add(m.sourceEffectif);
         });
-        return count > 0 ? Math.round(sum / count) : 0;
-    }, [weekDays, suivis]);
+        return {
+            pct: presence > 0 ? Math.round((gagnees / presence) * 100) : 0,
+            jours,
+            joursSansEffectif,
+            sources: Array.from(sources),
+        };
+    }, [weekDays, suivis, effectifDuJour, activeModels, settings]);
+    const weeklyAverageYield = weeklyYield.pct;
 
     // ═══════════════════════════════════════════════════════════
     // LOGISTICS MRP: Consumption Deviation Alerts (Alerte Surconsommation)
@@ -1614,7 +1748,7 @@ export default function SuiviProduction({
                                                             title={!isCellLocked ? l.doubleClick : undefined}
                                                         />
                                                         {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
-                                                            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/300 animate-ping" title={`Défauts: ${cell.defectsQty}`} />
+                                                            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" title={`Défauts: ${cell.defectsQty}`} />
                                                         )}
                                                     </td>
                                                 );
@@ -1648,13 +1782,18 @@ export default function SuiviProduction({
                                                 )}
                                             </td>
 
-                                            {/* Effectif (lecture seule — saisi dans la page Effectifs) */}
+                                            {/* Effectif (lecture seule) : page Effectifs, sinon pointage RH, sinon equilibrage (theorique) */}
                                             <td className="p-1 text-center border-l border-slate-100 dark:border-dk-border/60 w-24">
                                                 <div
-                                                    className="w-full text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1.5 tabular-nums text-slate-700 dark:text-dk-text-soft dark:text-dk-text"
-                                                    title={tx(lang, { fr: 'Saisir dans la page Effectifs', ar: 'يتم إدخاله في صفحة Effectifs', en: 'Enter on the Effectifs page', es: 'Introducir en la página Effectifs', pt: 'Inserir na página Effectifs', tr: 'Effectifs sayfasında girilir' })}
+                                                    className={`w-full text-center font-black text-xs border rounded-lg py-1 tabular-nums ${metrics.sourceEffectif === 'equilibrage' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50 text-amber-800 dark:text-amber-200' : 'bg-slate-50 dark:bg-dk-bg border-slate-100 dark:border-dk-border/60 text-slate-700 dark:text-dk-text'}`}
+                                                    title={metrics.sourceEffectif
+                                                        ? `${libelleSource(metrics.sourceEffectif)}`
+                                                        : tx(lang, { fr: 'Aucun effectif : saisir dans la page Effectifs ou pointer dans la RH', ar: 'لا عدد: أدخله في صفحة Effectifs أو نقّط في الموارد البشرية', en: 'No headcount: enter it on the Effectifs page or clock in HR', es: 'Sin plantilla: introducir en Effectifs o fichar en RR. HH.', pt: 'Sem efetivo: inserir em Effectifs ou registar ponto no RH', tr: 'Personel yok: Effectifs sayfasına girin veya İK puantajı yapın' })}
                                                 >
-                                                    {metrics.totalM || 0}
+                                                    {metrics.totalM || '—'}
+                                                    {metrics.sourceEffectif && (
+                                                        <span className="block text-[8px] font-bold opacity-70 leading-none mt-0.5">{libelleSource(metrics.sourceEffectif, true)}</span>
+                                                    )}
                                                 </div>
                                             </td>
 
@@ -1949,10 +2088,10 @@ export default function SuiviProduction({
                     {!showStatsHeader && (
                         <div className="flex items-center gap-1.5">
                             {/* Supervisor Badge */}
-                            {supervisors[selectedChaineId] && (
+                            {responsables[selectedChaineId] && (
                                 <div className="flex items-center gap-1 bg-slate-100 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-2.5 py-1.5 shadow-sm dark:shadow-dk-sm text-xs font-bold text-slate-600 dark:text-dk-text-soft">
                                     <User className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-300 dark:text-indigo-200" />
-                                    <span>{supervisors[selectedChaineId]}</span>
+                                    <span>{responsables[selectedChaineId]}</span>
                                 </div>
                             )}
                             {/* Yield Badge */}
@@ -2023,18 +2162,23 @@ export default function SuiviProduction({
                                     <User className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-300 dark:text-indigo-200" /> 
                                     <span>{l.supervisor}</span>
                                 </div>
-                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-50 dark:bg-emerald-900/300 animate-pulse"></span>
+                                {responsables[selectedChaineId] && <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
                             </div>
                             <div className="mt-4">
                                 <input
                                     type="text"
-                                    value={supervisors[selectedChaineId] || ''}
-                                    onChange={(e) => setSupervisors({ ...supervisors, [selectedChaineId]: e.target.value.toUpperCase() })}
-                                    className="text-2xl font-black text-slate-800 dark:text-dk-text uppercase tracking-tight bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 hover:border-slate-200 focus:border-indigo-500 focus:bg-white rounded-2xl px-4 py-2 w-full transition-all outline-none"
+                                    list="suivi-responsables-rh"
+                                    value={responsables[selectedChaineId] || ''}
+                                    onChange={(e) => setResponsable(selectedChaineId, e.target.value.toUpperCase())}
+                                    disabled={!setSettings}
+                                    className="text-xl sm:text-2xl font-black text-slate-800 dark:text-dk-text uppercase tracking-tight bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 hover:border-slate-200 focus:border-indigo-500 focus:bg-white dark:focus:bg-dk-surface rounded-2xl px-4 py-2 w-full transition-all outline-none placeholder:text-slate-300 dark:placeholder:text-dk-muted/60"
                                     placeholder={tx(lang, { fr: 'Entrer responsable', ar: 'إدخال مسؤول الخط', en: 'Enter supervisor', es: 'Introducir responsable', pt: 'Inserir responsável', tr: 'Sorumlu girin' })}
                                 />
+                                <datalist id="suivi-responsables-rh">
+                                    {nomsChaine.map(n => <option key={n} value={n} />)}
+                                </datalist>
                             </div>
-                            <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium mt-3">{tx(lang, { fr: "Chef d'équipe affecté pour le contrôle hebdomadaire", ar: 'مسؤول الفريق المكلف بالمراقبة الأسبوعية', en: 'Team lead assigned for weekly control', es: 'Jefe de equipo asignado al control semanal', pt: 'Chefe de equipa atribuído ao controlo semanal', tr: 'Haftalık kontrol için atanmış ekip lideri' })}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium mt-3">{tx(lang, { fr: `Responsable de ${selectedChaineId}, enregistré avec les paramètres de l'entreprise${nomsChaine.length ? ' — noms proposés depuis la Gestion RH' : ''}`, ar: `مسؤول ${selectedChaineId}، يُحفظ مع إعدادات الشركة${nomsChaine.length ? ' — الأسماء مقترحة من الموارد البشرية' : ''}`, en: `Supervisor of ${selectedChaineId}, saved with company settings${nomsChaine.length ? ' — names suggested from HR' : ''}`, es: `Responsable de ${selectedChaineId}, guardado en los parámetros de la empresa`, pt: `Responsável de ${selectedChaineId}, guardado nos parâmetros da empresa`, tr: `${selectedChaineId} sorumlusu, şirket ayarlarına kaydedilir` })}</p>
                         </div>
 
                         {/* Active Models List Strip */}
@@ -2045,22 +2189,54 @@ export default function SuiviProduction({
                                 </span>
                                 <span className="text-[10px] bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft px-2.5 py-0.5 rounded-full font-bold">{tx(lang, { fr: 'Semaine en cours', ar: 'الأسبوع الجاري', en: 'Current week', es: 'Semana actual', pt: 'Semana atual', tr: 'Geçerli hafta' })}</span>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 flex-1 overflow-y-auto max-h-28 pr-1 no-scrollbar">
-                                {activeModels.map(m => (
-                                    <div key={m.id} className="rounded-2xl border border-slate-100 dark:border-dk-border/60 p-3 bg-slate-50 dark:bg-dk-bg/50 flex items-center justify-between hover:border-slate-200 transition-colors">
-                                        <div className="flex items-center gap-2.5 min-w-0">
-                                            <span className="w-3.5 h-3.5 rounded-lg shrink-0 border" style={{ backgroundColor: m.style.bg, borderColor: m.style.border }} />
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-black text-slate-800 dark:text-dk-text truncate" title={m.name}>{m.name}</p>
-                                                <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">Réf: {m.reference} · SAM: {m.sam} min</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 flex-1 overflow-y-auto max-h-48 pr-1 no-scrollbar">
+                                {activeModels.map(m => {
+                                    const serie = coupeParOF.get(m.id);
+                                    return (
+                                    <div key={m.id} className="rounded-2xl border border-slate-100 dark:border-dk-border/60 p-3 bg-slate-50 dark:bg-dk-bg/50 hover:border-slate-200 transition-colors">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <span className="w-3.5 h-3.5 rounded-lg shrink-0 border" style={{ backgroundColor: m.style.bg, borderColor: m.style.border }} />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-black text-slate-800 dark:text-dk-text truncate" title={m.name}>{m.name}</p>
+                                                    <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">
+                                                        {tx(lang, { fr: 'Réf', ar: 'المرجع', en: 'Ref', es: 'Ref', pt: 'Ref', tr: 'Ref' })}: {m.reference} · SAM: {m.sam} min
+                                                        {!m.samConnu && <span className="text-amber-600 dark:text-amber-300"> ({tx(lang, { fr: 'par défaut', ar: 'افتراضي', en: 'default', es: 'por defecto', pt: 'por defeito', tr: 'varsayılan' })})</span>}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className="text-xs font-black text-indigo-600 dark:text-indigo-300 tabular-nums">{m.produced} / {m.target > 0 ? m.target : '—'} pcs</p>
+                                                <p className={`text-[9px] font-bold ${m.enRetard ? 'text-rose-600 dark:text-rose-300' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                                    {m.enRetard
+                                                        ? tx(lang, { fr: 'Échéance dépassée', ar: 'تجاوز الموعد', en: 'Past due', es: 'Plazo vencido', pt: 'Prazo ultrapassado', tr: 'Süresi geçti' })
+                                                        : m.restePerHeure !== null
+                                                            ? tx(lang, { fr: `Reste ${m.restePerHeure} pcs/h`, ar: `الباقي ${m.restePerHeure} قطعة/ساعة`, en: `Need ${m.restePerHeure} pcs/h`, es: `Faltan ${m.restePerHeure} pzs/h`, pt: `Faltam ${m.restePerHeure} pçs/h`, tr: `Kalan ${m.restePerHeure} adet/sa` })
+                                                            : m.target > 0 && m.remaining <= 0
+                                                                ? tx(lang, { fr: 'Objectif atteint', ar: 'الهدف محقَّق', en: 'Target reached', es: 'Objetivo alcanzado', pt: 'Objetivo atingido', tr: 'Hedefe ulaşıldı' })
+                                                                : '—'}
+                                                </p>
                                             </div>
                                         </div>
-                                        <div className="text-right shrink-0">
-                                            <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 tabular-nums">{m.produced} / {m.target} pcs</p>
-                                            <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted">Reste per H: {m.restPerHour}</p>
-                                        </div>
+                                        {/* Serie de coupe : ou en sont les paquets de cet OF, vus de La Coupe */}
+                                        {serie && (
+                                            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-dk-border/60 grid grid-cols-4 gap-1 text-center tabular-nums">
+                                                {([
+                                                    [tx(lang, { fr: 'Coupé', ar: 'مقصوص', en: 'Cut', es: 'Cortado', pt: 'Cortado', tr: 'Kesilen' }), serie.total.coupe],
+                                                    [tx(lang, { fr: 'Entré', ar: 'دخل', en: 'In', es: 'Entrado', pt: 'Entrado', tr: 'Giren' }), serie.total.entre],
+                                                    [tx(lang, { fr: 'Produit', ar: 'منتَج', en: 'Made', es: 'Producido', pt: 'Produzido', tr: 'Üretilen' }), m.produced],
+                                                    [tx(lang, { fr: 'Sorti', ar: 'خرج', en: 'Out', es: 'Salido', pt: 'Saído', tr: 'Çıkan' }), serie.total.sorti],
+                                                ] as const).map(([lbl, v]) => (
+                                                    <div key={lbl} className="min-w-0">
+                                                        <p className="text-[8px] font-black uppercase tracking-wide text-slate-400 dark:text-dk-muted truncate">{lbl}</p>
+                                                        <p className="text-[11px] font-black text-slate-700 dark:text-dk-text-soft">{v}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -2081,11 +2257,20 @@ export default function SuiviProduction({
                                 </span>
                                 <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{tx(lang, { fr: "d'efficience", ar: 'من الكفاءة', en: 'efficiency', es: 'de eficiencia', pt: 'de eficiência', tr: 'verimlilik' })}</span>
                             </div>
+                            {/* Sur quoi repose le chiffre : jours comptes, source de l'effectif, jours sans effectif. */}
+                            <p className="mt-1 text-[10px] font-semibold text-slate-400 dark:text-dk-muted leading-snug">
+                                {weeklyYield.jours > 0
+                                    ? tx(lang, { fr: `Sur ${weeklyYield.jours} jour(s) produit(s) · effectif : ${weeklyYield.sources.map(s => libelleSource(s)).join(', ')}`, ar: `على ${weeklyYield.jours} يوم إنتاج · العدد من: ${weeklyYield.sources.map(s => libelleSource(s)).join('، ')}`, en: `Over ${weeklyYield.jours} production day(s) · headcount: ${weeklyYield.sources.map(s => libelleSource(s)).join(', ')}`, es: `Sobre ${weeklyYield.jours} día(s) · plantilla: ${weeklyYield.sources.map(s => libelleSource(s)).join(', ')}`, pt: `Em ${weeklyYield.jours} dia(s) · efetivo: ${weeklyYield.sources.map(s => libelleSource(s)).join(', ')}`, tr: `${weeklyYield.jours} üretim günü · personel: ${weeklyYield.sources.map(s => libelleSource(s)).join(', ')}` })
+                                    : tx(lang, { fr: 'Aucun jour produit avec un effectif connu cette semaine.', ar: 'لا يوم إنتاج بعدد حاضر معروف هذا الأسبوع.', en: 'No production day with a known headcount this week.', es: 'Ningún día producido con plantilla conocida esta semana.', pt: 'Nenhum dia produzido com efetivo conhecido esta semana.', tr: 'Bu hafta personeli bilinen üretim günü yok.' })}
+                                {weeklyYield.joursSansEffectif > 0 && (
+                                    <span className="block text-amber-600 dark:text-amber-300">{tx(lang, { fr: `${weeklyYield.joursSansEffectif} jour(s) produit(s) sans effectif : non comptés.`, ar: `${weeklyYield.joursSansEffectif} يوم إنتاج بلا عدد حاضر: غير محتسب.`, en: `${weeklyYield.joursSansEffectif} production day(s) without headcount: not counted.`, es: `${weeklyYield.joursSansEffectif} día(s) sin plantilla: no contados.`, pt: `${weeklyYield.joursSansEffectif} dia(s) sem efetivo: não contados.`, tr: `${weeklyYield.joursSansEffectif} gün personelsiz: sayılmadı.` })}</span>
+                                )}
+                            </p>
                             <div className="mt-3">
                                 <div className="w-full bg-slate-100 dark:bg-dk-elevated/60 h-2 rounded-full overflow-hidden">
                                     <div 
                                         className={`h-full rounded-full transition-all duration-1000 ${
-                                            weeklyAverageYield >= 90 ? 'bg-emerald-50 dark:bg-emerald-900/300' : weeklyAverageYield >= 80 ? 'bg-orange-50 dark:bg-orange-900/300' : 'bg-rose-50 dark:bg-rose-900/300'
+                                            weeklyAverageYield >= 90 ? 'bg-emerald-500' : weeklyAverageYield >= 80 ? 'bg-orange-500' : 'bg-rose-500'
                                         }`}
                                         style={{ width: `${Math.min(100, weeklyAverageYield)}%` }}
                                     />
@@ -2338,7 +2523,7 @@ export default function SuiviProduction({
                                             {[
                                                 { lbl: l.pJournaliere, val: dm.totalPiece, accent: 'text-slate-800 dark:text-dk-text' },
                                                 { lbl: l.totalHours, val: dm.totalHeur, accent: 'text-slate-800 dark:text-dk-text' },
-                                                { lbl: l.effectif, val: dm.totalM, accent: 'text-slate-800 dark:text-dk-text' },
+                                                { lbl: dm.sourceEffectif ? `${l.effectif} · ${libelleSource(dm.sourceEffectif, true)}` : l.effectif, val: dm.totalM || '—', accent: dm.sourceEffectif === 'equilibrage' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-800 dark:text-dk-text' },
                                                 { lbl: 'R.Day', val: dm.rTotalDay > 0 ? `${dm.rTotalDay}%` : '—', accent: dm.rTotalDay >= 90 ? 'text-emerald-600 dark:text-emerald-400 dark:text-emerald-300' : dm.rTotalDay >= 80 ? 'text-orange-500 dark:text-orange-300' : 'text-rose-600 dark:text-rose-400 dark:text-rose-300' },
                                             ].map((c, i) => (
                                                 <div key={i} className="bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-xl px-2 py-1.5 text-center">
@@ -2485,7 +2670,7 @@ export default function SuiviProduction({
                                                             placeholder="—"
                                                         />
                                                         {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/300 shrink-0" title={`Défauts: ${cell.defectsQty}`} />
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" title={`Défauts: ${cell.defectsQty}`} />
                                                         )}
                                                         {/* Rendement de CETTE heure, des qu'elle est remplie : sur telephone
                                                             on saisit heure par heure, il faut voir tout de suite si l'heure
@@ -2580,7 +2765,7 @@ export default function SuiviProduction({
 
                             {/* SVG Sparkline drawing */}
                             <div className="relative h-32 bg-slate-50 dark:bg-dk-bg/50 rounded-2xl border border-slate-100 dark:border-dk-border/60 overflow-hidden flex items-end">
-                                {chartPathData ? (
+                                {chartPathData && activeChartMetrics.totalPiece > 0 ? (
                                     <svg className="w-full h-full" viewBox="0 0 500 120" preserveAspectRatio="none">
                                         <defs>
                                             <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
@@ -2626,31 +2811,37 @@ export default function SuiviProduction({
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
                                     <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.dispo}</span>
-                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.availability}%</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.totalPiece > 0 ? `${activeChartMetrics.availability}%` : '—'}</span>
                                 </div>
                                 <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
                                     <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.perf}</span>
-                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.rTotalDay}%</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{trsCalculable ? `${activeChartMetrics.rTotalDay}%` : '—'}</span>
                                 </div>
                                 <div className="p-3 bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-2xl text-center">
                                     <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase block">{l.quality}</span>
-                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.quality}%</span>
+                                    <span className="text-lg font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text block mt-1 tabular-nums">{activeChartMetrics.totalPiece > 0 ? `${activeChartMetrics.quality}%` : '—'}</span>
                                 </div>
                             </div>
 
                             <div className="mt-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/50 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl p-4">
                                 <div>
                                     <span className="text-[9px] font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 uppercase tracking-widest block">{tx(lang, {fr: 'TRS Score', ar: 'نقاط TRS', en: 'TRS Score', es: 'Puntaje TRS', pt: 'Pontuação TRS', tr: 'TRS Puanı'})}</span>
-                                    <span className="text-3xl font-black text-indigo-800 dark:text-indigo-200 block mt-1 tabular-nums">{activeChartMetrics.oee}%</span>
+                                    <span className="text-3xl font-black text-indigo-800 dark:text-indigo-200 block mt-1 tabular-nums">{trsCalculable ? `${activeChartMetrics.oee}%` : '—'}</span>
                                 </div>
+                                {!trsCalculable ? (
+                                    <p className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted text-right max-w-[60%]">{activeChartMetrics.totalPiece <= 0
+                                        ? tx(lang, { fr: 'Aucune production saisie ce jour.', ar: 'لا إنتاج مسجّل في هذا اليوم.', en: 'No output entered this day.', es: 'Sin producción este día.', pt: 'Sem produção neste dia.', tr: 'Bu gün üretim girilmedi.' })
+                                        : tx(lang, { fr: 'Effectif inconnu : saisissez-le dans Effectifs ou pointez dans la RH.', ar: 'العدد الحاضر غير معروف: أدخله في Effectifs أو نقّط في الموارد البشرية.', en: 'Unknown headcount: enter it in Effectifs or clock in HR.', es: 'Plantilla desconocida: introdúzcala en Effectifs o fiche en RR. HH.', pt: 'Efetivo desconhecido: insira-o em Effectifs ou registe o ponto no RH.', tr: 'Personel bilinmiyor: Effectifs sayfasına girin veya İK puantajı yapın.' })}</p>
+                                ) : (
                                 <div className="text-right">
                                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
                                         activeChartMetrics.oee >= 85 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800'
                                     }`}>
                                         {activeChartMetrics.oee >= 85 ? tx(lang, { fr: 'Excellent', ar: 'ممتاز', en: 'Excellent', es: 'Excelente', pt: 'Excelente', tr: 'Mükemmel' }) : tx(lang, { fr: 'A optimiser', ar: 'قابل للتحسين', en: 'To optimize', es: 'A optimizar', pt: 'A otimizar', tr: 'İyileştirilmeli' })}
                                     </span>
-                                    <p className="text-[9px] text-slate-400 dark:text-dk-muted font-bold mt-1">Norme mondiale: 85%</p>
+                                    <p className="text-[9px] text-slate-400 dark:text-dk-muted font-bold mt-1">{tx(lang, { fr: 'Référence : 85 %', ar: 'المرجع: 85٪', en: 'Benchmark: 85%', es: 'Referencia: 85 %', pt: 'Referência: 85 %', tr: 'Referans: %85' })}</p>
                                 </div>
+                                )}
                             </div>
 
                             {/* Chronologie Visuelle de la Journée */}
@@ -2726,12 +2917,54 @@ export default function SuiviProduction({
                                     <h3 className="text-sm font-black text-slate-800 dark:text-dk-text flex items-center gap-1.5">
                                         <span>{l.wip}</span>
                                     </h3>
-                                    <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: "Contrôle des flux d'entrées/sorties par taille S, M, L, XL", ar: 'مراقبة تدفقات الإدخال والإخراج حسب المقاسات S و M و L و XL', en: 'Input/output flow control by size S, M, L, XL', es: 'Control de flujos de entrada/salida por talla S, M, L, XL', pt: 'Controlo dos fluxos de entrada/saída por tamanho S, M, L, XL', tr: 'S, M, L, XL bedenlerine göre giriş/çıkış akış kontrolü' })}</p>
+                                    <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{wipActif
+                                        ? tx(lang, { fr: 'Lu dans la série de coupe (La Coupe) : paquets entrés et sortis de cette chaîne', ar: 'مقروء من سيري القص: الحزم الداخلة والخارجة من هذه السلسلة', en: 'Read from the cutting series (La Coupe): bundles in and out of this line', es: 'Leído de la serie de corte: paquetes que entran y salen de esta línea', pt: 'Lido da série de corte: pacotes que entram e saem desta linha', tr: 'Kesim serisinden okunur: bu hatta giren ve çıkan paketler' })
+                                        : tx(lang, { fr: 'Aucune série de coupe pour ce modèle : saisie manuelle par taille', ar: 'لا توجد سيري قص لهذا الموديل: إدخال يدوي حسب المقاس', en: 'No cutting series for this model: manual entry by size', es: 'Sin serie de corte para este modelo: entrada manual por talla', pt: 'Sem série de corte para este modelo: entrada manual por tamanho', tr: 'Bu model için kesim serisi yok: bedene göre manuel giriş' })}</p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Size Table Matrix */}
+                        {wipActif ? (
+                            <div>
+                                <div className="overflow-x-auto -mx-1">
+                                    <table className="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-dk-bg/50 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted border-b border-slate-100 dark:border-dk-border/60">
+                                                <th className="py-2 px-2">{l.size}</th>
+                                                <th className="py-2 px-2 text-right">{tx(lang, { fr: 'Commandé', ar: 'المطلوب', en: 'Ordered', es: 'Pedido', pt: 'Encomendado', tr: 'Sipariş' })}</th>
+                                                <th className="py-2 px-2 text-right">{tx(lang, { fr: 'Coupé', ar: 'مقصوص', en: 'Cut', es: 'Cortado', pt: 'Cortado', tr: 'Kesilen' })}</th>
+                                                <th className="py-2 px-2 text-right">{tx(lang, { fr: 'Entré', ar: 'دخل', en: 'In', es: 'Entrado', pt: 'Entrado', tr: 'Giren' })}</th>
+                                                <th className="py-2 px-2 text-right">{tx(lang, { fr: 'Sorti', ar: 'خرج', en: 'Out', es: 'Salido', pt: 'Saído', tr: 'Çıkan' })}</th>
+                                                <th className="py-2 px-2 text-right">{tx(lang, { fr: 'Encours', ar: 'قيد التنفيذ', en: 'WIP', es: 'En curso', pt: 'Em curso', tr: 'Süreçte' })}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50 dark:divide-dk-border tabular-nums">
+                                            {[...wipActif.lignes.map(r => ({ ...r, cle: r.taille, total: false })), { ...wipActif.total, taille: tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' }), cle: '__total', total: true }].map(r => (
+                                                <tr key={r.cle} className={r.total ? 'bg-slate-50 dark:bg-dk-bg/50 font-black' : ''}>
+                                                    <td className="py-2 px-2 font-black text-slate-800 dark:text-dk-text">{r.taille}</td>
+                                                    <td className="py-2 px-2 text-right text-slate-500 dark:text-dk-muted">{r.commande || '—'}</td>
+                                                    <td className="py-2 px-2 text-right text-slate-700 dark:text-dk-text-soft">{r.coupe}</td>
+                                                    <td className="py-2 px-2 text-right text-slate-700 dark:text-dk-text-soft">{r.entre}</td>
+                                                    <td className="py-2 px-2 text-right text-slate-700 dark:text-dk-text-soft">{r.sorti}</td>
+                                                    <td className={`py-2 px-2 text-right font-black ${r.encours > 0 ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-400 dark:text-dk-muted'}`}>{r.encours}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-semibold text-slate-500 dark:text-dk-muted">
+                                    <span>{tx(lang, { fr: 'Paquets', ar: 'الحزم', en: 'Bundles', es: 'Paquetes', pt: 'Pacotes', tr: 'Paketler' })} : <b className="text-slate-700 dark:text-dk-text-soft tabular-nums">{wipActif.paquets.coupes}/{wipActif.paquets.total}</b> {tx(lang, { fr: 'coupés', ar: 'مقصوصة', en: 'cut', es: 'cortados', pt: 'cortados', tr: 'kesildi' })} · <b className="text-slate-700 dark:text-dk-text-soft tabular-nums">{wipActif.paquets.entres}</b> {tx(lang, { fr: 'entrés ici', ar: 'دخلت هنا', en: 'in here', es: 'entrados aquí', pt: 'entrados aqui', tr: 'buraya girdi' })} · <b className="text-slate-700 dark:text-dk-text-soft tabular-nums">{wipActif.paquets.sortis}</b> {tx(lang, { fr: 'sortis', ar: 'خرجت', en: 'out', es: 'salidos', pt: 'saídos', tr: 'çıktı' })}</span>
+                                    {activeModel && (
+                                        <span>{tx(lang, { fr: 'Production saisie dans la grille', ar: 'الإنتاج المسجّل في الشبكة', en: 'Output entered in the grid', es: 'Producción introducida en la cuadrícula', pt: 'Produção registada na grelha', tr: 'Tabloya girilen üretim' })} : <b className="text-slate-700 dark:text-dk-text-soft tabular-nums">{activeModel.produced}</b></span>
+                                    )}
+                                </div>
+                                {wipActif.sansChaine > 0 && (
+                                    <p className="mt-2 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                                        {tx(lang, { fr: `${wipActif.sansChaine} pièces entrées sans chaîne notée dans la série : précisez la chaîne dans La Coupe pour les compter ici.`, ar: `${wipActif.sansChaine} قطعة دخلت دون تحديد السلسلة في السيري: حدّد السلسلة في صفحة القص لتُحتسب هنا.`, en: `${wipActif.sansChaine} pieces entered with no line noted in the series: set the line in La Coupe to count them here.`, es: `${wipActif.sansChaine} piezas entradas sin línea anotada: indique la línea en La Coupe.`, pt: `${wipActif.sansChaine} peças entradas sem linha anotada: indique a linha em La Coupe.`, tr: `${wipActif.sansChaine} parça hat belirtilmeden girdi: La Coupe'ta hattı belirtin.` })}
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead>
@@ -2739,8 +2972,7 @@ export default function SuiviProduction({
                                         <th className="py-2.5 px-3">{l.size}</th>
                                         <th className="py-2.5 px-3 text-center">{l.inputs}</th>
                                         <th className="py-2.5 px-3 text-center">{l.outputs}</th>
-                                        <th className="py-2.5 px-3 text-center">L'encours (WIP)</th>
-                                        <th className="py-2.5 px-3 text-right">{tx(lang, {fr: 'Alerte Goulot', ar: 'تنبيه الاختناق', en: 'Bottleneck Alert', es: 'Alerta Cuello de Botella', pt: 'Alerta Gargalo', tr: 'Darboğaz Uyarısı'})}</th>
+                                        <th className="py-2.5 px-3 text-center">{tx(lang, { fr: 'Encours', ar: 'قيد التنفيذ', en: 'WIP', es: 'En curso', pt: 'Em curso', tr: 'Süreçte' })}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-dk-border">
@@ -2753,7 +2985,8 @@ export default function SuiviProduction({
                                                 <input 
                                                     type="number"
                                                     inputMode="numeric"
-                                                    value={row.entree}
+                                                    value={row.entree || ''}
+                                                    placeholder="0"
                                                     onChange={(e) => handleSaveSizes(selectedActiveModelId, row.size, 'entree', Math.max(0, parseInt(e.target.value) || 0))}
                                                     className="w-20 text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums"
                                                 />
@@ -2764,7 +2997,8 @@ export default function SuiviProduction({
                                                 <input 
                                                     type="number"
                                                     inputMode="numeric"
-                                                    value={row.sortie}
+                                                    value={row.sortie || ''}
+                                                    placeholder="0"
                                                     onChange={(e) => handleSaveSizes(selectedActiveModelId, row.size, 'sortie', Math.max(0, parseInt(e.target.value) || 0))}
                                                     className="w-20 text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1 focus:bg-white focus:border-indigo-500 outline-none transition-all tabular-nums"
                                                 />
@@ -2772,26 +3006,14 @@ export default function SuiviProduction({
 
                                             {/* Calculated WIP */}
                                             <td className={`py-3 px-3 text-center font-black text-sm tabular-nums ${row.encours > 0 ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`}>
-                                                {row.encours} pcs
-                                            </td>
-
-                                            {/* Bottleneck indicator */}
-                                            <td className="py-3 px-3 text-right">
-                                                {row.isBottleneck ? (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 dark:text-rose-300 text-[10px] font-black uppercase tracking-wider animate-pulse">
-                                                        ⚠️ Goulot d'étranglement
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider">
-                                                        ✅ Fluide
-                                                    </span>
-                                                )}
+                                                {row.encours}
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
+                        )}
                     </div>
 
                     {/* Skill Matching & Machine Certification Box — masqué si les alertes machines sont désactivées (Configuration) */}
@@ -2808,33 +3030,25 @@ export default function SuiviProduction({
                                 </div>
                             </div>
 
-                            {/* Skills Verification Status */}
-                            {skillCheckResults.status === 'OK' ? (
-                                <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800/50 p-4 text-emerald-800 dark:text-emerald-200 flex items-start gap-3">
-                                    <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400 dark:text-emerald-300" />
-                                    <div>
-                                        <p className="text-xs font-black uppercase tracking-wider">{tx(lang, { fr: 'Couverture Complète', ar: 'تغطية كاملة', en: 'Complete coverage', es: 'Cobertura completa', pt: 'Cobertura completa', tr: 'Tam kapsama' })}</p>
-                                        <p className="text-[10px] text-emerald-700 dark:text-emerald-300/80 font-medium mt-1">{tx(lang, { fr: "L'effectif actuel possède toutes les qualifications machine requises dans la gamme opératoire du modèle.", ar: 'يمتلك الفريق الحالي جميع مؤهلات الآلات المطلوبة في غامة عمليات النموذج.', en: 'The current workforce has all machine qualifications required by the model routing.', es: 'El efectivo actual posee todas las cualificaciones de máquina requeridas por la gama del modelo.', pt: 'O efetivo atual possui todas as qualificações de máquina exigidas pela gama do modelo.', tr: 'Mevcut personel, model rotasında gereken tüm makine niteliklerine sahiptir.' })}</p>
-                                    </div>
+                            {/* Competences : chaque operation de la gamme, combien d'ouvriers de la chaine savent la faire */}
+                            {skillCheckResults.status === 'OK' && (
+                                <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800/50 p-3 text-emerald-800 dark:text-emerald-200 flex items-start gap-3">
+                                    <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-300" />
+                                    <p className="text-xs font-bold">{tx(lang, { fr: 'Chaque opération de la gamme a au moins un ouvrier qualifié sur la chaîne.', ar: 'كل عملية في الـ gamme لها عامل مؤهَّل واحد على الأقل في السلسلة.', en: 'Every routing operation has at least one qualified operator on the line.', es: 'Cada operación de la gama tiene al menos un operario cualificado en la línea.', pt: 'Cada operação da gama tem pelo menos um operador qualificado na linha.', tr: 'Rotadaki her operasyonun hatta en az bir yetkin operatörü var.' })}</p>
                                 </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800/50 p-4 text-amber-900 dark:text-amber-200 flex items-start gap-3">
-                                        <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 dark:text-amber-300" />
-                                        <div>
-                                            <p className="text-xs font-black uppercase tracking-wider">{tx(lang, { fr: 'Compétences Manquantes', ar: 'كفاءات ناقصة', en: 'Missing skills', es: 'Competencias faltantes', pt: 'Competências em falta', tr: 'Eksik yetkinlikler' })}</p>
-                                            <p className="text-[10px] text-amber-800/80 font-medium mt-1">{tx(lang, { fr: "Certaines machines requises par la gamme opératoire n'ont pas d'opérateurs certifiés affectés sur la ligne.", ar: 'بعض الآلات المطلوبة في غامة العمليات لا تملك عاملين مؤهلين مخصصين على الخط.', en: 'Some machines required by the routing do not have certified operators assigned to the line.', es: 'Algunas máquinas requeridas por la gama no tienen operarios certificados asignados a la línea.', pt: 'Algumas máquinas exigidas pela gama não têm operadores certificados atribuídos à linha.', tr: 'Rotada gereken bazı makineler için hatta atanmış sertifikalı operatör yok.' })}</p>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1.5 mt-2">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Postes non couverts :', ar: 'المراكز غير المغطاة:', en: 'Uncovered stations:', es: 'Puestos no cubiertos:', pt: 'Postos não cobertos:', tr: 'Kapsanmayan istasyonlar:' })}</p>
-                                        {skillCheckResults.errors.map((machine, idx) => (
-                                            <div key={idx} className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 px-3 py-1.5 rounded-xl">
-                                                <span>Machine: <strong className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200">{machine}</strong></span>
-                                                <span className="text-[9px] bg-rose-50 dark:bg-rose-900/30 text-rose-500 dark:text-rose-300 px-2 py-0.5 rounded font-black uppercase">{tx(lang, { fr: 'Requis', ar: 'مطلوب', en: 'Required', es: 'Requerido', pt: 'Exigido', tr: 'Gerekli' })}</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                            )}
+                            {skillCheckResults.status === 'WARNING' && (
+                                <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800/50 p-3 text-amber-900 dark:text-amber-200 flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-300" />
+                                    <p className="text-xs font-bold">{tx(lang, { fr: `${skillCheckResults.parOp.filter(x => x.n === 0).length} opération(s) sans ouvrier qualifié sur la chaîne (en rouge ci-dessous).`, ar: `${skillCheckResults.parOp.filter(x => x.n === 0).length} عملية بلا عامل مؤهَّل في السلسلة (بالأحمر أسفله).`, en: `${skillCheckResults.parOp.filter(x => x.n === 0).length} operation(s) with no qualified operator on the line (in red below).`, es: `${skillCheckResults.parOp.filter(x => x.n === 0).length} operación(es) sin operario cualificado (en rojo abajo).`, pt: `${skillCheckResults.parOp.filter(x => x.n === 0).length} operação(ões) sem operador qualificado (a vermelho abaixo).`, tr: `${skillCheckResults.parOp.filter(x => x.n === 0).length} operasyonun hatta yetkin operatörü yok (aşağıda kırmızı).` })}</p>
+                                </div>
+                            )}
+                            {skillCheckResults.status === 'NO_DATA' && (
+                                <div className="rounded-2xl bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 p-3 text-slate-600 dark:text-dk-muted flex items-start gap-3">
+                                    <Info className="w-5 h-5 shrink-0 text-slate-400" />
+                                    <p className="text-xs font-semibold">{skillCheckResults.accesRH
+                                        ? tx(lang, { fr: `Aucune compétence enregistrée pour les ${skillCheckResults.ouvriersChaine} ouvrier(s) de cette chaîne. Renseignez la matrice des compétences dans la Gestion RH.`, ar: `لا توجد كفاءات مسجّلة لعمّال هذه السلسلة (${skillCheckResults.ouvriersChaine}). املأ مصفوفة الكفاءات في الموارد البشرية.`, en: `No skills recorded for the ${skillCheckResults.ouvriersChaine} operator(s) of this line. Fill the skills matrix in HR.`, es: `Sin competencias registradas para los ${skillCheckResults.ouvriersChaine} operarios de esta línea.`, pt: `Sem competências registadas para os ${skillCheckResults.ouvriersChaine} operadores desta linha.`, tr: `Bu hattın ${skillCheckResults.ouvriersChaine} operatörü için kayıtlı yetkinlik yok.` })
+                                        : tx(lang, { fr: 'Les compétences viennent de la Gestion RH, à laquelle ce compte n\'a pas accès : vérification impossible.', ar: 'الكفاءات تأتي من الموارد البشرية، وهذا الحساب لا يملك الولوج إليها: التحقق غير ممكن.', en: 'Skills come from HR, which this account cannot access: no check possible.', es: 'Las competencias vienen de RR. HH., sin acceso para esta cuenta.', pt: 'As competências vêm do RH, sem acesso para esta conta.', tr: 'Yetkinlikler İK\'dan gelir; bu hesabın erişimi yok.' })}</p>
                                 </div>
                             )}
 
@@ -2846,10 +3060,10 @@ export default function SuiviProduction({
                                 <div className="flex gap-2 items-center overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                                     {activeModel && activeModel.gamme && activeModel.gamme.length > 0 ? (
                                         activeModel.gamme.map((op, idx) => {
-                                            const machine = op.machineName || op.machineId || 'Piqueuse';
-                                            const isMissing = skillCheckResults.errors.some(
-                                                err => err.toLowerCase() === machine.toLowerCase()
-                                            );
+                                            const machine = op.machineName || op.machineId || '—';
+                                            const couverture = skillCheckResults.parOp.find(x => x.op === op);
+                                            // Rouge seulement quand on SAIT qu'aucun ouvrier n'est qualifie.
+                                            const isMissing = skillCheckResults.status === 'WARNING' && couverture?.n === 0;
                                             
                                             return (
                                                 <div key={op.id || idx} className="flex items-center shrink-0">
@@ -2868,8 +3082,13 @@ export default function SuiviProduction({
                                                         </div>
                                                         <div className="flex items-center justify-between gap-1 mt-1 text-[8px] font-bold text-slate-400 dark:text-dk-muted">
                                                             <span className={`truncate ${isMissing ? 'text-rose-600 dark:text-rose-400 dark:text-rose-300' : 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200'}`}>{machine}</span>
-                                                            <span className="tabular-nums font-mono text-[7px] bg-slate-100 dark:bg-dk-elevated/60 px-0.5 rounded shrink-0">{(op.time || 0).toFixed(1)}s</span>
+                                                            <span className="tabular-nums font-mono text-[7px] bg-slate-100 dark:bg-dk-elevated/60 px-0.5 rounded shrink-0">{(Number(op.time) || 0).toFixed(2)} min</span>
                                                         </div>
+                                                        {(skillCheckResults.status === 'OK' || skillCheckResults.status === 'WARNING') && couverture && (
+                                                            <div className={`mt-1 text-[8px] font-black ${couverture.n === 0 ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300'}`}>
+                                                                {tx(lang, { fr: `${couverture.n} qualifié(s)`, ar: `${couverture.n} مؤهَّل`, en: `${couverture.n} qualified`, es: `${couverture.n} cualificado(s)`, pt: `${couverture.n} qualificado(s)`, tr: `${couverture.n} yetkin` })}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     {idx < activeModel.gamme.length - 1 && (
                                                         <span className={`h-0.5 w-3 shrink-0 ${isMissing ? 'bg-rose-200 dark:bg-rose-900/50 border-dashed border-t-2' : 'bg-slate-200 dark:bg-dk-border'}`} />
@@ -2878,14 +3097,14 @@ export default function SuiviProduction({
                                             );
                                         })
                                     ) : (
-                                        <div className="text-[10px] text-slate-400 dark:text-dk-muted py-2 italic">Aucune gamme opératoire enregistrée.</div>
+                                        <div className="text-[10px] text-slate-400 dark:text-dk-muted py-2 italic">{tx(lang, { fr: 'Aucune gamme opératoire enregistrée.', ar: 'لا توجد gamme مسجّلة.', en: 'No routing recorded.', es: 'Ninguna gama registrada.', pt: 'Nenhuma gama registada.', tr: 'Kayıtlı rota yok.' })}</div>
                                     )}
                                 </div>
                             </div>
                         </div>
                         
                         <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium leading-relaxed border-t border-slate-50 dark:border-dk-border/40 pt-3 mt-4">
-                            Relie la gamme de montage aux qualifications enregistrées dans la base RH de l'usine pour éviter les baisses de rendement liées au mauvais placement des ouvrières.
+                            {tx(lang, { fr: 'Ouvriers rattachés à la chaîne dans la Gestion RH, croisés avec leur matrice de compétences (opération ou machine).', ar: 'عمّال السلسلة في الموارد البشرية، مقارَنون بمصفوفة كفاءاتهم (العملية أو الآلة).', en: 'Operators assigned to the line in HR, matched against their skills matrix (operation or machine).', es: 'Operarios de la línea en RR. HH., cruzados con su matriz de competencias.', pt: 'Operadores da linha no RH, cruzados com a sua matriz de competências.', tr: 'İK\'da hatta atanmış operatörler, yetkinlik matrisleriyle eşleştirilir.' })}
                         </p>
                     </div>
                     )}
@@ -2911,8 +3130,8 @@ export default function SuiviProduction({
                             <div className="flex items-center gap-3 mb-4">
                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md dark:shadow-dk-md ${
                                     consumptionAlerts.some(a => a.severity === 'critical')
-                                        ? 'bg-rose-50 dark:bg-rose-900/300 text-white animate-pulse'
-                                        : 'bg-amber-50 dark:bg-amber-900/300 text-white'
+                                        ? 'bg-rose-500 text-white animate-pulse'
+                                        : 'bg-amber-500 text-white'
                                 }`}>
                                     <AlertTriangle className="w-6 h-6" />
                                 </div>
@@ -3001,7 +3220,7 @@ export default function SuiviProduction({
                                             <div className="w-full bg-slate-100 dark:bg-dk-elevated/60 h-2 rounded-full mt-1.5 overflow-hidden">
                                                 <div
                                                     className={`h-full rounded-full transition-all duration-500 ${
-                                                        alert.severity === 'critical' ? 'bg-rose-50 dark:bg-rose-900/300 animate-pulse' : 'bg-amber-400 dark:bg-amber-800'
+                                                        alert.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-amber-400 dark:bg-amber-800'
                                                     }`}
                                                     style={{ width: `${Math.min(100, Math.max(5, alert.totalReceived > 0 ? (alert.consumed / alert.totalReceived) * 100 : 100))}%` }}
                                                 />
@@ -3024,10 +3243,10 @@ export default function SuiviProduction({
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-2xl p-3 sm:p-5 shadow-sm dark:shadow-dk-sm text-xs font-semibold text-slate-500 dark:text-dk-muted">
                     <div className="flex flex-wrap items-center gap-4">
                         <span className="font-bold">{l.downtimes} :</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-slate-50 dark:bg-dk-bg0 text-white text-center">L</span> {l.lunch}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-slate-500 text-white text-center">L</span> {l.lunch}</span>
                         <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-blue-500 dark:bg-blue-700 text-white text-center">P</span> {l.pause}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-50 dark:bg-rose-900/300 text-white text-center">M</span> {l.breakdown}</span>
-                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-amber-50 dark:bg-amber-900/300 text-white text-center">S</span> {l.rupture}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white text-center">M</span> {l.breakdown}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded text-[10px] font-black bg-amber-500 text-white text-center">S</span> {l.rupture}</span>
                     </div>
                     <p className="text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Les pannes et pauses réduisent automatiquement le temps de travail effectif utilisé pour calculer le rendement (R%).', ar: 'تُخصم الأعطال والاستراحات تلقائياً من وقت العمل الفعلي لحساب المردودية (R%) بدقة.', en: 'Breakdowns and breaks automatically reduce effective work time used to calculate efficiency (R%).', es: 'Las averías y pausas reducen automáticamente el tiempo efectivo usado para calcular el rendimiento (R%).', pt: 'Avarias e pausas reduzem automaticamente o tempo efetivo usado para calcular o rendimento (R%).', tr: 'Arızalar ve molalar, verimlilik (R%) hesabında kullanılan etkin çalışma süresini otomatik olarak azaltır.' })}</p>
                 </div>

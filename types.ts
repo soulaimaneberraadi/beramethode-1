@@ -428,6 +428,8 @@ export interface AppSettings {
   chainNames?: Record<string, string>; // NEW: custom chain names matching "CHAINE 1" => "My Custom Chain"
   organigram: { id: string, name: string, role: string, parentId?: string }[]; // General Managers
   chainStaff: Record<string, { id: string, name: string, role: string }[]>; // Staff/Supervisors per chain
+  /** Responsable de ligne par chaine (« CHAINE 1 » -> nom), saisi dans le Suivi de production. */
+  responsablesLigne?: Record<string, string>;
   companyProfile: CompanyProfile;
   chainCapacityPerDay?: Record<string, number>; // CHAINE X -> capacity/day
   /** Machines affectées à chaque ligne (ids). Si absent ou vide pour une ligne → toutes les machines actives (comportement par défaut). */
