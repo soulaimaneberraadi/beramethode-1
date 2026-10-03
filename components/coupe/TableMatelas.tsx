@@ -17,6 +17,7 @@ import { metresPlis, longueurManquante, minutesPrevues, texteDuree, type TempsSt
 import { codeMatiere, nomFichierMatelas, placementPourLigne } from '../../lib/ordreCoupe';
 import { analyserFichier, numeroterPlt, reglagesAvecDefaut } from '../../lib/numerotationPlt';
 import { grilleClavier, type CelluleGrille } from './grilleClavier';
+import type { PaireTaille } from '../../lib/correspondanceTailles';
 import { problemeTrace } from './TablePlacements';
 
 interface Props {
@@ -52,6 +53,8 @@ interface Props {
     tempsStd?: TempsStandard | null;
     /** Laize du tissu en cours : un matelas coupe sur une autre laize garde le trace de celle-ci. */
     laizeActive?: string;
+    /** Correspondance lettres <-> nombres de l'usine, pour comparer un trace en lettres a un modele en nombres. */
+    correspondance?: PaireTaille[];
 }
 
 /** Colonnes collees a gauche : largeurs fixes, sinon la seconde chevauche la suite en defilant. */
@@ -376,7 +379,7 @@ const LigneMatelas = memo(function LigneMatelas({
 export default function TableMatelas({
     lignes, placements, tissu, tailles, couleurs, commande, pastille, fichierDe,
     onModifier, onInserer, onApercu, onMessage, deposer, renderEtat, renderMatiere, renderActions,
-    onSupprimerLignes, onDupliquerLignes, onDeplacerLigne, reglagesDefaut, onConfirmerLignes, tempsStd, laizeActive,
+    onSupprimerLignes, onDupliquerLignes, onDeplacerLigne, reglagesDefaut, onConfirmerLignes, tempsStd, laizeActive, correspondance,
 }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
@@ -539,7 +542,7 @@ export default function TableMatelas({
     /** Le matelas est sur la laize en cours (les alertes de trace ne valent que pour elle). */
     const surLaizeActive = (l: MatelasLine) => !l.laizeId || !laizeActive || l.laizeId === laizeActive;
     /** Trace qui ne correspond pas a sa ligne (taille hors commande, tailles differentes) : signale sur chaque matelas. */
-    const problemes = useMemo(() => Object.fromEntries(placements.map(p => [p.id, problemeTrace(p, tailles)])), [placements, tailles]);
+    const problemes = useMemo(() => Object.fromEntries(placements.map(p => [p.id, problemeTrace(p, tailles, correspondance)])), [placements, tailles, correspondance]);
     const piecesTaille = (l: MatelasLine, t: string) => (l.plis || 0) * (Number(l.ratios?.[t]) || 0);
     const piecesLigne = (l: MatelasLine) => tailles.reduce((s, t) => s + piecesTaille(l, t), 0);
     const consoTheorique = (l: MatelasLine) => (piecesLigne(l) > 0 ? metresPlis(l.plis, l.longTracee) : 0);

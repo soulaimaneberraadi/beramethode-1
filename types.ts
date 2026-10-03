@@ -476,6 +476,12 @@ export interface AppSettings {
   tailleSystems?: { id: string; label: string; mode: 'alpha' | 'numerique' | 'gros' | 'custom'; sizes: string[] }[];
   /** Active/désactive la fonctionnalité « Systèmes de tailles » (Beta). Défaut : activé. */
   tailleSystemsEnabled?: boolean;
+  /**
+   * Correspondance lettres ↔ nombres de l'usine (XS = 34, S = 36...). Un fichier
+   * PLT ou Excel en lettres se range dans un modèle en nombres, et l'inverse.
+   * Absente : la table d'usage (`CORRESPONDANCE_DEFAUT`).
+   */
+  correspondanceTailles?: { lettre: string; nombre: string }[];
   /** ID du profil de courbe d'apprentissage par défaut */
   learningCurveProfileId?: string;
   /** Coût horaire des heures supplémentaires (MAD/h) — pour comparaison Overtime vs Sous-traitance */

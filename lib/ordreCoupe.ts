@@ -10,6 +10,7 @@
  */
 import type { LaizeCoupe, MatelasFichier, MatelasLine, OrdreCoupe, PlacementCoupe, TissuCoupe, TraceLaize } from '../types';
 import { nomPlacement, repartirPlis } from './planMatelas';
+import { trouverTaille, type PaireTaille } from './correspondanceTailles';
 
 export const TISSU_PRINCIPAL = 'principal';
 
@@ -41,7 +42,6 @@ export function codeMatiere(t: { id: string; nom: string; code?: string }): stri
  */
 export const estPrincipal = (x: { tissu?: string }) => tissuDe(x) === TISSU_PRINCIPAL;
 
-const cleTaille = (t: string) => t.trim().toUpperCase();
 
 /** Prochain code de trace d'une matiere : FO-01, FO-02... (apres le plus grand deja pris). */
 export function codeTraceSuivant(prefixe: string, codes: (string | undefined)[]): string {
@@ -67,8 +67,13 @@ export function codeTraceSuivant(prefixe: string, codes: (string | undefined)[])
  * « S-M×2-L »   -> un S, deux M, un L
  * Rend null si une taille n'existe pas dans la commande.
  */
-export function lireNotation(texte: string, tailles: string[]): Record<string, number> | null {
-    const index = new Map(tailles.map((t, i) => [cleTaille(t), i]));
+export function lireNotation(texte: string, tailles: string[], table?: PaireTaille[]): Record<string, number> | null {
+    // Une taille de la notation qui n'est pas dans la commande mais dont l'equivalent y est (« S » dans un
+    // modele en 36...) est lue comme cette taille : la commande n'a qu'une colonne par taille.
+    const position = (t: string): number | undefined => {
+        const cible = trouverTaille(t, tailles, table);
+        return cible === undefined ? undefined : tailles.indexOf(cible);
+    };
     const brut = texte.trim()
         .replace(/\s*-\s*[aà]\s*-\s*/gi, ' à ')
         .replace(/\s+[aà]\s+/gi, ' à ');
@@ -82,20 +87,20 @@ export function lireNotation(texte: string, tailles: string[]): Record<string, n
         // (ou un intervalle) — « XXL » ou « 3XL » restent des tailles entieres.
         const m = /^(.*?)\s*[×x*]\s*(\d+)$/i.exec(morceau);
         const avant = m ? sansParentheses(m[1]) : '';
-        const estMultiple = !!m && (index.has(cleTaille(avant)) || avant.includes(' à '));
+        const estMultiple = !!m && (position(avant) !== undefined || avant.includes(' à '));
         const corps = estMultiple ? avant : sansParentheses(morceau);
         const fois = estMultiple ? Number(m![2]) : 1;
         if (fois < 1) return null;
 
         const intervalle = corps.split(' à ');
         if (intervalle.length === 2) {
-            const i = index.get(cleTaille(intervalle[0]));
-            const j = index.get(cleTaille(intervalle[1]));
+            const i = position(intervalle[0]);
+            const j = position(intervalle[1]);
             if (i === undefined || j === undefined) return null;
             for (let k = Math.min(i, j); k <= Math.max(i, j); k++) ajouter(tailles[k], fois);
             continue;
         }
-        const i = index.get(cleTaille(corps));
+        const i = position(corps);
         if (i === undefined) return null;
         ajouter(tailles[i], fois);
     }
@@ -155,15 +160,16 @@ export function lireEntete(textes: string[]): EnteteTrace {
 }
 
 /**
- * Tailles du fichier -> tailles de la commande (« s » et « S » sont la meme).
+ * Tailles du fichier -> tailles de la commande (« s » et « S » sont la meme ; « XS » et « 34 »
+ * aussi quand la table de correspondance de l'usine le dit).
  * `inconnues` : tailles du trace absentes de la commande — a signaler, jamais a ignorer.
  */
-export function associerTailles(duFichier: Record<string, number>, tailles: string[]): { ratios: Record<string, number>; inconnues: string[] } {
-    const index = new Map(tailles.map(t => [cleTaille(t), t]));
+export function associerTailles(duFichier: Record<string, number>, tailles: string[], table?: PaireTaille[]): { ratios: Record<string, number>; inconnues: string[] } {
     const ratios: Record<string, number> = {};
     const inconnues: string[] = [];
     for (const [t, n] of Object.entries(duFichier)) {
-        const cible = index.get(cleTaille(t));
+        // La meme ecriture d'abord, puis l'equivalent de la table (« XS » -> « 34 »).
+        const cible = trouverTaille(t, tailles, table);
         if (cible) ratios[cible] = (ratios[cible] || 0) + n;
         else inconnues.push(t);
     }

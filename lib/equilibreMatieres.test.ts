@@ -46,7 +46,7 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     const eq2 = equilibrerOrdre(ordre(lignes), TAILLES);
     assert.equal(eq2.lots[0].etat, 'en_cours');
     assert.deepEqual(eq2.lots[0].retard, ['VL', 'FO']);
-    assert.deepEqual(eq2.lots[0].attente, { VL: { numeros: ['1', '2'], ailleurs: 0 }, FO: { numeros: ['1'], ailleurs: 0 } });
+    assert.deepEqual(eq2.lots[0].attente, { VL: { numeros: ['1', '2'], autres: [] }, FO: { numeros: ['1'], autres: [] } });
     assert.equal(eq2.lots[0].prets, 0);
     assert.equal(eq2.vetementsCoupes, 150);
     assert.equal(eq2.prets, 0);
@@ -148,16 +148,17 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     ];
     const eq = equilibrerOrdre(ordre(lignes), ['38', '40', '42', '44']);
     assert.equal(eq.lots.length, 3, 'chaque matelas de tissu, avec ce qui le couvre');
-    assert.deepEqual(numeros(eq.lots[0].matelas.VL), ['1', '4', '5', '6', '7']);
-    assert.deepEqual(numeros(eq.lots[1].matelas.VL), ['2', '8', '9']);
-    assert.deepEqual(numeros(eq.lots[2].matelas.VL), ['3', '10']);
+    // Comme l'atelier l'a prevu : 38-40 + 42×2 + 42-44 face a chaque « 38-40-42×3-44 ».
+    assert.deepEqual(numeros(eq.lots[0].matelas.VL), ['1', '4', '8']);
+    assert.deepEqual(numeros(eq.lots[1].matelas.VL), ['2', '5', '9']);
+    assert.deepEqual(numeros(eq.lots[2].matelas.VL), ['3', '6', '7', '10']);
     assert.deepEqual(numeros(eq.enPlus.VL), ['11', '12'], 'vlieseline dont le tissu n a pas besoin');
     assert.equal(eq.lots.every(l => l.manque.length === 0), true);
-    // Tissu 1 coupe, sa vlieseline 1 et 4 aussi, pas 5 a 7 : le lot attend 5, 6, 7.
+    // Tissu 1 coupe, sa vlieseline 1 et 4 aussi : il attend la 8 (en face) et la 5 (6 pieces, en face du lot 2).
     lignes[0].fait = true;
     for (const l of lignes.filter(x => x.tissu === 'VL' && ['1', '4'].includes(x.numero!))) l.fait = true;
     const eq2 = equilibrerOrdre(ordre(lignes), ['38', '40', '42', '44']);
-    assert.deepEqual(eq2.lots[0].attente, { VL: { numeros: ['5', '6', '7'], ailleurs: 0 } });
+    assert.deepEqual(eq2.lots[0].attente, { VL: { numeros: ['8'], autres: ['5'] } });
     assert.equal(eq2.lots[0].prets, 100 + 100 + 99 + 99, '38 et 40 complets, 99 en 42 et en 44');
 }
 
@@ -174,7 +175,30 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     // Tissu 2 coupe a son tour : il attend le foro 1 (son lot).
     lignes[1].fait = true;
     const eq2 = equilibrerOrdre(ordre(lignes), TAILLES);
-    assert.deepEqual(eq2.lots[1].attente, { FO: { numeros: ['1'], ailleurs: 0 } });
+    assert.deepEqual(eq2.lots[1].attente, { FO: { numeros: ['1'], autres: [] } });
+}
+
+// --- Ce que la chaine peut coudre, taille par taille ---
+{
+    const lignes = [
+        ligne('principal', '1', 100, { S: 1, M: 1 }, { fait: true }), ligne('principal', '2', 100, { L: 1 }, { fait: true }),
+        ligne('principal', '3', 50, { S: 1 }),
+        ligne('VL', '1', 100, { S: 1 }, { fait: true }), ligne('VL', '2', 60, { M: 1 }, { fait: true }), ligne('VL', '3', 100, { L: 1 }),
+        ligne('VL', '4', 50, { S: 1 }),
+    ];
+    const eq = equilibrerOrdre(ordre(lignes), TAILLES);
+    const de = (t: string) => eq.parTaille.find(x => x.taille === t)!;
+    assert.deepEqual(eq.parTaille.map(x => x.taille), ['S', 'M', 'L']);
+    assert.equal(de('S').prevu, 150);
+    assert.equal(de('S').coupe.principal, 100);
+    assert.equal(de('S').prets, 100, 'tissu 100, vlieseline 100');
+    assert.deepEqual(de('S').limite, [], 'rien ne retient la chaine : tissu et vlieseline au meme niveau');
+    assert.equal(de('M').prets, 60, 'tissu M 100, vlieseline M 60 : la chaine ne coud que 60');
+    assert.deepEqual(de('M').limite, ['VL'], 'la vlieseline retient le M');
+    assert.equal(de('L').prets, 0, 'le tissu L est coupe, pas sa vlieseline');
+    assert.deepEqual(de('L').limite, ['VL']);
+    assert.equal(eq.prets, 100 + 60 + 0, 'le total des prets est la somme des tailles');
+    assert.equal(de('S').coupe.FO, undefined, 'une matiere absente de l\'ordre n\'est pas comptee');
 }
 
 // --- Couleurs : comparees seulement si chaque matiere a les siennes ---

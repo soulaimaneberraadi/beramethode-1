@@ -175,6 +175,52 @@ export default function SuiviMatieres({
                 })}
             </div>
 
+            {/* Ce que la couture peut coudre : un vetement n'est pret que si toutes ses matieres sont coupees */}
+            {colonnes.length > 1 && eq.parTaille.length > 0 && (
+                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                    <div className="px-3 pt-2.5 pb-1.5">
+                        <p className="text-[13px] font-bold text-slate-900 dark:text-dk-text">{L('Prêt pour la chaîne', 'جاهز للسلسلة', 'Ready for the line')}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-dk-muted">{L('Par taille : seulement ce qui est coupé dans toutes les matières.', 'لكل مقاس: فقط ما قُصّ في كل المواد.', 'Per size: only what is cut in every material.')}</p>
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-dk-border">
+                        {eq.parTaille.map(t => {
+                            const part = t.prevu ? Math.min(1, t.prets / t.prevu) : 0;
+                            const tissuCoupe = t.coupe[colonnes[0]?.id] ?? 0;
+                            const partTissu = t.prevu ? Math.min(1, tissuCoupe / t.prevu) : 0;
+                            return (
+                                <div key={t.cle} className="px-3 py-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="min-w-10 px-1.5 h-6 inline-flex items-center justify-center gap-1 rounded-md bg-slate-100 dark:bg-dk-elevated text-[12px] font-bold uppercase text-slate-700 dark:text-dk-text-soft">
+                                            {couleursMultiples && t.couleur && <Pastille couleur={t.couleur} pastille={pastille} />}
+                                            {t.taille}
+                                        </span>
+                                        {couleursMultiples && t.couleur && <span className="text-[11px] text-slate-500 dark:text-dk-muted truncate">{t.couleur}</span>}
+                                        <span className="flex-1" />
+                                        <span className="text-[12px] tabular-nums shrink-0">
+                                            <b className="text-emerald-600 dark:text-emerald-400">{fmtN(t.prets)}</b>
+                                            <span className="text-slate-400"> / {fmtN(t.prevu)}</span>
+                                        </span>
+                                    </div>
+                                    <div className="mt-1.5 h-2 rounded-full bg-slate-100 dark:bg-dk-elevated overflow-hidden relative">
+                                        <div className="absolute inset-y-0 left-0 bg-slate-300 dark:bg-slate-600" style={{ width: `${Math.round(partTissu * 100)}%` }} />
+                                        <div className="absolute inset-y-0 left-0 bg-emerald-500" style={{ width: `${Math.round(part * 100)}%` }} />
+                                    </div>
+                                    {t.limite.length > 0 && (
+                                        <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300 flex items-start gap-1">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+                                            <span>
+                                                {L('Retenu par', 'محجوز بسبب', 'Held by')} {t.limite.map(id => nomMatiere(id)).join(', ')}
+                                                <span className="font-normal text-slate-500 dark:text-dk-muted"> · {colonnes.filter(m => t.coupe[m.id] !== undefined).map(m => `${m.code} ${fmtN(t.coupe[m.id])}`).join(' · ')}</span>
+                                            </span>
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {eq.lots.length > 0 && (
                 <>
                     {/* Legende et filtre */}
@@ -423,7 +469,9 @@ function CarteLot({
                                     <span key={id} className="block">
                                         {nomMatiere(id)}
                                         {lot.attente[id].numeros.length > 0 && <> · N° {lot.attente[id].numeros.join(', ')}</>}
-                                        {lot.attente[id].ailleurs > 0 && <span className="font-normal"> · {lot.attente[id].numeros.length ? '+ ' : ''}{lot.attente[id].ailleurs} {L('matelas des lots d\u2019avant', 'مفرشة من الدفعات السابقة', 'lays from earlier lots')}</span>}
+                                        {lot.attente[id].autres.length > 0 && (
+                                            <span className="font-normal"> · {L('en face d\u2019un autre lot :', 'مقابل دفعة أخرى:', 'opposite another lot:')} N° {lot.attente[id].autres.slice(0, 4).join(', ')}{lot.attente[id].autres.length > 4 ? ` +${lot.attente[id].autres.length - 4}` : ''}</span>
+                                        )}
                                     </span>
                                 ))}
                                 <span className="block font-normal text-rose-600/80 dark:text-rose-300/80">{L('Ne lancez pas ce lot en production avant.', 'لا تُطلق هذه الدفعة للإنتاج قبل ذلك.', 'Do not release this lot before.')}</span>

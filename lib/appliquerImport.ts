@@ -11,6 +11,7 @@ import type { MatelasLine, OrdreCoupe, PlacementCoupe, TissuCoupe } from '../typ
 import type { FeuilleImportee } from './importCoupeExcel';
 import { TISSU_PRINCIPAL, matelasDuPlacement, numeroSuivant, tissuDe } from './ordreCoupe';
 import { nomPlacement } from './planMatelas';
+import { notationListe, tailleDansNotation, trouverTaille, type NotationTailles, type PaireTaille } from './correspondanceTailles';
 
 export interface OptionsImport {
     /** Tailles actuelles du modele (leur ordre est garde ; les nouvelles s'ajoutent a la fin). */
@@ -21,6 +22,14 @@ export interface OptionsImport {
     remplacer: boolean;
     /** Plis au plus par matelas (quand le placement n'a pas le sien). */
     maxPlis: number;
+    /** Correspondance lettres <-> nombres de l'usine (celle d'usage si absente). */
+    table?: PaireTaille[];
+    /**
+     * Notation du modele : une taille du classeur qu'il n'a pas encore s'y ajoute
+     * ecrite ainsi (« XS » devient « 34 » dans un modele en nombres). Absent : celle
+     * des tailles du modele ; un modele sans taille prend celle du classeur.
+     */
+    notation?: NotationTailles;
 }
 
 export interface ResultatImport {
@@ -30,7 +39,17 @@ export interface ResultatImport {
     quantites: Record<string, number>;
     resume: { matieres: number; placements: number; matelas: number };
     alertes: string[];
+    /** Tailles du classeur rangees dans une autre ecriture du modele (« XS » -> « 34 ») : a montrer a l'atelier. */
+    conversions: { de: string; vers: string }[];
 }
+
+/**
+ * Compteur du module, pas de l'appel : plusieurs feuilles d'un meme classeur
+ * s'importent a la suite dans la meme milliseconde, et un compteur local
+ * redonnait « TIS-xxx-0 » a la matiere de chaque feuille (la doublure et
+ * l'entretoile se confondaient en une seule).
+ */
+let sequenceIds = 0;
 
 const sansAccents = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
 
@@ -47,30 +66,46 @@ function nomMatiere(nom: string): string {
 
 export function appliquerImport(o: OrdreCoupe, f: FeuilleImportee, opt: OptionsImport): ResultatImport {
     const alertes = [...f.alertes];
-    const cle = (t: string) => t.trim().toUpperCase();
 
-    // Tailles : on garde celles du modele, on ajoute celles qui manquent.
+    // Tailles : on garde celles du modele, on y range celles du classeur — meme ecriture d'abord, puis
+    // l'equivalent de la table (« XS » dans un modele en « 34 ») — et on ajoute seulement celles qui manquent,
+    // ecrites comme le modele (jamais deux jeux de tailles dans une meme commande).
     const tailles = [...opt.tailles];
-    const versModele = new Map(tailles.map(t => [cle(t), t]));
+    const notation = opt.notation ?? notationListe(tailles).notation ?? notationListe(f.tailles).notation;
+    const versModele = new Map<string, string>();
+    const conversions: { de: string; vers: string }[] = [];
     for (const t of f.tailles) {
-        if (!versModele.has(cle(t))) { tailles.push(t); versModele.set(cle(t), t); }
+        let cible = trouverTaille(t, tailles, opt.table);
+        if (cible === undefined) {
+            cible = tailleDansNotation(t, notation, opt.table);
+            // La colonne existe peut-etre deja sous cette ecriture (deux tailles du classeur qui se rejoignent).
+            cible = trouverTaille(cible, tailles, opt.table) ?? cible;
+            if (!tailles.includes(cible)) tailles.push(cible);
+        }
+        versModele.set(t, cible);
+        if (cible.trim().toUpperCase() !== t.trim().toUpperCase()) conversions.push({ de: t, vers: cible });
     }
+    const versTaille = (t: string): string => versModele.get(t) ?? trouverTaille(t, tailles, opt.table) ?? t;
     const enTaillesModele = (r: Record<string, number> | null): Record<string, number> => {
         const out: Record<string, number> = {};
         for (const [t, v] of Object.entries(r || {})) {
             const n = Math.round(Number(v) || 0);
-            if (n > 0) { const cible = versModele.get(cle(t)) || t; out[cible] = (out[cible] || 0) + n; }
+            if (n > 0) { const cible = versTaille(t); out[cible] = (out[cible] || 0) + n; }
         }
         return out;
     };
     const quantites: Record<string, number> = {};
-    for (const [t, v] of Object.entries(f.quantites || {})) quantites[versModele.get(cle(t)) || t] = Math.max(0, Math.round(Number(v) || 0));
+    for (const [t, v] of Object.entries(f.quantites || {})) {
+        const cible = versTaille(t);
+        quantites[cible] = (quantites[cible] || 0) + Math.max(0, Math.round(Number(v) || 0));
+    }
+    if (conversions.length) alertes.push(`Tailles du classeur rangees selon la correspondance lettres/nombres : ${conversions.map(c => `${c.de} → ${c.vers}`).join(', ')}.`);
 
     let tissus: TissuCoupe[] = o.tissus?.length ? o.tissus.map(t => ({ ...t })) : [{ id: TISSU_PRINCIPAL, nom: 'Tissu', recuM: o.tissuRecu || undefined }];
     let placements: PlacementCoupe[] = [...(o.placements || [])];
     let lignes: MatelasLine[] = [...(o.matelasLines || [])];
-    let nPlacements = 0, nMatelas = 0, compteur = 0;
-    const nouvelId = (prefixe: string) => `${prefixe}-${Date.now().toString(36)}-${(compteur++).toString(36)}`;
+    let nPlacements = 0, nMatelas = 0;
+    const nouvelId = (prefixe: string) => `${prefixe}-${Date.now().toString(36)}-${(sequenceIds++).toString(36)}`;
     const matieresTouchees = new Set<string>();
 
     for (const m of f.matieres) {
@@ -169,5 +204,6 @@ export function appliquerImport(o: OrdreCoupe, f: FeuilleImportee, opt: OptionsI
         quantites,
         resume: { matieres: matieresTouchees.size, placements: nPlacements, matelas: nMatelas },
         alertes,
+        conversions,
     };
 }

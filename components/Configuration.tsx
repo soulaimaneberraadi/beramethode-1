@@ -12,6 +12,7 @@ import { IS_COUPE } from '../lib/edition';
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 import type { Lang } from '../app/constants';
+import CorrespondanceTailles from './config/CorrespondanceTailles';
 
 interface ConfigurationProps {
     settings: AppSettings;
@@ -419,6 +420,8 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <ChevronDown className={`w-5 h-5 text-slate-400 dark:text-dk-muted shrink-0 transition-transform ${openSec['tailles'] ? 'rotate-180' : ''}`} />
                 </div>
                 <div className={`p-6 md:p-8 space-y-4 ${openSec['tailles'] ? '' : 'hidden'}`}>
+                    {/* Lettres <-> nombres : sert a La Coupe (traces PLT, classeurs Excel), independant du Beta ci-dessous */}
+                    <CorrespondanceTailles valeur={draft.correspondanceTailles} onChange={t => setDraft(prev => ({ ...prev, correspondanceTailles: t }))} />
                     {/* Activation de la fonctionnalité (Beta) */}
                     <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/50 border border-amber-100 rounded-xl p-3">
                         <div className="flex items-center gap-2">

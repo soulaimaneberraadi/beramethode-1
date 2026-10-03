@@ -42,6 +42,8 @@ import { reglagesAvecDefaut, texteNumero } from '../lib/numerotationPlt';
 import { useDossierTraceur, PuceTraceur } from './coupe/DossierTraceur';
 import SuiviMatieres, { type EtatSauvegarde } from './coupe/SuiviMatieres';
 import { corrigerPlisFiges } from '../lib/equilibreMatieres';
+import { nettoyerTable, notationListe, type NotationTailles } from '../lib/correspondanceTailles';
+import { convertirTaillesOrdre } from '../lib/convertirTaillesOrdre';
 import type { DonneesExcelCoupe } from '../lib/coupeExcel';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
@@ -268,6 +270,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const modelesAvecCoupe = (models || []).filter(m => m && m.meta_data && m.ordreCoupe);
 
     const groupesCoupe = useMemo(() => settings?.groupesCoupe || [], [settings?.groupesCoupe]);
+    /** Correspondance lettres <-> nombres de l'usine (la table d'usage tant qu'elle n'est pas reglee). */
+    const correspondance = useMemo(() => nettoyerTable(settings?.correspondanceTailles), [settings?.correspondanceTailles]);
     const setGroupesCoupe = (g: GroupeCoupe[]) => setSettings?.(prev => ({ ...prev, groupesCoupe: g }));
 
     // Modèles publiés à la Bibliothèque, pas encore engagés en Coupe — proposés dans "Sélectionner un modèle existant"
@@ -1161,6 +1165,33 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [models]);
 
+    /*
+     * Notation des tailles de l'ordre : « se fier aux nombres » (XS -> 34...) ou « aux
+     * lettres ». Une fenetre montre ce qui change avant de convertir ; la conversion
+     * s'enregistre d'un bloc (fiche et ordre ensemble), jamais a moitie.
+     */
+    const [conversionTailles, setConversionTailles] = useState<NotationTailles | null>(null);
+    const notationOrdre = useMemo(() => notationListe(selectedModel?.ficheData?.sizes || selectedModel?.meta_data?.sizes || []), [selectedModel?.ficheData?.sizes, selectedModel?.meta_data?.sizes]);
+    const appliquerConversion = (vers: NotationTailles) => {
+        if (!selectedModel) return;
+        const r = convertirTaillesOrdre({ ordre, fiche: buildFiche() as any, meta: selectedModel.meta_data as any, vers, table: correspondance });
+        if (!r.ok) { showToast(r.erreur, 'error'); return; }
+        const fiche: any = r.fiche;
+        const meta: any = r.meta || selectedModel.meta_data;
+        const modele: ModelData = { ...selectedModel, ficheData: fiche, meta_data: meta };
+        setModels(prev => prev.map(m => (m.id === selectedModel.id ? { ...m, ficheData: fiche, meta_data: meta } : m)));
+        setSelectedModel(modele);
+        if (currentModelId === selectedModel.id && setFicheData) setFicheData(fiche);
+        setOrdre(r.ordre);
+        setConversionTailles(null);
+        enregistrerSuivi();
+        showToast(tx(lang, {
+            fr: `Tailles en ${vers === 'nombres' ? 'nombres' : 'lettres'} : ${r.plan.tailles.join(' ')}`,
+            ar: `المقاسات ${vers === 'nombres' ? 'بالأرقام' : 'بالحروف'}: ${r.plan.tailles.join(' ')}`,
+            en: `Sizes in ${vers === 'nombres' ? 'numbers' : 'letters'}: ${r.plan.tailles.join(' ')}`,
+        }), 'success');
+    };
+
     /** Chaines de montage, comme le Planning les nomme (CHAINE 1..n). */
     const chainesAtelier = useMemo(() => Array.from({ length: settings?.chainsCount || 4 }, (_, i) => {
         const id = `CHAINE ${i + 1}`;
@@ -1185,7 +1216,20 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         if (!couleursFiche.some(x => nomDe(x) === nomCouleur)) {
             couleursFiche.push(couleursFiche.length && typeof couleursFiche[0] === 'string' ? nomCouleur : { id: Date.now().toString(), name: nomCouleur });
         }
-        const r = appliquerImport(ordre, c.feuille, { tailles: fiche.sizes || [], couleur: nomCouleur, remplacer: c.remplacer, maxPlis: Number(autoMaxPly) || 100 });
+        // Chaque feuille choisie apporte sa matiere (tissu, FO, EN...), l'une apres l'autre sur le meme ordre ;
+        // la commande par taille vient de la premiere (le tissu principal), jamais additionnee d'une feuille a l'autre.
+        const feuilles = c.feuilles?.length ? c.feuilles : [c.feuille];
+        let r = appliquerImport(ordre, feuilles[0], { tailles: fiche.sizes || [], couleur: nomCouleur, remplacer: c.remplacer, maxPlis: Number(autoMaxPly) || 100, table: correspondance });
+        for (const suite of feuilles.slice(1)) {
+            const x = appliquerImport(r.ordre, suite, { tailles: r.tailles, couleur: nomCouleur, remplacer: c.remplacer, maxPlis: Number(autoMaxPly) || 100, table: correspondance });
+            r = {
+                ...x,
+                quantites: r.quantites,
+                resume: { matieres: r.resume.matieres + x.resume.matieres, placements: r.resume.placements + x.resume.placements, matelas: r.resume.matelas + x.resume.matelas },
+                alertes: [...r.alertes, ...x.alertes.filter(a => !r.alertes.includes(a))],
+                conversions: [...r.conversions, ...x.conversions.filter(v => !r.conversions.some(u => u.de === v.de))],
+            };
+        }
         const col = couleursFiche.find(x => nomDe(x) === nomCouleur);
         const cId = typeof col === 'string' ? col : (col?.id || col?.name);
         const grille: Record<string, number> = { ...(fiche.gridQuantities || {}) };
@@ -2900,6 +2944,30 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Répartition Tailles / Couleurs', ar: 'توزيع المقاسات / الألوان', en: 'Size / Color Distribution', es: 'Distribución de Tallas / Colores', pt: 'Distribuição de Tamanhos / Cores', tr: 'Beden / Renk Dağılımı' })}</h3>
                                     </div>
                                     <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+                                        {/* Se fier aux nombres ou aux lettres : les fichiers (PLT, Excel) dans l'autre ecriture s'y rangent seuls */}
+                                        {sizes.length > 0 && (
+                                            <div className="flex items-center gap-1.5" title={tx(lang, { fr: 'Les traces et classeurs écrits autrement se rangent seuls dans ces tailles (table : Configuration)', ar: 'الملفات المكتوبة بالطريقة الأخرى تُوضع وحدها في هذه المقاسات (الجدول: الإعدادات)', en: 'Files written the other way are filed into these sizes (table: Configuration)' })}>
+                                                <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-md p-0.5 border border-slate-200 dark:border-dk-border">
+                                                    {([['lettres', tx(lang, { fr: 'Lettres', ar: 'حروف', en: 'Letters' })], ['nombres', tx(lang, { fr: 'Nombres', ar: 'أرقام', en: 'Numbers' })]] as [NotationTailles, string][]).map(([n, label]) => {
+                                                        const actif = !notationOrdre.melangee && notationOrdre.notation === n;
+                                                        return (
+                                                            <button
+                                                                key={n}
+                                                                type="button"
+                                                                disabled={actif}
+                                                                onClick={() => setConversionTailles(n)}
+                                                                className={`${isMobile ? 'h-9 px-3' : 'h-7 px-2.5'} rounded text-[11px] font-bold transition-colors ${actif ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                                            >{label}</button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                {notationOrdre.melangee && (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                                        <AlertTriangle className="w-3 h-3" />{tx(lang, { fr: 'Mélangé : choisissez', ar: 'مختلط: اختر', en: 'Mixed: choose' })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                         <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-md p-0.5 border border-slate-200 dark:border-dk-border">
                                             <input
                                                 type="text"
@@ -3278,6 +3346,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     <TablePlacements
                                         placements={placementsTissu}
                                         tailles={sizes}
+                                        correspondance={correspondance}
                                         nbMatelas={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).length]))}
                                         consoTotale={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).reduce((acc, l) => acc + metresPlis(l.plis, l.longTracee), 0)]))}
                                         maxPlisDefaut={Number(autoMaxPly) || 100}
@@ -3369,6 +3438,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         onDeplacerLigne={deplacerLigne}
                                         onConfirmerLignes={confirmerLignes}
                                         reglagesDefaut={settings?.numerotationDefaut}
+                                        correspondance={correspondance}
                                         tempsStd={tempsStd}
                                         laizeActive={tissuCourant.laizes?.length ? laizesTissu.active : undefined}
                                         deposer={traceur.disponible ? traceur.deposer : undefined}
@@ -4133,6 +4203,59 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         })()}
                 </SheetModal>
             )}
+
+            {conversionTailles && selectedModel && (() => {
+                const vers = conversionTailles;
+                const essai = convertirTaillesOrdre({ ordre, fiche: buildFiche() as any, meta: selectedModel.meta_data as any, vers, table: correspondance });
+                const changements = essai.plan ? Object.entries(essai.plan.renommage).filter(([a, b]) => a !== b) : [];
+                return (
+                    <SheetModal
+                        onClose={() => setConversionTailles(null)}
+                        size="md"
+                        zClass="z-[96]"
+                        title={vers === 'nombres' ? tx(lang, { fr: 'Se fier aux nombres', ar: 'الاعتماد على الأرقام', en: 'Rely on numbers' }) : tx(lang, { fr: 'Se fier aux lettres', ar: 'الاعتماد على الحروف', en: 'Rely on letters' })}
+                        subtitle={tx(lang, { fr: 'Les tailles de cet ordre s’écrivent d’une seule façon', ar: 'مقاسات هذا الأمر تُكتب بطريقة واحدة', en: 'This order’s sizes use one notation' })}
+                        bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 space-y-3"
+                        footer={
+                            <div className="flex items-center justify-end gap-2 p-3">
+                                <button type="button" onClick={() => setConversionTailles(null)} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}</button>
+                                <button type="button" disabled={!essai.ok} onClick={() => appliquerConversion(vers)} className="h-10 px-4 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[12px] font-bold hover:bg-slate-800 disabled:opacity-40">
+                                    {tx(lang, { fr: 'Convertir', ar: 'تحويل', en: 'Convert' })}
+                                </button>
+                            </div>
+                        }
+                    >
+                        {!essai.ok ? (
+                            <p className="flex items-start gap-1.5 text-[13px] font-semibold text-rose-600"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />{essai.erreur}</p>
+                        ) : (
+                            <>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {essai.plan.tailles.map(t => <span key={t} className="px-2 h-7 inline-flex items-center rounded-lg bg-emerald-50 dark:bg-emerald-900/25 text-[12px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">{t}</span>)}
+                                </div>
+                                {changements.length > 0 ? (
+                                    <p className="text-[12px] text-slate-600 dark:text-dk-text-soft">
+                                        {changements.map(([a, b]) => `${a} → ${b}`).join(' · ')}
+                                    </p>
+                                ) : (
+                                    <p className="text-[12px] text-slate-500">{tx(lang, { fr: 'Rien à renommer.', ar: 'لا شيء لإعادة تسميته.', en: 'Nothing to rename.' })}</p>
+                                )}
+                                {essai.plan.fusions.length > 0 && (
+                                    <p className="text-[12px] font-semibold text-slate-700 dark:text-dk-text">
+                                        {tx(lang, { fr: 'Quantités additionnées :', ar: 'تُجمع الكميات:', en: 'Quantities added:' })} {essai.plan.fusions.map(f => `${f.de.join(' + ')} → ${f.vers}`).join(' · ')}
+                                    </p>
+                                )}
+                                <p className="text-[12px] text-slate-600 dark:text-dk-text-soft">
+                                    {tx(lang, { fr: 'La répartition, les placements, les matelas, la série d’étiquetage et le suivi suivent. Les en-têtes des fichiers PLT restent tels qu’ils sont écrits.', ar: 'التوزيع والتركيبات والمفرشات وسلسلة الإتيكيتات والمتابعة تتبع التغيير. وتبقى ترويسات ملفات PLT كما كُتبت.', en: 'The distribution, placements, lays, label series and follow-up follow. PLT file headers stay as written.' })}
+                                </p>
+                                <p className="flex items-start gap-1.5 px-2.5 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[12px] font-semibold text-amber-800 dark:text-amber-200">
+                                    <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+                                    {tx(lang, { fr: 'Si ce modèle a déjà du stock fini, des ventes ou des articles en boutique par taille, ne convertissez pas : ces tailles-là ne sont pas renommées.', ar: 'إن كان لهذا الموديل مخزون جاهز أو مبيعات أو سلع في المتجر حسب المقاس فلا تحوّل: تلك المقاسات لا يُعاد تسميتها.', en: 'If this model already has finished stock, sales or shop items by size, do not convert: those sizes are not renamed.' })}
+                                </p>
+                            </>
+                        )}
+                    </SheetModal>
+                );
+            })()}
 
             {importOuvert && selectedModel && (
                 <ImportExcelCoupe

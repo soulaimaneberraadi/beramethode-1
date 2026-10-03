@@ -9,10 +9,10 @@
  *
  * On suit le tissu dans son ordre de coupe (ses numeros). Pour chaque matelas
  * de tissu, chaque autre matiere doit couvrir les memes pieces, taille par
- * taille (et couleur par couleur quand chaque matiere a ses couleurs) : on lui
- * rattache les matelas qu'il faut en plus pour ca, dans l'ordre de leurs
- * numeros. Les matelas rattaches forment des LOTS, comme sur la feuille de
- * l'atelier :
+ * taille (et couleur par couleur quand chaque matiere a ses couleurs) : elle
+ * prend les matelas qui comblent le mieux ce qui manque, et chacun se place en
+ * face du matelas de tissu dont il coupe le plus de pieces. Cela forme des
+ * LOTS, comme sur la feuille de l'atelier :
  *
  *     lot   Tissu        Vlieseline    Foro        vetements
  *      1    1 S          1 S-M         1 S a L        150
@@ -20,10 +20,10 @@
  *           3 L
  *      2    4 XL, 5 S    3 XL-S        2 XL-S         240
  *
- * Un matelas de tissu deja couvert par ce qui est rattache au lot reste dans
- * le lot ; un lot se ferme quand toutes les matieres tombent juste. Quand les
- * plis ne tombent jamais juste (100 plis de tissu, 99 de vlieseline), chaque
- * matelas de tissu fait son lot avec les matelas qui le couvrent.
+ * Des matelas de tissu restent dans le meme lot tant que ce qui est en face
+ * d'eux deborde nettement sur le suivant ; quand les plis ne tombent jamais
+ * juste (100 plis de tissu, 99 de vlieseline), chaque matelas de tissu fait
+ * son lot avec les matelas qui le couvrent.
  *
  * Un lot est pret pour la production quand son tissu et tout ce qui le couvre
  * est coupe ; tissu coupe et doublure pas encore = matiere en retard.
@@ -94,9 +94,9 @@ export interface LotEquilibre {
     retard: string[];
     /**
      * Ce qu'il faut encore couper, par matiere, pour lancer le tissu coupe du
-     * lot : les numeros de ce lot, et combien d'autres matelas (pris plus haut).
+     * lot : les numeros en face de ce lot, et ceux en face d'un autre lot.
      */
-    attente: Record<string, { numeros: string[]; ailleurs: number }>;
+    attente: Record<string, { numeros: string[]; autres: string[] }>;
 }
 
 export interface BilanMatiere {
@@ -107,9 +107,32 @@ export interface BilanMatiere {
     piecesCoupees: number;
 }
 
+/**
+ * Ce que la chaine peut coudre, taille par taille (et couleur par couleur) : un
+ * vetement ne se coud que si toutes ses matieres sont coupees, donc le pret est
+ * le plus petit de ce qui est coupe, matiere par matiere.
+ */
+export interface LigneTaille {
+    cle: string;
+    taille: string;
+    couleur?: string;
+    /** Pieces prevues de cette taille (tissu principal). */
+    prevu: number;
+    /** Pieces coupees par matiere (id) — seulement les matieres qui coupent cette taille. */
+    coupe: Record<string, number>;
+    /** Pieces prevues par matiere (id). */
+    prevuMat: Record<string, number>;
+    /** Vetements complets : le moins coupe de toutes les matieres. */
+    prets: number;
+    /** Matieres qui retiennent la chaine : moins coupees que les autres. Vide si rien ne bloque. */
+    limite: string[];
+}
+
 export interface EquilibreOrdre {
     matieres: MatiereEquilibre[];
     lots: LotEquilibre[];
+    /** Par taille : ce qui est coupe dans chaque matiere et ce qui peut partir en chaine. */
+    parTaille: LigneTaille[];
     /** Matelas des autres matieres dont aucun matelas de tissu n'a besoin (coupes en trop). */
     enPlus: Record<string, MatelasEquilibre[]>;
     /** Les cles portent la couleur (chaque matiere a ses matelas par couleur). */
@@ -213,136 +236,175 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
     const trierCles = (ks: Iterable<string>) => [...ks].sort((a, b) => (decouperCle(a).couleur || '').localeCompare(decouperCle(b).couleur || '') || ordreTailles(a) - ordreTailles(b) || a.localeCompare(b));
     const ecart = (matiere: string, k: string, delta: number): EcartEquilibre => ({ matiere, cle: k, ...decouperCle(k), delta });
 
-    /* ---- Couverture : pour chaque matelas de tissu, ce que les autres matieres doivent couper ---- */
-    // Matelas d'une matiere qui portent une cle, dans l'ordre de leurs numeros.
-    const porteurs: Record<string, Record<string, number[]>> = {};
+    /* ---- Ordre de coupe des autres matieres ---- */
+    // Pour chaque matelas de tissu, dans son ordre de coupe, chaque autre matiere prend les
+    // matelas qui couvrent le mieux ce qui manque : d'abord ceux deja coupes, puis les traces
+    // imprimes, puis le reste ; parmi eux, celui qui apporte le plus de pieces utiles (38-40 +
+    // 42×2 + 42-44 face a « 38-40-42×3-44 », pas quatre 42-44). Un matelas qui deborderait
+    // surtout sur la suite attend qu'elle en ait besoin : quelques pieces qui manquent (100
+    // plis de tissu, 99 de vlieseline) passent au matelas de tissu suivant au lieu d'appeler
+    // un matelas entier. Au dernier matelas de tissu, tout ce qui manque se couvre.
+    const princ = parMat[P];
+    const n = princ.length;
+    const cumul: Vecteur[] = [];
+    { const d: Vecteur = {}; for (const x of princ) { ajouter(d, x.pieces); cumul.push({ ...d }); } }
+    const avantRangee = (j: number): Vecteur => (j > 0 ? cumul[j - 1] : {});
+    const RANGS: EtatMatelas[] = ['coupe', 'envoye', 'a_faire'];
+    const sequence: Record<string, number[]> = {};
     for (const id of autres) {
-        porteurs[id] = {};
-        parMat[id].forEach((x, j) => { for (const k in x.pieces) (porteurs[id][k] ||= []).push(j); });
-    }
-    const pris: Record<string, boolean[]> = {};
-    const prochain: Record<string, Record<string, number>> = {};
-    const couvert: Record<string, Vecteur> = {};
-    for (const id of autres) { pris[id] = parMat[id].map(() => false); prochain[id] = {}; couvert[id] = {}; }
-    const demande: Vecteur = {};
-
-    interface Etape { x: MatelasEquilibre; nouveaux: Record<string, number[]>; avant: Vecteur; apres: Vecteur; requis: Record<string, Set<number>>; juste: boolean }
-    const etapes: Etape[] = [];
-    const requisCumul: Record<string, Set<number>> = {};
-    for (const id of autres) requisCumul[id] = new Set();
-    for (const x of parMat[P]) {
-        const avant = { ...demande };
-        ajouter(demande, x.pieces);
-        const nouveaux: Record<string, number[]> = {};
-        for (const id of autres) {
-            nouveaux[id] = [];
-            for (const k in x.pieces) {
-                if (!concerne(id, k)) continue;
-                const liste = porteurs[id][k] || [];
-                let i = prochain[id][k] || 0;
-                while ((couvert[id][k] || 0) < demande[k] && i < liste.length) {
-                    const j = liste[i++];
-                    if (pris[id][j]) continue;
-                    pris[id][j] = true;
-                    nouveaux[id].push(j);
-                    requisCumul[id].add(j);
-                    ajouter(couvert[id], parMat[id][j].pieces);
+        const liste = parMat[id];
+        const utilise = liste.map(() => false);
+        const seq: number[] = [];
+        const C: Vecteur = {};
+        for (let j = 0; j < n; j++) {
+            const cible = cumul[j], horizon = cumul[Math.min(j + 1, n - 1)];
+            const dernier = j === n - 1;
+            for (let garde = 0; garde < liste.length; garde++) {
+                const D: Vecteur = {};
+                for (const k in cible) if (concerne(id, k) && cible[k] > (C[k] || 0)) D[k] = cible[k] - (C[k] || 0);
+                if (!Object.keys(D).length) break;
+                let choix = -1, meilleur = -Infinity;
+                for (const etat of RANGS) {
+                    liste.forEach((x, i) => {
+                        if (utilise[i] || x.etat !== etat) return;
+                        let utile = 0, deborde = 0;
+                        for (const k in x.pieces) {
+                            utile += Math.min(x.pieces[k], D[k] || 0);
+                            deborde += Math.max(0, x.pieces[k] - Math.max(0, (horizon[k] || 0) - (C[k] || 0)));
+                        }
+                        if (utile <= 0 || (!dernier && utile < deborde)) return;
+                        const note = dernier ? utile * 1e6 - deborde : utile - deborde;
+                        if (note > meilleur) { meilleur = note; choix = i; }
+                    });
+                    if (choix >= 0) break;
                 }
-                prochain[id][k] = i;
+                if (choix < 0) break;
+                utilise[choix] = true;
+                seq.push(choix);
+                ajouter(C, liste[choix].pieces);
             }
         }
-        // Toutes les matieres tombent juste ici : un lot peut se fermer.
-        const juste = autres.every(id => {
-            const cles = new Set([...Object.keys(demande), ...Object.keys(couvert[id])]);
-            for (const k of cles) if (concerne(id, k) && (couvert[id][k] || 0) !== (demande[k] || 0)) return false;
-            return true;
-        });
-        const requis: Record<string, Set<number>> = {};
-        for (const id of autres) requis[id] = new Set(requisCumul[id]);
-        etapes.push({ x, nouveaux, avant, apres: { ...demande }, requis, juste });
+        sequence[id] = seq;
+    }
+
+    /* ---- Chaque matelas en face du matelas de tissu dont il coupe le plus de pieces ---- */
+    const rangee: Record<string, number[]> = {};
+    for (const id of autres) {
+        rangee[id] = parMat[id].map(() => -1);
+        const C: Vecteur = {};
+        for (const i of sequence[id]) {
+            const x = parMat[id][i];
+            const avant = { ...C };
+            ajouter(C, x.pieces);
+            let mieux = -1, max = 0;
+            for (let j = 0; j < n; j++) {
+                const bas = avantRangee(j), haut = cumul[j];
+                let commun = 0;
+                for (const k in x.pieces) commun += Math.max(0, Math.min(C[k], haut[k] || 0) - Math.max(avant[k] || 0, bas[k] || 0));
+                if (commun > max) { max = commun; mieux = j; }
+            }
+            rangee[id][i] = mieux;
+        }
     }
 
     /* ---- Lots ---- */
-    // Un matelas de tissu rejoint le lot ouvert s'il ne demande rien de nouveau (deja couvert),
-    // ou si, avec ce qu'il demande, toutes les matieres tombent juste. Un lot juste est ferme.
-    const groupes: Etape[][] = [];
-    let ouvert: Etape[] | null = null;
-    for (const e of etapes) {
-        const rien = autres.every(id => e.nouveaux[id].length === 0);
-        if (ouvert && (rien || e.juste)) ouvert.push(e);
-        else { ouvert = [e]; groupes.push(ouvert); }
-        if (e.juste) ouvert = null;
+    // Des matelas de tissu restent ensemble tant que ce qui est en face d'eux deborde nettement
+    // sur le suivant (une doublure « S a L » face a S, M et L) ; un lot se ferme quand les
+    // matieres retombent a peu pres juste.
+    const rattache: Record<string, Vecteur[]> = {};
+    for (const id of autres) {
+        const parRangee: Vecteur[] = Array.from({ length: n }, () => ({}));
+        parMat[id].forEach((x, i) => { if (rangee[id][i] >= 0) ajouter(parRangee[rangee[id][i]], x.pieces); });
+        const cum: Vecteur = {};
+        rattache[id] = parRangee.map(v => { ajouter(cum, v); return { ...cum }; });
+    }
+    const decalage = (j: number) => {
+        let max = 0;
+        for (const id of autres) {
+            let e = 0;
+            for (const k of new Set([...Object.keys(cumul[j]), ...Object.keys(rattache[id][j])])) {
+                if (concerne(id, k)) e += Math.abs((rattache[id][j][k] || 0) - (cumul[j][k] || 0));
+            }
+            max = Math.max(max, e);
+        }
+        return max;
+    };
+    const LOT_MAX = 12;
+    const groupes: number[][] = [];
+    let groupe: number[] = [];
+    for (let j = 0; j < n; j++) {
+        groupe.push(j);
+        const suivant = j + 1 < n ? princ[j + 1].total : 0;
+        if (j + 1 >= n || groupe.length >= LOT_MAX || decalage(j) < 0.25 * suivant) { groupes.push(groupe); groupe = []; }
     }
 
-    const coupeAutre = (id: string, j: number) => parMat[id][j].etat === 'coupe';
+    const coupeAutre = (id: string, i: number) => parMat[id][i].etat === 'coupe';
     // Pieces couvertes par les matelas deja coupes de chaque matiere.
     const couvCoupe: Record<string, Vecteur> = {};
     for (const id of autres) couvCoupe[id] = coupe[id];
 
-    const lots: LotEquilibre[] = groupes.map((g, n) => {
-        const matelas: Record<string, MatelasEquilibre[]> = {};
-        matelas[P] = g.map(e => e.x);
-        for (const id of autres) matelas[id] = g.flatMap(e => e.nouveaux[id]).map(j => parMat[id][j]).sort(parNumero);
-        const debut = g[0].avant, fin = g[g.length - 1].apres;
-        const vetements = g.reduce((s, e) => s + e.x.total, 0);
+    const lots: LotEquilibre[] = groupes.map((g, num) => {
+        const dans = new Set(g);
+        const matelas: Record<string, MatelasEquilibre[]> = { [P]: g.map(j => princ[j]) };
+        for (const id of autres) matelas[id] = parMat[id].filter((_, i) => dans.has(rangee[id][i])).sort(parNumero);
+        const debut = avantRangee(g[0]), fin = cumul[g[g.length - 1]];
+        const vetements = g.reduce((s, j) => s + princ[j].total, 0);
 
         // Pret : pieces du lot coupees en tissu, et couvertes par ce qui est coupe des autres matieres.
         const coupeLot: Vecteur = {};
-        for (const e of g) if (e.x.etat === 'coupe') ajouter(coupeLot, e.x.pieces);
+        for (const j of g) if (princ[j].etat === 'coupe') ajouter(coupeLot, princ[j].pieces);
         let prets = 0;
         for (const k in coupeLot) {
-            let n = coupeLot[k];
-            for (const id of autres) if (concerne(id, k)) n = Math.min(n, Math.max(0, (couvCoupe[id][k] || 0) - (debut[k] || 0)));
-            prets += n;
+            let v = coupeLot[k];
+            for (const id of autres) if (concerne(id, k)) v = Math.min(v, Math.max(0, (couvCoupe[id][k] || 0) - (debut[k] || 0)));
+            prets += v;
         }
 
-        // Manque : pieces du lot qu'aucun matelas de la matiere ne couvre.
+        // Manque : pieces du lot au-dela de tout ce que la matiere coupe sur l'ordre.
         const manque: EcartEquilibre[] = [];
         for (const id of autres) {
-            const couv: Vecteur = {};
-            for (const j of g[g.length - 1].requis[id]) ajouter(couv, parMat[id][j].pieces);
             for (const k of trierCles(Object.keys(fin))) {
                 if (!concerne(id, k)) continue;
-                const m = (fin[k] || 0) - Math.max(couv[k] || 0, debut[k] || 0);
+                const m = (fin[k] || 0) - Math.max(total[id][k] || 0, debut[k] || 0);
                 if (m > 0) manque.push(ecart(id, k, -m));
             }
         }
 
-        // Retard : les pieces du tissu coupe du lot que les matelas coupes des autres matieres
-        // ne couvrent pas encore, et les matelas a couper pour ca (dans l'ordre de coupe).
-        const dernierCoupe = [...g].reverse().find(e => e.x.etat === 'coupe');
-        const attente: Record<string, { numeros: string[]; ailleurs: number }> = {};
-        if (dernierCoupe) {
+        // Retard : les pieces du tissu coupe du lot que les matelas coupes des autres matieres ne
+        // couvrent pas encore, et les matelas a couper pour ca, dans leur ordre de coupe.
+        const dernierCoupe = [...g].reverse().find(j => princ[j].etat === 'coupe');
+        const attente: Record<string, { numeros: string[]; autres: string[] }> = {};
+        if (dernierCoupe !== undefined) {
             for (const id of autres) {
-                const manqueCoupe: Vecteur = {};
-                for (const k in dernierCoupe.apres) {
+                const reste: Vecteur = {};
+                for (const k in cumul[dernierCoupe]) {
                     if (!concerne(id, k)) continue;
-                    const d = dernierCoupe.apres[k] - (couvCoupe[id][k] || 0);
-                    if (d > 0) manqueCoupe[k] = d;
+                    const d = cumul[dernierCoupe][k] - (couvCoupe[id][k] || 0);
+                    if (d > 0) reste[k] = d;
                 }
-                if (!Object.keys(manqueCoupe).length) continue;
-                const ici = new Set(matelas[id].map(x => x.id));
-                const numeros: string[] = [];
-                let ailleurs = 0;
-                for (let j = 0; j < parMat[id].length && Object.keys(manqueCoupe).length; j++) {
-                    const x = parMat[id][j];
-                    if (coupeAutre(id, j) || !Object.keys(manqueCoupe).some(k => (x.pieces[k] || 0) > 0)) continue;
-                    for (const k in x.pieces) if (manqueCoupe[k] !== undefined) { manqueCoupe[k] -= x.pieces[k]; if (manqueCoupe[k] <= 0) delete manqueCoupe[k]; }
-                    if (ici.has(x.id)) numeros.push(x.numero); else ailleurs++;
+                if (!Object.keys(reste).length) continue;
+                const ordre = [...sequence[id], ...parMat[id].map((_, i) => i).filter(i => !sequence[id].includes(i))];
+                const numeros: string[] = [], ailleurs: string[] = [];
+                for (const i of ordre) {
+                    if (!Object.keys(reste).length) break;
+                    const x = parMat[id][i];
+                    if (coupeAutre(id, i) || !Object.keys(reste).some(k => (x.pieces[k] || 0) > 0)) continue;
+                    for (const k in x.pieces) if (reste[k] !== undefined) { reste[k] -= x.pieces[k]; if (reste[k] <= 0) delete reste[k]; }
+                    (dans.has(rangee[id][i]) ? numeros : ailleurs).push(x.numero);
                 }
-                attente[id] = { numeros, ailleurs };
+                attente[id] = { numeros, autres: ailleurs };
             }
         }
         const tous = ids.flatMap(id => matelas[id]);
         const etat: LotEquilibre['etat'] = tous.every(x => x.etat === 'coupe') ? 'coupe'
             : tous.every(x => x.etat === 'a_faire') ? 'a_faire' : 'en_cours';
-        return { rang: n + 1, matelas, vetements, prets, manque, etat, retard: Object.keys(attente), attente };
+        return { rang: num + 1, matelas, vetements, prets, manque, etat, retard: Object.keys(attente), attente };
     });
 
     const enPlus: Record<string, MatelasEquilibre[]> = {};
     for (const id of autres) {
-        const reste = parMat[id].filter((_, j) => !pris[id][j]);
-        if (reste.length) enPlus[id] = reste;
+        const reste = parMat[id].filter((_, i) => rangee[id][i] < 0);
+        if (reste.length) enPlus[id] = reste.sort(parNumero);
     }
 
     /* ---- Ordre entier ---- */
@@ -361,8 +423,21 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
         }
     }
 
+    const parTaille: LigneTaille[] = trierCles(Object.keys(total[P])).map(k => {
+        const concernees = ids.filter(id => id === P || concerne(id, k));
+        const coupeMat: Record<string, number> = {}, prevuMat: Record<string, number> = {};
+        for (const id of concernees) { coupeMat[id] = coupe[id][k] || 0; prevuMat[id] = total[id][k] || 0; }
+        const valeurs = concernees.map(id => coupeMat[id]);
+        const pretsK = Math.min(...valeurs);
+        const plusHaut = Math.max(...valeurs);
+        return {
+            cle: k, ...decouperCle(k), prevu: total[P][k] || 0, coupe: coupeMat, prevuMat, prets: pretsK,
+            limite: plusHaut > pretsK ? concernees.filter(id => coupeMat[id] === pretsK) : [],
+        };
+    });
+
     return {
-        matieres, lots, enPlus, parCouleur,
+        matieres, lots, parTaille, enPlus, parCouleur,
         vetements: somme(total[P]),
         vetementsCoupes: somme(coupe[P]),
         prets,

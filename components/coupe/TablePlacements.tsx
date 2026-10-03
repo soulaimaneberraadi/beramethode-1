@@ -9,6 +9,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle, RotateCcw, Files } from 'lucide-react';
 import type { LaizeCoupe, MatelasFichier, PlacementCoupe } from '../../types';
+import type { PaireTaille } from '../../lib/correspondanceTailles';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { nomPlacement } from '../../lib/planMatelas';
@@ -21,6 +22,8 @@ import { AMORCE_PAR_PLI_M } from '../../lib/coupeAtelier';
 interface Props {
     placements: PlacementCoupe[];
     tailles: string[];
+    /** Correspondance lettres <-> nombres de l'usine : « XS » du trace se range dans la colonne « 34 ». */
+    correspondance?: PaireTaille[];
     /** Matelas deja poses sur chaque placement (id -> nombre). */
     nbMatelas: Record<string, number>;
     /** Tissu de tous les matelas de chaque placement, en metres (id -> m). */
@@ -66,7 +69,7 @@ const signatureEcart = (trace: Record<string, number>, ratios: Record<string, nu
  * Tailles ecrites dans l'en-tete du trace. Lues aussi pour les fichiers
  * deposes avant ce controle : un vieux fichier n'echappe pas a la verification.
  */
-const lectureTrace = (p: PlacementCoupe, tailles: string[]): { ratios: Record<string, number>; inconnues: string[]; brut: Record<string, number> } | null => {
+const lectureTrace = (p: PlacementCoupe, tailles: string[], table?: PaireTaille[]): { ratios: Record<string, number>; inconnues: string[]; brut: Record<string, number> } | null => {
     let brut = p.taillesFichier && Object.keys(p.taillesFichier).length ? p.taillesFichier : null;
     if (!brut && p.taillesTrace && Object.keys(p.taillesTrace).length) return { ratios: p.taillesTrace, inconnues: [], brut: p.taillesTrace };
     if (!brut && p.fichier?.data) {
@@ -77,13 +80,13 @@ const lectureTrace = (p: PlacementCoupe, tailles: string[]): { ratios: Record<st
         } catch { /* illisible : rien a comparer */ }
     }
     if (!brut) return null;
-    const { ratios, inconnues } = associerTailles(brut, tailles);
+    const { ratios, inconnues } = associerTailles(brut, tailles, table);
     return { ratios, inconnues, brut };
 };
 
 /** Tailles du trace rapprochees de la commande (null si le fichier n'en dit rien ou si aucune n'y figure). */
-const taillesDuTrace = (p: PlacementCoupe, tailles: string[]): Record<string, number> | null => {
-    const l = lectureTrace(p, tailles);
+const taillesDuTrace = (p: PlacementCoupe, tailles: string[], table?: PaireTaille[]): Record<string, number> | null => {
+    const l = lectureTrace(p, tailles, table);
     return l && Object.keys(l.ratios).length ? l.ratios : null;
 };
 
@@ -95,9 +98,9 @@ const nomBrut = (brut: Record<string, number>) => nomPlacement(brut, Object.keys
  * Sert aussi au tableau des matelas : un trace faux ne doit pas partir au
  * traceur sous un nom de matelas propre, sans que rien ne le signale.
  */
-export function problemeTrace(p: PlacementCoupe, tailles: string[]): string | null {
+export function problemeTrace(p: PlacementCoupe, tailles: string[], table?: PaireTaille[]): string | null {
     if (!p.fichier) return null;
-    const lu = lectureTrace(p, tailles);
+    const lu = lectureTrace(p, tailles, table);
     if (!lu) return null;
     if (lu.inconnues.length) return `Trace ${nomBrut(lu.brut).toUpperCase()} : ${lu.inconnues.join(', ')} absente(s) de la commande`;
     const trace = Object.keys(lu.ratios).length ? lu.ratios : null;
@@ -132,7 +135,7 @@ export function codeDuNomFichier(nom: string): string | undefined {
     return mot ? mot[1] : undefined;
 }
 
-export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, laizes = [], laizeActive, onChoisirLaize, onCreerLaize, nbCoupes, suggestions, onAjouter, onAjouterAvec, prefixeCode = 'TE', onModifier, onSupprimer, onApercu, onMessage }: Props) {
+export default function TablePlacements({ placements, tailles, correspondance, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, laizes = [], laizeActive, onChoisirLaize, onCreerLaize, nbCoupes, suggestions, onAjouter, onAjouterAvec, prefixeCode = 'TE', onModifier, onSupprimer, onApercu, onMessage }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
     const cibleFichier = useRef<string | null>(null);
@@ -208,7 +211,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
             if (entete.efficience) patch.efficience = entete.efficience;
             let absentes: string[] = [];
             if (entete.tailles) {
-                const { ratios, inconnues } = associerTailles(entete.tailles, tailles);
+                const { ratios, inconnues } = associerTailles(entete.tailles, tailles, correspondance);
                 absentes = inconnues;
                 patch.taillesTrace = ratios;
                 patch.taillesFichier = { ...entete.tailles };
@@ -259,7 +262,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
             let laizeFichier: number | undefined;
             try {
                 const e = lireEntete(analyserTexte(decoderOctets(await lireOctets(f))).entete);
-                if (e.tailles) { brut = e.tailles; ratios = associerTailles(e.tailles, tailles).ratios; }
+                if (e.tailles) { brut = e.tailles; ratios = associerTailles(e.tailles, tailles, correspondance).ratios; }
                 laizeFichier = e.laizeCm;
             } catch { /* illisible : adopterFichier le dira */ }
             const code = codeDuNomFichier(f.name);
@@ -414,7 +417,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                         {placements.map((p, i) => {
                             const pcs = Object.values(p.ratios || {}).reduce((s, v) => s + (Number(v) || 0), 0);
                             const brouillon = brouillons[p.id];
-                            const nomInvalide = brouillon !== undefined && brouillon.trim() !== '' && !lireNotation(brouillon, tailles);
+                            const nomInvalide = brouillon !== undefined && brouillon.trim() !== '' && !lireNotation(brouillon, tailles, correspondance);
                             return (
                                 <tr key={p.id} className="align-top hover:bg-slate-50 dark:hover:bg-dk-elevated/40">
                                     <td className="py-1 px-2">
@@ -432,7 +435,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                             onChange={e => {
                                                 const v = e.target.value;
                                                 setBrouillons(b => ({ ...b, [p.id]: v }));
-                                                const ratios = lireNotation(v, tailles);
+                                                const ratios = lireNotation(v, tailles, correspondance);
                                                 onModifier(p.id, ratios ? { nom: v.trim(), ratios } : { nom: v });
                                             }}
                                             onBlur={() => setBrouillons(b => { const n = { ...b }; delete n[p.id]; return n; })}
@@ -514,7 +517,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                     </div>
                                                 ) : null}
                                                 {(() => {
-                                                    const lu = lectureTrace(p, tailles);
+                                                    const lu = lectureTrace(p, tailles, correspondance);
                                                     if (!lu || !lu.inconnues.length) return null;
                                                     return (
                                                         <div className="flex items-start gap-1 mt-0.5 px-1.5 py-1 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[10px] font-semibold text-rose-700 dark:text-rose-300 leading-tight">
@@ -526,7 +529,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                     );
                                                 })()}
                                                 {(() => {
-                                                    const trace = taillesDuTrace(p, tailles);
+                                                    const trace = taillesDuTrace(p, tailles, correspondance);
                                                     if (!trace || memesRatios(p.ratios || {}, trace)) return null;
                                                     const pcsTrace = Object.values(trace).reduce((a, v) => a + (Number(v) || 0), 0);
                                                     const signature = signatureEcart(trace, p.ratios || {});

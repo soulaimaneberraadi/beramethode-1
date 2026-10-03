@@ -18,7 +18,10 @@ import { lireSerieExcel, type LigneSerieLue } from '../../lib/serieEtiquetage';
 export const SANS_COULEUR = 'Sans couleur';
 
 export interface ChoixImport {
+    /** La feuille qui donne la commande et le modele : le tissu principal d'abord, sinon la premiere choisie. */
     feuille: FeuilleImportee;
+    /** Toutes les feuilles choisies, tissu principal en tete : chacune apporte sa matiere (tissu, FO, EN...). */
+    feuilles: FeuilleImportee[];
     /** Couleur qui recoit les quantites et les matelas ; '' = nouvelle couleur, ou aucune (SANS_COULEUR). */
     couleur: string;
     nouvelleCouleur: string;
@@ -41,7 +44,10 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
     const [erreur, setErreur] = useState('');
     const [nomFichier, setNomFichier] = useState('');
     const [feuilles, setFeuilles] = useState<FeuilleImportee[]>([]);
+    /** Feuille montree a l'ecran. */
     const [choix, setChoix] = useState(0);
+    /** Feuilles a importer : toutes par defaut (tissu, doublure, entretoile d'un meme classeur). */
+    const [retenues, setRetenues] = useState<Set<number>>(new Set());
     // Jamais de couleur choisie a la place de l'utilisateur : une seule couleur au modele, c'est elle ;
     // sinon rien, et les quantites vont sur « Sans couleur » tant qu'il ne l'a pas dite.
     const [couleur, setCouleur] = useState(couleurs.length === 1 ? couleurs[0] : '');
@@ -59,6 +65,7 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
             if (!r.length) setErreur(L('Aucune feuille lisible : ni REPARTOS du client, ni feuille de coupe de l’atelier.', 'لا توجد ورقة مقروءة: لا REPARTOS الزبون ولا ورقة قص الورشة.', 'No readable sheet.'));
             setFeuilles(r);
             setChoix(0);
+            setRetenues(new Set(r.map((_, i) => i)));
         } catch {
             setErreur(L('Fichier illisible (il faut un .xlsx).', 'ملف غير مقروء (يلزم ملف ‎.xlsx).', 'Unreadable file (.xlsx needed).'));
         } finally {
@@ -67,6 +74,15 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
     };
 
     const f = feuilles[choix];
+    const aPrincipal = (x: FeuilleImportee) => x.matieres.some(m => m.principal);
+    /** Feuilles retenues, tissu principal d'abord : c'est lui qui donne la commande. */
+    const aImporter = feuilles
+        .map((x, i) => ({ x, i }))
+        .filter(({ i }) => retenues.has(i))
+        .sort((a, b) => Number(aPrincipal(b.x)) - Number(aPrincipal(a.x)) || a.i - b.i)
+        .map(({ x }) => x);
+    const toutesRetenues = feuilles.length > 0 && retenues.size === feuilles.length;
+    const basculer = (i: number) => setRetenues(prev => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; });
     const nbMatelas = (x: FeuilleImportee) => x.format === 'atelier'
         ? x.matieres.reduce((s, m) => s + m.matelas.length, 0)
         : x.matieres.reduce((s, m) => s + m.placements.filter(p => (p.plis || 0) > 0).length, 0);
@@ -86,11 +102,11 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
                     <button type="button" onClick={onClose} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{L('Annuler', 'إلغاء', 'Cancel')}</button>
                     <button
                         type="button"
-                        disabled={!f}
-                        onClick={() => f && onImporter({ feuille: f, couleur, nouvelleCouleur: nouvelleCouleur.trim(), remplacer, serie: serie.length ? serie : undefined })}
+                        disabled={!aImporter.length}
+                        onClick={() => aImporter.length && onImporter({ feuille: aImporter[0], feuilles: aImporter, couleur, nouvelleCouleur: nouvelleCouleur.trim(), remplacer, serie: serie.length ? serie : undefined })}
                         className="h-10 px-4 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white text-[12px] font-bold hover:bg-emerald-700 disabled:opacity-40"
                     >
-                        <Check className="w-4 h-4" />{L('Importer', 'استيراد', 'Import')}
+                        <Check className="w-4 h-4" />{aImporter.length > 1 ? L(`Importer ${aImporter.length} feuilles`, `استيراد ${aImporter.length} أوراق`, `Import ${aImporter.length} sheets`) : L('Importer', 'استيراد', 'Import')}
                     </button>
                 </div>
             }
@@ -112,15 +128,49 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
             {feuilles.length > 0 && (
                 <>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{L('Feuille', 'الورقة', 'Sheet')}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                            {feuilles.map((x, i) => (
-                                <button key={x.feuille + i} type="button" onClick={() => setChoix(i)} className={`h-9 px-3 rounded-lg border text-[12px] font-semibold ${i === choix ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300' : 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:border-emerald-300'}`}>
-                                    {x.feuille.trim()}
-                                    <span className="ml-1.5 text-[10px] font-medium text-slate-400">{x.format === 'atelier' ? L('atelier', 'ورشة', 'workshop') : 'repartos'} · {nbMatelas(x)}</span>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{L('Feuilles à importer', 'الأوراق المراد استيرادها', 'Sheets to import')}</p>
+                            {feuilles.length > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setRetenues(toutesRetenues ? new Set([choix]) : new Set(feuilles.map((_, i) => i)))}
+                                    className="h-8 px-2.5 rounded-lg text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                >
+                                    {toutesRetenues ? L('Seulement celle affichée', 'المعروضة فقط', 'Only the shown one') : L('Toutes les feuilles', 'كل الأوراق', 'All sheets')}
                                 </button>
-                            ))}
+                            )}
                         </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {feuilles.map((x, i) => {
+                                const retenue = retenues.has(i);
+                                return (
+                                    <div key={x.feuille + i} className={`flex items-stretch rounded-lg border overflow-hidden ${i === choix ? 'border-emerald-500' : 'border-slate-200 dark:border-dk-border'}`}>
+                                        <button
+                                            type="button"
+                                            onClick={() => basculer(i)}
+                                            aria-pressed={retenue}
+                                            title={retenue ? L('Sera importée : cliquer pour l’écarter', 'ستُستورد: انقر لاستبعادها', 'Will be imported: click to leave out') : L('Écartée : cliquer pour l’importer', 'مستبعدة: انقر لاستيرادها', 'Left out: click to import')}
+                                            className={`w-9 inline-flex items-center justify-center border-r ${retenue ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-dk-surface text-transparent border-slate-200 dark:border-dk-border'}`}
+                                        >
+                                            <Check className="w-4 h-4" strokeWidth={3} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setChoix(i)}
+                                            className={`h-9 px-3 text-[12px] font-semibold ${i === choix ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300' : 'text-slate-600 dark:text-dk-text-soft hover:bg-slate-50'} ${retenue ? '' : 'opacity-60'}`}
+                                        >
+                                            {x.feuille.trim()}
+                                            <span className="ml-1.5 text-[10px] font-medium text-slate-400">{x.format === 'atelier' ? L('atelier', 'ورشة', 'workshop') : 'repartos'} · {nbMatelas(x)}</span>
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {aImporter.length > 1 && (
+                            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-dk-muted">
+                                {L(`${aImporter.length} feuilles : chacune apporte sa matière. La commande vient de « ${aImporter[0].feuille.trim()} ».`, `${aImporter.length} أوراق: كل ورقة تُضيف مادتها. الطلب من «${aImporter[0].feuille.trim()}».`, `${aImporter.length} sheets: each brings its material. The order quantities come from “${aImporter[0].feuille.trim()}”.`)}
+                            </p>
+                        )}
                     </div>
 
                     {f && (
