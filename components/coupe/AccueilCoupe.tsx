@@ -22,6 +22,7 @@ import {
     aujourdhui, consoTissu, estAuTravail, estOuvert, matelasExecutes, presenceAtelier, presenceGroupes,
     resumerOrdre, statsGroupes, tempsStandard, minutesPrevues, texteDuree, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
 } from '../../lib/coupeAtelier';
+import { equilibrerOrdre } from '../../lib/equilibreMatieres';
 
 export type PageAccueil = 'ordres' | 'groupes' | 'tissu';
 
@@ -360,7 +361,17 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
     const [filtre, setFiltre] = useState<'TOUS' | 'EN_PREPARATION' | 'EN_COURS' | 'SOUS_TRAITANCE'>('TOUS');
     const [q, setQ] = useState('');
 
-    const lignes = useMemo(() => models.filter(estOuvert).map(m => ({ m, r: resumerOrdre(m) })), [models]);
+    const lignes = useMemo(() => models.filter(estOuvert).map(m => {
+        // Plusieurs matieres : leur avancement cote a cote, et les lots dont le tissu est parti sans elles.
+        const eq = equilibrerOrdre(m.ordreCoupe, m.ficheData?.sizes || m.meta_data?.sizes || []);
+        const matieres = eq.matieres.filter(x => eq.parMatiere[x.id]?.nbMatelas > 0);
+        return {
+            m, r: resumerOrdre(m),
+            matieres: matieres.length > 1 ? matieres.map(x => ({ id: x.id, code: x.code, faits: eq.parMatiere[x.id].nbCoupes, total: eq.parMatiere[x.id].nbMatelas })) : [],
+            retards: eq.lots.filter(l => l.retard.length > 0).length,
+            prets: matieres.length > 1 ? eq.prets : null,
+        };
+    }), [models]);
     const visibles = lignes
         .filter(x => filtre === 'TOUS' || x.r.statut === filtre)
         .filter(x => !q.trim() || `${x.r.nom} ${x.r.client} ${x.r.type}`.toLowerCase().includes(q.trim().toLowerCase()))
@@ -397,7 +408,7 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
                 {visibles.length === 0 && (
                     <p className="text-center text-[12px] text-slate-400 py-10">{tx(lang, { fr: 'Aucun ordre ouvert', ar: 'لا توجد أوامر جارية', en: 'No open order' })}</p>
                 )}
-                {visibles.map(({ m, r }) => {
+                {visibles.map(({ m, r, matieres, retards, prets }) => {
                     const st = STATUTS_ORDRE[r.statut] || STATUTS_ORDRE.EN_PREPARATION;
                     return (
                         <button key={m.id} type="button" onClick={() => onOpen(m)} className="w-full text-left px-3 sm:px-4 py-3 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
@@ -430,6 +441,24 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
                                     {fmtN(r.coupees)} / {fmtN(r.qte || r.coupees + r.aCouper)} · {r.nbFaits}/{r.nbMatelas} {tx(lang, { fr: 'matelas', ar: 'مفرشة', en: 'lays' })}
                                 </span>
                             </div>
+                            {matieres.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold tabular-nums">
+                                    {matieres.map(x => (
+                                        <span key={x.id} className={`px-1.5 h-5 inline-flex items-center gap-1 rounded ${x.faits === x.total ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-dk-elevated dark:text-dk-text-soft'}`}>
+                                            {x.code}<span className="font-semibold">{x.faits}/{x.total}</span>
+                                        </span>
+                                    ))}
+                                    {prets !== null && (
+                                        <span className="text-emerald-600 dark:text-emerald-400">{fmtN(prets)} {tx(lang, { fr: 'prêts', ar: 'جاهزة', en: 'ready' })}</span>
+                                    )}
+                                    {retards > 0 && (
+                                        <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            {retards} {tx(lang, { fr: 'lot(s) en retard', ar: 'دفعة متأخرة', en: 'late lot(s)' })}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </button>
                     );
                 })}

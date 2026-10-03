@@ -8,7 +8,7 @@ import {
     Palette, X, Menu, ChevronLeft, LayoutGrid, List, Calendar, BarChart3,
     Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, TrendingUp,
     ArrowUpDown, RefreshCw, Zap, Target, Star, Hash, Upload, FolderOpen, Check,
-    PanelLeftClose, PanelLeftOpen, Library, ChevronDown, AlertTriangle, ArrowLeft, Building2, Tag, FileSpreadsheet, Tags, Receipt
+    PanelLeftClose, PanelLeftOpen, Library, ChevronDown, AlertTriangle, ArrowLeft, Building2, Tag, FileSpreadsheet, Tags, Receipt, PencilLine, ListChecks
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useRouteSegment } from '../lib/router';
@@ -40,6 +40,8 @@ import { useLienExcel, BarreExcel } from './coupe/LienExcel';
 import ReglagesNumeroForm from './coupe/ReglagesNumeroForm';
 import { reglagesAvecDefaut, texteNumero } from '../lib/numerotationPlt';
 import { useDossierTraceur, PuceTraceur } from './coupe/DossierTraceur';
+import SuiviMatieres, { type EtatSauvegarde } from './coupe/SuiviMatieres';
+import { corrigerPlisFiges } from '../lib/equilibreMatieres';
 import type { DonneesExcelCoupe } from '../lib/coupeExcel';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
@@ -120,6 +122,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedModel, setSelectedModel] = useState<ModelData | null>(null);
+    /**
+     * Un ordre ouvert se montre en edition (placements, matelas, traces) ou en
+     * suivi : les matieres face a face, pour la salle de coupe, au telephone.
+     * « Ordres en cours » ouvre le suivi.
+     */
+    const [vueOrdre, setVueOrdre] = useState<'edition' | 'suivi'>('edition');
+    /** Page de l'accueil (Ordres en cours...) : on y revient en fermant l'ordre qu'elle a ouvert. */
+    const [pageAccueil, setPageAccueil] = useState<PageAccueil | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
         try { return localStorage.getItem('bera_coupe_sidebar_collapsed') === '1'; } catch { return false; }
@@ -257,7 +267,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     /** Pour la consommation de « n'importe quel modele » : y compris ceux deja partis au Planning. */
     const modelesAvecCoupe = (models || []).filter(m => m && m.meta_data && m.ordreCoupe);
 
-    const groupesCoupe = settings?.groupesCoupe || [];
+    const groupesCoupe = useMemo(() => settings?.groupesCoupe || [], [settings?.groupesCoupe]);
     const setGroupesCoupe = (g: GroupeCoupe[]) => setSettings?.(prev => ({ ...prev, groupesCoupe: g }));
 
     // Modèles publiés à la Bibliothèque, pas encore engagés en Coupe — proposés dans "Sélectionner un modèle existant"
@@ -426,8 +436,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     /** Grille, client et type tels qu'a l'ouverture : « quitter sans enregistrer » les remet. */
     const ficheOuverte = useRef<{ id: string; fiche: any } | null>(null);
 
-    const openModel = (model: ModelData) => {
+    const openModel = (model: ModelData, vue: 'edition' | 'suivi' = 'edition') => {
         setSelectedModel(model);
+        setVueOrdre(vue);
         ficheOuverte.current = { id: model.id, fiche: model.ficheData };
         baseOrdre.current = model.ordreCoupe?.majLe;
         if (model.ordreCoupe) {
@@ -511,7 +522,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }
     };
 
-    const handleSaveCoupe = async (publish: boolean = false, forcer = false): Promise<ModelData | null> => {
+    /** Ordre a l'ecran en ce moment (un enregistrement qui revient ne doit pas en rouvrir un autre). */
+    const idOuvert = useRef<string | null>(null);
+    idOuvert.current = selectedModel?.id ?? null;
+    const handleSaveCoupe = async (publish: boolean = false, forcer = false, silencieux = false): Promise<ModelData | null> => {
         if (!selectedModel) return null;
 
         /*
@@ -551,13 +565,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 
         const success = await saveModelToServer(updatedModel);
         if (!success) return null;
+        // Ferme ou remplace pendant l'envoi (suivi au telephone) : on ne le rouvre pas.
+        if (idOuvert.current !== updatedModel.id) {
+            setModels(prev => prev.map(m => m.id === updatedModel.id ? updatedModel : m));
+            return updatedModel;
+        }
         baseOrdre.current = maintenant;
         setOrdre(prev => ({ ...prev, majLe: maintenant }));
         empreinteOuverte.current = empreinteDe({ ...ordre, majLe: maintenant }, updatedModel.ficheData);
         ficheOuverte.current = { id: updatedModel.id, fiche: updatedModel.ficheData };
         setModels(prev => prev.map(m => m.id === selectedModel.id ? updatedModel : m));
         setSelectedModel(updatedModel);
-        showToast(tx(lang, { fr: 'Sauvegarde effectuée', ar: 'تم الحفظ بنجاح', en: 'Save successful', es: 'Guardado exitoso', pt: 'Salvo com sucesso', tr: 'Kaydetme başarılı' }), 'success');
+        if (!silencieux) showToast(tx(lang, { fr: 'Sauvegarde effectuée', ar: 'تم الحفظ بنجاح', en: 'Save successful', es: 'Guardado exitoso', pt: 'Salvo com sucesso', tr: 'Kaydetme başarılı' }), 'success');
         // L'Excel relie suit chaque sauvegarde ; un fichier ouvert dans Excel est signale, pas perdu.
         lienExcel.ecrire(donneesExcel(updatedModel)).then(r => {
             if (r === 'verrouille') showToast(tx(lang, { fr: 'Excel ouvert : fermez le fichier, la prochaine sauvegarde le mettra a jour.', ar: 'ملف Excel مفتوح: أغلقه، والحفظ القادم سيحدّثه.', en: 'Excel file open: close it and save again.' }), 'error');
@@ -1048,6 +1067,84 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     }, [nonEnregistre]);
 
     /*
+     * Suivi (salle de coupe, telephone) : chaque geste s'enregistre aussitot,
+     * sans bouton. Les enregistrements passent un par un : un second geste
+     * pendant qu'un premier part attend son tour, sans quoi le second se
+     * croirait en conflit avec le premier (majLe plus recent sur le serveur).
+     */
+    const [etatSauvegarde, setEtatSauvegarde] = useState<EtatSauvegarde>('repos');
+    const [demandeSauvegarde, setDemandeSauvegarde] = useState(0);
+    const sauvegardeEnCours = useRef(false);
+    const sauvegardeEnAttente = useRef(false);
+    const sauverEnFond = useRef<() => Promise<ModelData | null>>(async () => null);
+    sauverEnFond.current = () => handleSaveCoupe(false, false, true);
+    /** Fermer l'ordre pendant un enregistrement : on attend qu'il soit parti. */
+    const quitterApresSauvegarde = useRef(false);
+    useEffect(() => {
+        if (!demandeSauvegarde) return;
+        if (sauvegardeEnCours.current) { sauvegardeEnAttente.current = true; return; }
+        sauvegardeEnCours.current = true;
+        setEtatSauvegarde('encours');
+        sauverEnFond.current()
+            .then(r => { setEtatSauvegarde(r ? 'ok' : 'erreur'); return r; })
+            .catch(() => { setEtatSauvegarde('erreur'); return null; })
+            .then(r => {
+                sauvegardeEnCours.current = false;
+                if (sauvegardeEnAttente.current) { sauvegardeEnAttente.current = false; setDemandeSauvegarde(n => n + 1); return; }
+                if (quitterApresSauvegarde.current) { quitterApresSauvegarde.current = false; if (r) setSelectedModel(null); }
+            });
+    }, [demandeSauvegarde]);
+    const enregistrerSuivi = () => setDemandeSauvegarde(n => n + 1);
+    /** Retour a la liste : apres l'enregistrement en cours ; sinon comme avant (on demande si rien n'est enregistre). */
+    const fermerOrdre = () => {
+        if (sauvegardeEnCours.current || sauvegardeEnAttente.current) { quitterApresSauvegarde.current = true; return; }
+        quitterSi(() => setSelectedModel(null));
+    };
+    useEffect(() => { setEtatSauvegarde('repos'); }, [selectedModel?.id]);
+
+    const ligneDeLOrdre = (id: string) => (ordre.matelasLines || []).find(l => l.id === id);
+    const suivi = {
+        confirmer: (id: string, c: { plis: number; creerReste: boolean; groupe?: string }) => {
+            const l = ligneDeLOrdre(id);
+            if (!l || l.fait) return;
+            // Le debut : celui note au demarrage, sinon l'impression du trace ; la fin : maintenant.
+            handleToggleMatelasFait(id, { groupe: c.groupe || l.groupe || dernierGroupe, debut: l.debut || l.envoyeLe || null, fin: new Date().toISOString() }, { plis: c.plis, creerReste: c.creerReste });
+            enregistrerSuivi();
+        },
+        annuler: (id: string) => {
+            if (!ligneDeLOrdre(id)?.fait) return;
+            handleToggleMatelasFait(id);
+            enregistrerSuivi();
+        },
+        imprime: (id: string, oui: boolean) => {
+            const l = ligneDeLOrdre(id);
+            if (!l || l.fait) return;
+            modifierLigne(id, { envoyeLe: oui ? new Date().toISOString() : undefined });
+            enregistrerSuivi();
+        },
+        plis: (id: string, plis: number) => {
+            const l = ligneDeLOrdre(id);
+            if (!l || l.fait || !(plis >= 0)) return;
+            modifierLigne(id, { plis: Math.round(plis) });
+            enregistrerSuivi();
+        },
+        /** Matelas deja coupe, plis faux : ses plages figees de la serie suivent quand elles le peuvent. */
+        corrigerCoupe: (id: string, plis: number): boolean => {
+            const l = ligneDeLOrdre(id);
+            if (!l?.fait || !(plis > 0)) return false;
+            const n = Math.round(plis);
+            const conflit = corrigerPlisFiges(ordre.serie, id, n).conflit;
+            setOrdre(prev => ({
+                ...prev,
+                matelasLines: (prev.matelasLines || []).map(x => (x.id === id ? { ...x, plis: n } : x)),
+                serie: corrigerPlisFiges(prev.serie, id, n).serie,
+            }));
+            enregistrerSuivi();
+            return conflit;
+        },
+    };
+
+    /*
      * Au retour dans la fenetre, l'application relit les modeles du serveur.
      * Si l'ordre ouvert ici a ete enregistre ailleurs entre-temps et qu'on n'a
      * rien modifie, on affiche la version enregistree au lieu de garder
@@ -1059,7 +1156,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         const maj = recent?.ordreCoupe?.majLe;
         if (!recent || !maj || maj === baseOrdre.current || (baseOrdre.current && maj < baseOrdre.current)) return;
         if (nonEnregistre) return; // la sauvegarde demandera quoi faire
-        openModel(recent);
+        openModel(recent, vueOrdre);
         showToast(tx(lang, { fr: 'Ordre mis a jour : il avait ete enregistre dans une autre fenetre', ar: 'حُدّث الأمر: كان قد حُفظ في نافذة أخرى', en: 'Order refreshed: it was saved in another window' }), 'info');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [models]);
@@ -2122,6 +2219,118 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const prepCount = coupeModels.filter(m => !m.ordreCoupe?.status || m.ordreCoupe?.status === 'EN_PREPARATION').length;
     const valCount = coupeModels.filter(m => m.ordreCoupe?.status === 'VALIDE').length;
 
+    /*
+     * Ce que le tableau des matelas dessine dans chaque ligne (etat, matiere,
+     * actions). Ces fonctions restent les memes d'un rendu a l'autre — les
+     * gestes passent par une reference toujours a jour — : une ligne qui n'a
+     * pas change ne se redessine plus a chaque touche tapee ailleurs.
+     */
+    const gestesLigne = useRef({ basculerFait, imprimer: handlePrintMatelasTicket, majMatiere: handleUpdateMatelasMatiere, matierePhoto });
+    gestesLigne.current = { basculerFait, imprimer: handlePrintMatelasTicket, majMatiere: handleUpdateMatelasMatiere, matierePhoto };
+    const renderEtatLigne = useCallback((line: MatelasLine) => (
+                                            <>
+                                                                        <div className="flex items-center justify-center gap-0.5">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => gestesLigne.current.basculerFait(line)}
+                                                                            title={tx(lang, { fr: line.fait ? 'Marquer comme non coupé' : 'Marquer comme coupé', ar: line.fait ? 'إلغاء تعليم كمقصوص' : 'تعليم كمقصوص', en: line.fait ? 'Mark as not cut' : 'Mark as cut', es: line.fait ? 'Marcar como no cortado' : 'Marcar como cortado', pt: line.fait ? 'Marcar como não cortado' : 'Marcar como cortado', tr: line.fait ? 'Kesilmedi işaretle' : 'Kesildi işaretle' })}
+                                                                            className={`w-[22px] h-[22px] shrink-0 rounded-md border-2 flex items-center justify-center transition-colors ${line.fait ? 'bg-emerald-500 border-emerald-500' : line.envoyeLe ? 'bg-sky-500 border-sky-500 hover:bg-emerald-500 hover:border-emerald-500' : 'bg-white dark:bg-dk-surface border-slate-300 dark:border-dk-border hover:border-emerald-400'}`}
+                                                                        >
+                                                                            {line.fait ? <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} /> : line.envoyeLe ? <Send className="w-3 h-3 text-white" strokeWidth={2.5}><title>{tx(lang, { fr: `Envoye au traceur a ${heureLocale(line.envoyeLe)} — cliquez quand il est coupe`, ar: `أُرسل إلى الـ traceur على ${heureLocale(line.envoyeLe)} — انقر عند القص`, en: `Sent at ${heureLocale(line.envoyeLe)} — click when cut` })}</title></Send> : null}
+                                                                        </button>
+                                                                        {!line.fait && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setToggleFaitConfirmId(line.id)}
+                                                                                title={tx(lang, { fr: 'Confirmer avec le detail : plis reellement coupes, groupe, heures, metres', ar: 'تأكيد مع التفاصيل: الطيّات المقصوصة فعلاً، الفريق، الساعات، الأمتار', en: 'Confirm with details' })}
+                                                                                className="flex items-center justify-center w-5 h-6 rounded text-slate-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                                                                            >
+                                                                                <Clock className="w-3 h-3" />
+                                                                            </button>
+                                                                        )}
+                                                                        </div>
+                                                                        {/* Qui coupe, et depuis quand : la base du classement des groupes */}
+                                                                        {!line.fait && !line.debut && groupesCoupe.length > 0 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setDemarrerId(line.id)}
+                                                                                title={tx(lang, { fr: 'Démarrer ce matelas', ar: 'بدء هذه المفرشة', en: 'Start this lay' })}
+                                                                                className="mt-1 mx-auto flex items-center justify-center w-7 h-6 rounded-md bg-slate-100 dark:bg-dk-elevated text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 transition-colors"
+                                                                            >
+                                                                                <PlayCircle className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        )}
+                                                                        {(line.debut || line.groupe) && (
+                                                                            <div className={`mt-1 text-[9px] leading-tight font-semibold tabular-nums whitespace-nowrap ${line.fait ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                                                                {line.groupe && <div className="truncate max-w-[64px] mx-auto">{groupesCoupe.find(g => g.id === line.groupe)?.nom || '—'}</div>}
+                                                                                {line.debut && <div>{heureLocale(line.debut)}{line.fait && line.fin ? `→${heureLocale(line.fin)}` : '…'}</div>}
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+    ), [lang, groupesCoupe]);
+    const renderMatiereLigne = useCallback((line: MatelasLine) => (
+                                            <>
+                                                                        <div className="relative flex items-center">
+                                                                            {(() => {
+                                                                                const photo = line.matiere ? gestesLigne.current.matierePhoto(line.matiere) : null;
+                                                                                return photo ? <img src={photo} alt="" className="w-6 h-6 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0 mr-1.5" /> : null;
+                                                                            })()}
+                                                                            <input
+                                                                                type="text"
+                                                                                value={line.matiere || ''}
+                                                                                onChange={e => gestesLigne.current.majMatiere(line.id, e.target.value)}
+                                                                                onFocus={() => setMatiereOpenId(line.id)}
+                                                                                onClick={e => { e.stopPropagation(); setMatiereOpenId(line.id); }}
+                                                                                placeholder={tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}
+                                                                                className="w-full text-center py-1.5 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[11px] font-semibold text-slate-700 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 placeholder:text-slate-300"
+                                                                            />
+                                                                            {matiereOpenId === line.id && (() => {
+                                                                                const q = (line.matiere || '').toLowerCase().trim();
+                                                                                const suggestions = matieresPourCouleur(line.couleur).filter(n => !q || n.toLowerCase().includes(q));
+                                                                                if (suggestions.length === 0) return null;
+                                                                                return (
+                                                                                    <div className="absolute top-full left-0 z-30 mt-1 min-w-full w-56 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-xl shadow-slate-900/10 py-1.5 max-h-64 overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                                                                        {line.couleur && (
+                                                                                            <div className="px-3 pb-1.5 mb-1 border-b border-slate-100 dark:border-dk-border text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                                                                                                {tx(lang, { fr: 'Matières pour', ar: 'مواد لـ', en: 'Materials for', es: 'Materiales para', pt: 'Materiais para', tr: 'Malzemeler' })} {line.couleur}
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {suggestions.map((n, i) => {
+                                                                                            const photo = gestesLigne.current.matierePhoto(n);
+                                                                                            return (
+                                                                                                <button key={i} type="button" onClick={() => { gestesLigne.current.majMatiere(line.id, n); setMatiereOpenId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated text-left transition-colors">
+                                                                                                    {photo && <img src={photo} alt="" className="w-7 h-7 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0" />}
+                                                                                                    <span className="text-[12px] font-semibold text-slate-700 dark:text-dk-text truncate">{n}</span>
+                                                                                                </button>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
+                                                                        </div>
+                                                                    </>
+    ), [lang, matiereOpenId, magasinItems, matieresPourCouleur]);
+    const renderActionsLigne = useCallback((line: MatelasLine) => (
+                                            <>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => gestesLigne.current.imprimer(line.id)}
+                                                                            className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                                                            title={tx(lang, { fr: 'Imprimer le ticket de ce matelas', ar: 'طباعة تذكرة هذه المفرشة', en: 'Print this matelas ticket', es: 'Imprimir el ticket de esta capa', pt: 'Imprimir o ticket desta esteira', tr: 'Bu katmanın fişini yazdır' })}
+                                                                        >
+                                                                            <Printer className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setDeleteLineConfirmId(line.id)}
+                                                                            className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                                                                            title={tx(lang, { fr: 'Supprimer la ligne', ar: 'حذف السطر', en: 'Delete line', es: 'Eliminar línea', pt: 'Excluir linha', tr: 'Satırı sil' })}
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                    </>
+    ), [lang]);
+
     const sidebar = (
         <div className="flex flex-col h-full w-full min-w-0 bg-white dark:bg-dk-surface">
             {/* Sidebar header */}
@@ -2283,7 +2492,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 <div className={`${isMobile ? 'px-3 h-12' : 'px-6 h-14'} flex items-center gap-3 overflow-x-auto no-scrollbar`}>
                     {isMobile && selectedModel && (
                         <button
-                            onClick={() => quitterSi(() => setSelectedModel(null))}
+                            onClick={fermerOrdre}
                             className="w-8 h-8 flex items-center justify-center rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                         >
                             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
@@ -2314,7 +2523,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     {selectedModel && !isMobile && (
                         <>
                             <button
-                                onClick={() => quitterSi(() => setSelectedModel(null))}
+                                onClick={fermerOrdre}
                                 className="h-8 pl-1.5 pr-2.5 inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated text-[12px] font-medium transition-colors shrink-0"
                                 title={tx(lang, { fr: 'Retour à la liste', ar: 'العودة إلى القائمة', en: 'Back to list', es: 'Volver a la lista', pt: 'Voltar à lista', tr: 'Listeye dön' })}
                             >
@@ -2329,6 +2538,29 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         <h1 className={`${isMobile ? 'text-[15px]' : 'text-[15px]'} font-semibold text-slate-900 dark:text-dk-text tracking-tight`}>{tx(lang, { fr: 'La Coupe', ar: 'قسم القص', en: 'Cutting Dept.', es: 'Departamento de Corte', pt: 'Corte', tr: 'Kesim' })}</h1>
                         {!isMobile && <span className="hidden xl:inline text-[12px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Ordre de Fabrication', ar: 'أمر تصنيع', en: 'Production Order', es: 'Orden de Fabricación', pt: 'Ordem de Fabricação', tr: 'Üretim Emri' })}</span>}
                     </div>
+
+                    {/* Un ordre ouvert : son edition, ou son suivi matiere par matiere */}
+                    {selectedModel && (
+                        <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 gap-0.5 shrink-0">
+                            {([
+                                ['edition', PencilLine, tx(lang, { fr: 'Ordre', ar: 'الأمر', en: 'Order' })],
+                                ['suivi', ListChecks, tx(lang, { fr: 'Suivi', ar: 'المتابعة', en: 'Follow-up' })],
+                            ] as const).map(([v, Icon, label]) => (
+                                <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => setVueOrdre(v)}
+                                    title={label}
+                                    className={`${isMobile ? 'h-9 px-2.5' : 'h-7 px-2.5'} inline-flex items-center gap-1 rounded-md text-[11px] font-semibold transition-colors ${vueOrdre === v
+                                        ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    <Icon className="w-3.5 h-3.5" />
+                                    <span>{label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Stats inline */}
                     {!isMobile && !selectedModel && (
@@ -2513,7 +2745,24 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         </div>
                     )}
 
-                    {selectedModel ? (
+                    {selectedModel && vueOrdre === 'suivi' ? (
+                        <SuiviMatieres
+                            modele={selectedModel}
+                            ordre={ordre}
+                            tailles={sizes}
+                            groupes={groupesCoupe}
+                            dernierGroupe={dernierGroupe}
+                            sauvegarde={etatSauvegarde}
+                            pastille={colorDotFor}
+                            onRetour={fermerOrdre}
+                            onOuvrirOrdre={() => setVueOrdre('edition')}
+                            onConfirmer={suivi.confirmer}
+                            onAnnulerCoupe={suivi.annuler}
+                            onMarquerImprime={suivi.imprime}
+                            onModifierPlis={suivi.plis}
+                            onCorrigerPlisCoupe={suivi.corrigerCoupe}
+                        />
+                    ) : selectedModel ? (
                         <div className="w-full max-w-[1920px] mx-auto p-3 md:p-5 space-y-4 md:space-y-5">
 
                             {/* ORDER HEADER CARD */}
@@ -3125,109 +3374,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         deposer={traceur.disponible ? traceur.deposer : undefined}
                                         onApercu={(l, p) => setApercuMatelas({ placementId: p.id, numero: l.numero || '', nom: nomFichierMatelas(p, tissuCourant.nom, l.numero || '0'), laizeId: l.laizeId })}
                                         onMessage={showToast}
-                                        renderEtat={line => (
-                                            <>
-                                                                        <div className="flex items-center justify-center gap-0.5">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => basculerFait(line)}
-                                                                            title={tx(lang, { fr: line.fait ? 'Marquer comme non coupé' : 'Marquer comme coupé', ar: line.fait ? 'إلغاء تعليم كمقصوص' : 'تعليم كمقصوص', en: line.fait ? 'Mark as not cut' : 'Mark as cut', es: line.fait ? 'Marcar como no cortado' : 'Marcar como cortado', pt: line.fait ? 'Marcar como não cortado' : 'Marcar como cortado', tr: line.fait ? 'Kesilmedi işaretle' : 'Kesildi işaretle' })}
-                                                                            className={`w-[22px] h-[22px] shrink-0 rounded-md border-2 flex items-center justify-center transition-colors ${line.fait ? 'bg-emerald-500 border-emerald-500' : line.envoyeLe ? 'bg-sky-500 border-sky-500 hover:bg-emerald-500 hover:border-emerald-500' : 'bg-white dark:bg-dk-surface border-slate-300 dark:border-dk-border hover:border-emerald-400'}`}
-                                                                        >
-                                                                            {line.fait ? <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} /> : line.envoyeLe ? <Send className="w-3 h-3 text-white" strokeWidth={2.5}><title>{tx(lang, { fr: `Envoye au traceur a ${heureLocale(line.envoyeLe)} — cliquez quand il est coupe`, ar: `أُرسل إلى الـ traceur على ${heureLocale(line.envoyeLe)} — انقر عند القص`, en: `Sent at ${heureLocale(line.envoyeLe)} — click when cut` })}</title></Send> : null}
-                                                                        </button>
-                                                                        {!line.fait && (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => setToggleFaitConfirmId(line.id)}
-                                                                                title={tx(lang, { fr: 'Confirmer avec le detail : plis reellement coupes, groupe, heures, metres', ar: 'تأكيد مع التفاصيل: الطيّات المقصوصة فعلاً، الفريق، الساعات، الأمتار', en: 'Confirm with details' })}
-                                                                                className="flex items-center justify-center w-5 h-6 rounded text-slate-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dk-elevated"
-                                                                            >
-                                                                                <Clock className="w-3 h-3" />
-                                                                            </button>
-                                                                        )}
-                                                                        </div>
-                                                                        {/* Qui coupe, et depuis quand : la base du classement des groupes */}
-                                                                        {!line.fait && !line.debut && groupesCoupe.length > 0 && (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => setDemarrerId(line.id)}
-                                                                                title={tx(lang, { fr: 'Démarrer ce matelas', ar: 'بدء هذه المفرشة', en: 'Start this lay' })}
-                                                                                className="mt-1 mx-auto flex items-center justify-center w-7 h-6 rounded-md bg-slate-100 dark:bg-dk-elevated text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 transition-colors"
-                                                                            >
-                                                                                <PlayCircle className="w-3.5 h-3.5" />
-                                                                            </button>
-                                                                        )}
-                                                                        {(line.debut || line.groupe) && (
-                                                                            <div className={`mt-1 text-[9px] leading-tight font-semibold tabular-nums whitespace-nowrap ${line.fait ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                                                                {line.groupe && <div className="truncate max-w-[64px] mx-auto">{groupesCoupe.find(g => g.id === line.groupe)?.nom || '—'}</div>}
-                                                                                {line.debut && <div>{heureLocale(line.debut)}{line.fait && line.fin ? `→${heureLocale(line.fin)}` : '…'}</div>}
-                                                                            </div>
-                                                                        )}
-                                                                    </>
-                                        )}
-                                        renderMatiere={line => (
-                                            <>
-                                                                        <div className="relative flex items-center">
-                                                                            {(() => {
-                                                                                const photo = line.matiere ? matierePhoto(line.matiere) : null;
-                                                                                return photo ? <img src={photo} alt="" className="w-6 h-6 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0 mr-1.5" /> : null;
-                                                                            })()}
-                                                                            <input
-                                                                                type="text"
-                                                                                value={line.matiere || ''}
-                                                                                onChange={e => handleUpdateMatelasMatiere(line.id, e.target.value)}
-                                                                                onFocus={() => setMatiereOpenId(line.id)}
-                                                                                onClick={e => { e.stopPropagation(); setMatiereOpenId(line.id); }}
-                                                                                placeholder={tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}
-                                                                                className="w-full text-center py-1.5 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[11px] font-semibold text-slate-700 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 placeholder:text-slate-300"
-                                                                            />
-                                                                            {matiereOpenId === line.id && (() => {
-                                                                                const q = (line.matiere || '').toLowerCase().trim();
-                                                                                const suggestions = matieresPourCouleur(line.couleur).filter(n => !q || n.toLowerCase().includes(q));
-                                                                                if (suggestions.length === 0) return null;
-                                                                                return (
-                                                                                    <div className="absolute top-full left-0 z-30 mt-1 min-w-full w-56 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-xl shadow-slate-900/10 py-1.5 max-h-64 overflow-y-auto" onClick={e => e.stopPropagation()}>
-                                                                                        {line.couleur && (
-                                                                                            <div className="px-3 pb-1.5 mb-1 border-b border-slate-100 dark:border-dk-border text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-dk-muted">
-                                                                                                {tx(lang, { fr: 'Matières pour', ar: 'مواد لـ', en: 'Materials for', es: 'Materiales para', pt: 'Materiais para', tr: 'Malzemeler' })} {line.couleur}
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {suggestions.map((n, i) => {
-                                                                                            const photo = matierePhoto(n);
-                                                                                            return (
-                                                                                                <button key={i} type="button" onClick={() => { handleUpdateMatelasMatiere(line.id, n); setMatiereOpenId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated text-left transition-colors">
-                                                                                                    {photo && <img src={photo} alt="" className="w-7 h-7 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0" />}
-                                                                                                    <span className="text-[12px] font-semibold text-slate-700 dark:text-dk-text truncate">{n}</span>
-                                                                                                </button>
-                                                                                            );
-                                                                                        })}
-                                                                                    </div>
-                                                                                );
-                                                                            })()}
-                                                                        </div>
-                                                                    </>
-                                        )}
-                                        renderActions={line => (
-                                            <>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handlePrintMatelasTicket(line.id)}
-                                                                            className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                                                                            title={tx(lang, { fr: 'Imprimer le ticket de ce matelas', ar: 'طباعة تذكرة هذه المفرشة', en: 'Print this matelas ticket', es: 'Imprimir el ticket de esta capa', pt: 'Imprimir o ticket desta esteira', tr: 'Bu katmanın fişini yazdır' })}
-                                                                        >
-                                                                            <Printer className="w-3.5 h-3.5" />
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => setDeleteLineConfirmId(line.id)}
-                                                                            className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
-                                                                            title={tx(lang, { fr: 'Supprimer la ligne', ar: 'حذف السطر', en: 'Delete line', es: 'Eliminar línea', pt: 'Excluir linha', tr: 'Satırı sil' })}
-                                                                        >
-                                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                                        </button>
-                                                                    </>
-                                        )}
+                                        renderEtat={renderEtatLigne}
+                                        renderMatiere={renderMatiereLigne}
+                                        renderActions={renderActionsLigne}
                                     />
                                 </div>
                             </div>
@@ -3504,6 +3653,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 getProgress={getProgress}
                                 onNew={() => setIsChoiceModalOpen(true)}
                                 onOpen={openModel}
+                                onSuivre={m => openModel(m, 'suivi')}
+                                page={pageAccueil}
+                                setPage={setPageAccueil}
                             />
                         )
                     )}
@@ -4009,7 +4161,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             setConflit(null);
                             setModels(prev => prev.map(m => (m.id === s.id ? s : m)));
                             empreinteOuverte.current = '';
-                            openModel(s);
+                            openModel(s, vueOrdre);
                         }} className="h-10 px-3 rounded-lg text-[12px] font-semibold bg-slate-900 text-white hover:bg-slate-800">
                             {tx(lang, { fr: 'Ouvrir la version enregistree (conseille)', ar: 'فتح النسخة المحفوظة (مستحسن)', en: 'Open the saved version (recommended)' })}
                         </button>
@@ -4365,6 +4517,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 /* ─────── Empty Dashboard (when no model selected) ─────── */
 function EmptyDashboard({
     models, ordres, tousModeles, groupes, setGroupes, ouvriersCoupe, pointageCoupe, majReglages, statusMap, prepCount, activeCount, valCount, getProgress, onNew, onOpen,
+    onSuivre, page, setPage,
 }: {
     ouvriersCoupe?: AppSettings['ouvriersCoupe'];
     pointageCoupe?: AppSettings['pointageCoupe'];
@@ -4383,6 +4536,11 @@ function EmptyDashboard({
     getProgress: (m: ModelData) => number;
     onNew: () => void;
     onOpen: (m: ModelData) => void;
+    /** Ouvre l'ordre sur son suivi (matieres face a face) : c'est ce que veut « Ordres en cours ». */
+    onSuivre: (m: ModelData) => void;
+    /** Page de l'accueil ouverte, tenue par La Coupe : on la retrouve en fermant l'ordre. */
+    page: PageAccueil | null;
+    setPage: (p: PageAccueil | null) => void;
 }) {
     const { lang } = useLang();
     const recent = [...models].sort((a, b) => {
@@ -4391,7 +4549,6 @@ function EmptyDashboard({
         return db - da;
     }).slice(0, 6);
 
-    const [page, setPage] = useState<PageAccueil | null>(null);
     // Ouvriers et presence saisis dans La Coupe : plus besoin de la RH.
     const rh = useAtelierCoupe(ouvriersCoupe, pointageCoupe, majReglages);
     const presence = useMemo(() => presenceGroupes(groupes, rh.ouvriers, rh.pointage, rh.date), [groupes, rh.ouvriers, rh.pointage, rh.date]);
@@ -4400,7 +4557,7 @@ function EmptyDashboard({
     if (page) {
         return (
             <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto">
-                {page === 'ordres' && <PageOrdres models={ordres} onBack={() => setPage(null)} onOpen={onOpen} />}
+                {page === 'ordres' && <PageOrdres models={ordres} onBack={() => setPage(null)} onOpen={onSuivre} />}
                 {page === 'tissu' && <PageTissu models={tousModeles} onBack={() => setPage(null)} onOpen={onOpen} />}
                 {page === 'groupes' && <PageGroupes models={tousModeles} groupes={groupes} setGroupes={setGroupes} rh={rh} onBack={() => setPage(null)} />}
             </div>

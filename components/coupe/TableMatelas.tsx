@@ -7,15 +7,16 @@
  * A cote de chaque matelas, son trace numerote : le voir, le telecharger,
  * l'envoyer au traceur, ou le glisser a la souris dans Optitex.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, Download, Send, GripVertical, ChevronDown, AlertTriangle, CheckCircle2, Plus, Copy, ArrowUp, ArrowDown, Trash2, X, Sigma, FolderInput, Check } from 'lucide-react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { Eye, Download, Send, GripVertical, ChevronDown, AlertTriangle, CheckCircle2, Plus, Copy, ArrowUp, ArrowDown, Trash2, X, Sigma, FolderInput, Check, Maximize2, Minimize2 } from 'lucide-react';
 import type { MatelasFichier, MatelasLine, PlacementCoupe, ReglagesNumero, TissuCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { metresPlis, longueurManquante, minutesPrevues, texteDuree, type TempsStandard } from '../../lib/coupeAtelier';
 import { codeMatiere, nomFichierMatelas, placementPourLigne } from '../../lib/ordreCoupe';
 import { analyserFichier, numeroterPlt, reglagesAvecDefaut } from '../../lib/numerotationPlt';
-import { grilleClavier } from './grilleClavier';
+import { grilleClavier, type CelluleGrille } from './grilleClavier';
 import { problemeTrace } from './TablePlacements';
 
 interface Props {
@@ -97,6 +98,281 @@ function Choix({ valeur, options, onChoisir, vide, cellule }: { valeur: React.Re
     );
 }
 
+/**
+ * Case du tableau ou l'on tape (numero, plis). La valeur ne part vers l'ordre
+ * qu'en quittant la case, a Entree, Tab ou une fleche, apres une courte pause
+ * ou a Ctrl+S : taper « 120 » ne redessine plus tout l'ordre trois fois.
+ */
+function CaseDifferee({ valeur, onValider, grille, className, type, placeholder, disabled, title, min }: {
+    valeur: string;
+    onValider: (v: string) => void;
+    grille: CelluleGrille;
+    className: string;
+    type?: string;
+    placeholder?: string;
+    disabled?: boolean;
+    title?: string;
+    min?: string;
+}) {
+    const [brouillon, setBrouillon] = useState<string | null>(null);
+    const minuterie = useRef<number | undefined>(undefined);
+    // Ce qui attend d'etre envoye, pour ne pas le perdre si la ligne disparait avant.
+    const enAttente = useRef<{ v: string; envoyer: (v: string) => void } | null>(null);
+    const valider = (v: string | null = brouillon) => {
+        window.clearTimeout(minuterie.current);
+        enAttente.current = null;
+        if (v === null) return;
+        setBrouillon(null);
+        if (v !== valeur) onValider(v);
+    };
+    useEffect(() => () => {
+        window.clearTimeout(minuterie.current);
+        const e = enAttente.current;
+        if (e) e.envoyer(e.v);
+    }, []);
+    return (
+        <input
+            data-grille={grille['data-grille']}
+            data-l={grille['data-l']}
+            data-c={grille['data-c']}
+            type={type}
+            min={min}
+            value={brouillon ?? valeur}
+            disabled={disabled}
+            placeholder={placeholder}
+            title={title}
+            className={className}
+            onFocus={grille.onFocus}
+            onPaste={grille.onPaste}
+            onChange={e => {
+                const v = e.target.value;
+                setBrouillon(v);
+                enAttente.current = { v, envoyer: onValider };
+                window.clearTimeout(minuterie.current);
+                minuterie.current = window.setTimeout(() => valider(v), 600);
+            }}
+            onBlur={() => valider()}
+            onKeyDown={e => {
+                const changeDeCase = e.key === 'Enter' || e.key === 'Tab' || e.key.startsWith('Arrow');
+                const sauver = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's';
+                // Avant de sauver ou de changer de case, la valeur tapee est dans l'ordre.
+                if ((changeDeCase || sauver) && brouillon !== null) flushSync(() => valider());
+                grille.onKeyDown(e);
+            }}
+        />
+    );
+}
+
+/** Coloration des lignes survolees pendant un glisser, sans redessiner le tableau. */
+const STYLE_GLISSE = 'tr[data-glisse="1"]>td{background-color:#eef2ff!important}.dark tr[data-glisse="1"]>td{background-color:#1e1b4b!important}';
+
+/** Gestes d'une ligne : lus au moment du geste, toujours a jour, sans faire redessiner la ligne. */
+interface GestesLigne {
+    onModifier: (id: string, patch: Partial<MatelasLine>) => void;
+    onInserer: (apresId: string) => void;
+    apercu: (l: MatelasLine) => void;
+    telecharger: (l: MatelasLine) => void;
+    envoyer: (l: MatelasLine) => void;
+    glisser: (e: React.DragEvent, l: MatelasLine) => void;
+    appui: (e: React.MouseEvent<HTMLTableRowElement>, l: MatelasLine, i: number) => void;
+    relache: (l: MatelasLine) => void;
+    survol: (e: React.MouseEvent, i: number) => void;
+    focus: (l: MatelasLine) => void;
+    menu: (e: React.MouseEvent, l: MatelasLine) => void;
+    choisirPlacement: (l: MatelasLine, id: string) => void;
+}
+
+interface PropsLigne {
+    l: MatelasLine;
+    i: number;
+    p?: PlacementCoupe;
+    tailles: string[];
+    choisie: boolean;
+    glissable: boolean;
+    doublon: boolean;
+    probleme?: string;
+    nomSortie?: string;
+    envoiEnCours: boolean;
+    deposerDispo: boolean;
+    pieces: number;
+    cumulGeneral: number;
+    cumuls: number[];
+    cibles: number[];
+    avecCumuls: boolean;
+    avecMatiere: boolean;
+    pastilleHex: string;
+    pastilleDot: string;
+    optionsPlacements: { id: string; label: React.ReactNode }[];
+    optionsCouleurs: { id: string; label: React.ReactNode }[];
+    grille: (ligne: number, colonne: number) => CelluleGrille;
+    renderEtat: (l: MatelasLine) => React.ReactNode;
+    renderMatiere: (l: MatelasLine) => React.ReactNode;
+    renderActions: (l: MatelasLine) => React.ReactNode;
+    gestes: React.MutableRefObject<GestesLigne>;
+}
+
+/** Une ligne ne se redessine que si ce qu'elle montre a change (les tableaux se comparent case par case). */
+function memeLigne(a: PropsLigne, b: PropsLigne): boolean {
+    for (const k of Object.keys(a) as (keyof PropsLigne)[]) {
+        if (k === 'gestes') continue;
+        if (k === 'renderMatiere' && !a.avecMatiere && !b.avecMatiere) continue;
+        const x = a[k], y = b[k];
+        if (x === y) continue;
+        if (Array.isArray(x) && Array.isArray(y) && x.length === y.length && x.every((v, n) => v === y[n])) continue;
+        return false;
+    }
+    return true;
+}
+
+const LigneMatelas = memo(function LigneMatelas({
+    l, i, p, tailles, choisie, glissable, doublon, probleme, nomSortie, envoiEnCours, deposerDispo, pieces, cumulGeneral, cumuls, cibles,
+    avecCumuls, avecMatiere, pastilleHex, pastilleDot, optionsPlacements, optionsCouleurs, grille, renderEtat, renderMatiere, renderActions, gestes,
+}: PropsLigne) {
+    const { lang } = useLang();
+    const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
+    const piecesTaille = (t: string) => (l.plis || 0) * (Number(l.ratios?.[t]) || 0);
+    const trop = !!p?.maxPlis && (l.plis || 0) > p.maxPlis;
+    const pret = !!nomSortie;
+    const bloque = !!l.fait;
+    // Fond opaque : les deux premieres colonnes restent collees a gauche en defilant.
+    const envoye = !l.fait && !!l.envoyeLe;
+    const fond = choisie ? 'bg-indigo-50 dark:bg-indigo-950' : l.fait ? 'bg-emerald-50 dark:bg-emerald-950' : envoye ? 'bg-sky-50 dark:bg-sky-950' : i % 2 ? 'bg-slate-50 dark:bg-dk-bg' : 'bg-white dark:bg-dk-surface';
+    const td = `${fond} border-b border-slate-100 dark:border-dk-border py-0.5 px-1.5`;
+    const caseSaisie = 'w-full h-7 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-dk-border focus:border-indigo-400 focus:bg-white dark:focus:bg-dk-surface bg-transparent outline-none tabular-nums disabled:hover:border-transparent';
+    const couleur = l.couleur ? (
+        <span className="inline-flex items-center gap-1.5 min-w-0">
+            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${pastilleDot}`} style={pastilleHex ? { backgroundColor: pastilleHex } : undefined} />
+            <span className="truncate">{l.couleur}</span>
+        </span>
+    ) : null;
+    const theorique = pieces > 0 ? metresPlis(l.plis, l.longTracee) : 0;
+    const conso = (() => {
+        if (!(l.metresReels && l.metresReels > 0)) {
+            if (longueurManquante(l)) return <span className="text-amber-600 font-bold" title={L('Longueur du placement inconnue : deposez son trace PLT ou saisissez LONG. (M)', 'طول التركيبة غير معروف: ضع ملف PLT أو أدخل الطول', 'Placement length unknown: drop its PLT or enter LONG. (M)')}>—</span>;
+            return <span>{theorique.toFixed(2)}</span>;
+        }
+        const e = l.metresReels - theorique;
+        return (
+            <span title={`${L('Mesure', 'مقيس', 'Measured')} ${l.metresReels.toFixed(2)} m · ${L('calcule', 'محسوب', 'computed')} ${theorique.toFixed(2)} m`}>
+                <b>{l.metresReels.toFixed(2)}</b>
+                <span className={`block text-[9px] font-bold ${Math.abs(e) < 0.01 ? 'text-emerald-600' : e > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{e > 0 ? '+' : ''}{e.toFixed(2)}</span>
+            </span>
+        );
+    })();
+    return (
+        <tr
+            data-rang={i}
+            draggable={glissable}
+            onDragStart={e => { if (e.target === e.currentTarget) gestes.current.glisser(e, l); }}
+            onMouseDown={e => gestes.current.appui(e, l, i)}
+            onMouseUp={() => gestes.current.relache(l)}
+            onMouseEnter={e => gestes.current.survol(e, i)}
+            onFocusCapture={() => gestes.current.focus(l)}
+            onContextMenu={e => gestes.current.menu(e, l)}
+            className="group"
+        >
+            <td className={`${td} sticky z-10 text-center align-middle overflow-hidden ${choisie ? 'shadow-[inset_3px_0_0_0_rgb(79,70,229)]' : envoye ? 'shadow-[inset_3px_0_0_0_rgb(14,165,233)]' : ''}`} style={{ left: 0, width: COL_ETAT, minWidth: COL_ETAT, maxWidth: COL_ETAT }}>{renderEtat(l)}</td>
+            <td className={`${td} sticky z-10 border-r border-slate-100 dark:border-dk-border`} style={{ left: COL_ETAT, width: COL_NUMERO, minWidth: COL_NUMERO, maxWidth: COL_NUMERO }}>
+                <CaseDifferee
+                    grille={grille(i, 0)}
+                    valeur={l.numero ?? ''}
+                    disabled={bloque}
+                    onValider={v => gestes.current.onModifier(l.id, { numero: v.trim() })}
+                    placeholder={String(i + 1)}
+                    title={doublon ? L('Numero en double : deux paquets porteraient le meme numero', 'رقم مكرّر: حزمتان ستحملان نفس الرقم', 'Duplicate number') : undefined}
+                    className={`${caseSaisie} text-center text-[13px] font-bold ${doublon ? '!border-rose-400 !bg-rose-50 text-rose-700' : 'text-slate-900 dark:text-dk-text'}`}
+                />
+            </td>
+            <td className={td}>
+                {bloque ? (
+                    <span className="px-1.5 text-[12px] font-bold uppercase text-indigo-700 dark:text-indigo-300">{p?.nom || '—'}</span>
+                ) : (
+                    <Choix
+                        cellule
+                        valeur={p ? <span className="font-bold uppercase text-indigo-700 dark:text-indigo-300">{p.nom}</span> : null}
+                        vide={L('Choisir', 'اختر', 'Choose')}
+                        options={optionsPlacements}
+                        onChoisir={id => gestes.current.choisirPlacement(l, id)}
+                    />
+                )}
+            </td>
+            <td className={td}>
+                {bloque ? <span className="px-1.5 text-[12px] font-semibold">{couleur}</span> : (
+                    <Choix cellule valeur={couleur} vide={L('Couleur', 'اللون', 'Colour')} options={optionsCouleurs} onChoisir={c => gestes.current.onModifier(l.id, { couleur: c })} />
+                )}
+            </td>
+            {avecMatiere && <td className={td}>{renderMatiere(l)}</td>}
+            <td className={td}>
+                <CaseDifferee
+                    grille={grille(i, 1)}
+                    type="number"
+                    min="0"
+                    valeur={l.plis ? String(l.plis) : ''}
+                    disabled={bloque}
+                    onValider={v => gestes.current.onModifier(l.id, { plis: Math.max(0, Math.round(Number(v.replace(',', '.')) || 0)) })}
+                    placeholder="0"
+                    title={trop ? L(`Plus que ${p!.maxPlis} plis, le maximum de ce placement`, `أكثر من ${p!.maxPlis} طيّة، وهو الحدّ الأقصى لهذه التركيبة`, `Over ${p!.maxPlis} plies`) : undefined}
+                    className={`${caseSaisie} px-2 text-right text-[12px] font-bold ${trop ? '!border-rose-300 !bg-rose-50 text-rose-700' : 'text-slate-800 dark:text-dk-text'}`}
+                />
+            </td>
+            {tailles.map((t, k) => {
+                const v = piecesTaille(t);
+                const cum = cumuls[k] || 0;
+                const cible = cibles[k] || 0;
+                const clsCum = cible > 0 && cum === cible ? 'text-emerald-600 dark:text-emerald-400 font-bold' : cible > 0 && cum > cible ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-400 dark:text-dk-muted';
+                return (
+                    <React.Fragment key={t}>
+                        <td className={`${td} text-right tabular-nums font-semibold border-l border-slate-100 dark:border-dk-border ${v ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-300 dark:text-dk-muted'}`}>{v || '·'}</td>
+                        {avecCumuls && (
+                            <td className={`${td} text-right tabular-nums text-[11px] ${clsCum}`} title={cible ? `${l.couleur} ${t} : ${cum} / ${cible}` : undefined}>{cum || '·'}</td>
+                        )}
+                    </React.Fragment>
+                );
+            })}
+            <td className={`${td} text-right tabular-nums font-bold text-slate-900 dark:text-dk-text border-l border-slate-200 dark:border-dk-border`}>{pieces}</td>
+            <td className={`${td} text-right tabular-nums text-slate-500 dark:text-dk-muted`}>{cumulGeneral}</td>
+            <td className={`${td} text-right tabular-nums`}>{conso}</td>
+            <td className={`${td} border-l border-slate-200 dark:border-dk-border`}>
+                {pret ? (
+                    <div className="flex items-center gap-0.5 min-w-0">
+                        <span
+                            draggable
+                            onDragStart={e => gestes.current.glisser(e, l)}
+                            className="flex-1 min-w-0 max-w-[180px] inline-flex items-center gap-1 h-6 px-1.5 rounded-md bg-indigo-50/70 dark:bg-indigo-900/20 cursor-grab active:cursor-grabbing"
+                            title={L('Glissez ce fichier dans Optitex ou dans un dossier', 'اسحب هذا الملف إلى Optitex أو إلى مجلّد', 'Drag this file into Optitex or a folder')}
+                        >
+                            <GripVertical className="w-3 h-3 text-indigo-400 shrink-0" />
+                            <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 truncate">{nomSortie}</span>
+                        </span>
+                        {probleme && (
+                            <span className="p-1 text-rose-600 shrink-0" title={`${probleme} — ${L('verifiez le placement avant de tracer', 'راجع التركيبة قبل الإرسال', 'check the placement before plotting')}`}>
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                            </span>
+                        )}
+                        <button type="button" onClick={() => gestes.current.apercu(l)} className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title={L('Voir le numero dans les pieces', 'معاينة الرقم في القطع', 'Preview')}><Eye className="w-3.5 h-3.5" /></button>
+                        <button type="button" onClick={() => gestes.current.telecharger(l)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Telecharger', 'تنزيل', 'Download')}><Download className="w-3.5 h-3.5" /></button>
+                        {deposerDispo && (
+                            <button type="button" disabled={envoiEnCours} onClick={() => gestes.current.envoyer(l)} className="p-1 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40" title={L('Envoyer au traceur', 'إرسال إلى الـ traceur', 'Send to plotter')}><Send className="w-3.5 h-3.5" /></button>
+                        )}
+                    </div>
+                ) : (
+                    <span className="text-[10px] text-slate-400 dark:text-dk-muted whitespace-nowrap">
+                        {!p ? L('Choisir un placement', 'اختر تركيبة', 'Choose a placement') : !p.fichier ? L('Placement sans trace PLT', 'تركيبة بلا ملف PLT', 'No PLT') : L('Sans numero', 'بلا رقم', 'No number')}
+                    </span>
+                )}
+            </td>
+            <td className={`${td} text-center whitespace-nowrap`}>
+                <div className="flex items-center justify-end gap-0.5 opacity-60 group-hover:opacity-100">
+                    <button type="button" onClick={() => gestes.current.onInserer(l.id)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Inserer un matelas en dessous', 'إدراج مفرشة تحت هذه', 'Insert below')}>
+                        <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    {renderActions(l)}
+                </div>
+            </td>
+        </tr>
+    );
+}, memeLigne);
+
 export default function TableMatelas({
     lignes, placements, tissu, tailles, couleurs, commande, pastille, fichierDe,
     onModifier, onInserer, onApercu, onMessage, deposer, renderEtat, renderMatiere, renderActions,
@@ -142,21 +418,94 @@ export default function TableMatelas({
      * Choisir a la souris en glissant, comme dans Excel : on appuie sur une
      * ligne, on descend, les lignes survolees sont prises ; au lacher, la
      * barre d'actions (telecharger, traceur, confirmer...) est la.
+     *
+     * Pendant le glisser rien ne se redessine : les lignes survolees se
+     * colorent directement (data-glisse), la selection s'enregistre au lacher.
+     * Redessiner tout le tableau a chaque ligne survolee rendait le geste lent
+     * — il fallait attendre que la selection rattrape la souris. Pres du bord,
+     * le tableau defile tout seul.
      */
-    const glisse = useRef<number | null>(null);
+    const glisse = useRef<{ depuis: number; jusqua: number } | null>(null);
     const [enGlisse, setEnGlisse] = useState(false);
     /** Appui sur une ligne deja dans la selection : on attend de savoir si c'est un glisser (toute la selection part) ou un clic (on ne garde qu'elle). */
     const reduireA = useRef<string | null>(null);
-    useEffect(() => {
-        const fin = () => { glisse.current = null; setEnGlisse(false); };
-        window.addEventListener('mouseup', fin);
-        return () => window.removeEventListener('mouseup', fin);
-    }, []);
-    const etendreGlisse = (i: number) => {
-        if (glisse.current === null) return;
-        const a = Math.min(glisse.current, i), b = Math.max(glisse.current, i);
-        setChoisies(new Set(lignes.slice(a, b + 1).map(l => l.id)));
+    const corps = useRef<HTMLTableSectionElement>(null);
+    const zone = useRef<HTMLDivElement>(null);
+    const peindre = (a: number | null, b?: number) => {
+        const tb = corps.current;
+        if (!tb) return;
+        const lo = a === null ? 1 : Math.min(a, b ?? a), hi = a === null ? 0 : Math.max(a, b ?? a);
+        tb.querySelectorAll<HTMLTableRowElement>('tr[data-rang]').forEach(tr => {
+            const r = Number(tr.dataset.rang);
+            if (r >= lo && r <= hi) tr.dataset.glisse = '1';
+            else if (tr.dataset.glisse) delete tr.dataset.glisse;
+        });
     };
+    const etendreGlisse = (i: number) => {
+        const g = glisse.current;
+        if (!g || g.jusqua === i) return;
+        g.jusqua = i;
+        peindre(g.depuis, i);
+    };
+    /** Valeurs du dernier rendu, pour les ecouteurs de la fenetre et le collage depuis Excel. */
+    const vivant = useRef({ lignes, onModifier, etendreGlisse, nbChoisies: choisies.size });
+    vivant.current = { lignes, onModifier, etendreGlisse, nbChoisies: choisies.size };
+    useEffect(() => {
+        const auto = { x: 0, y: 0, raf: 0 };
+        const defiler = () => {
+            auto.raf = 0;
+            const z = zone.current;
+            if (!z || !glisse.current) return;
+            const r = z.getBoundingClientRect();
+            const haut = z.querySelector('thead')?.getBoundingClientRect().bottom ?? r.top;
+            const bas = r.bottom - 34;
+            const v = auto.y < haut + 24 ? -Math.ceil((haut + 24 - auto.y) / 3) : auto.y > bas - 16 ? Math.ceil((auto.y - bas + 16) / 3) : 0;
+            if (!v) return;
+            z.scrollTop += Math.max(-40, Math.min(40, v));
+            const y = Math.min(Math.max(auto.y, haut + 4), bas - 4);
+            const x = Math.min(Math.max(auto.x, r.left + 4), r.right - 4);
+            const tr = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLTableRowElement>('tr[data-rang]');
+            if (tr && z.contains(tr)) vivant.current.etendreGlisse(Number(tr.dataset.rang));
+            auto.raf = requestAnimationFrame(defiler);
+        };
+        const bouge = (e: MouseEvent) => {
+            if (!glisse.current) return;
+            auto.x = e.clientX; auto.y = e.clientY;
+            if (!auto.raf) auto.raf = requestAnimationFrame(defiler);
+        };
+        const fin = () => {
+            if (auto.raf) { cancelAnimationFrame(auto.raf); auto.raf = 0; }
+            const g = glisse.current;
+            if (!g) return;
+            glisse.current = null;
+            setEnGlisse(false);
+            peindre(null);
+            if (g.depuis !== g.jusqua) {
+                const a = Math.min(g.depuis, g.jusqua), b = Math.max(g.depuis, g.jusqua);
+                setChoisies(new Set(vivant.current.lignes.slice(a, b + 1).map(l => l.id)));
+            }
+        };
+        window.addEventListener('mousemove', bouge);
+        window.addEventListener('mouseup', fin);
+        return () => {
+            window.removeEventListener('mousemove', bouge);
+            window.removeEventListener('mouseup', fin);
+            if (auto.raf) cancelAnimationFrame(auto.raf);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    /* Tableau en plein ecran : toute la largeur, sous la barre de l'application. */
+    const [pleinEcran, setPleinEcran] = useState(false);
+    useEffect(() => {
+        if (!pleinEcran) return;
+        const touche = (e: KeyboardEvent) => {
+            // Echap enleve d'abord la selection (gere par le tableau), puis sort du plein ecran.
+            if (e.key === 'Escape' && vivant.current.nbChoisies === 0) setPleinEcran(false);
+        };
+        window.addEventListener('keydown', touche);
+        return () => window.removeEventListener('keydown', touche);
+    }, [pleinEcran]);
 
     const idsChoisis = lignes.filter(l => choisies.has(l.id)).map(l => l.id);
     /** La selection porte au moins un trace numerote : elle peut se glisser d'un bloc. */
@@ -196,20 +545,6 @@ export default function TableMatelas({
     const consoTheorique = (l: MatelasLine) => (piecesLigne(l) > 0 ? metresPlis(l.plis, l.longTracee) : 0);
     /** Mesure au rouleau si elle a ete notee, sinon le calcul. */
     const consoLigne = (l: MatelasLine) => (l.metresReels && l.metresReels > 0 ? l.metresReels : consoTheorique(l));
-    const celluleConso = (l: MatelasLine) => {
-        const t = consoTheorique(l);
-        if (!(l.metresReels && l.metresReels > 0)) {
-            if (longueurManquante(l)) return <span className="text-amber-600 font-bold" title={L('Longueur du placement inconnue : deposez son trace PLT ou saisissez LONG. (M)', 'طول التركيبة غير معروف: ضع ملف PLT أو أدخل الطول', 'Placement length unknown: drop its PLT or enter LONG. (M)')}>—</span>;
-            return <span>{t.toFixed(2)}</span>;
-        }
-        const e = l.metresReels - t;
-        return (
-            <span title={`${L('Mesure', 'مقيس', 'Measured')} ${l.metresReels.toFixed(2)} m · ${L('calcule', 'محسوب', 'computed')} ${t.toFixed(2)} m`}>
-                <b>{l.metresReels.toFixed(2)}</b>
-                <span className={`block text-[9px] font-bold ${Math.abs(e) < 0.01 ? 'text-emerald-600' : e > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{e > 0 ? '+' : ''}{e.toFixed(2)}</span>
-            </span>
-        );
-    };
 
     /* Totaux « comme Excel » et ecart a la commande, pour la matiere entiere et couleur par couleur. */
     const bilan = useMemo(() => {
@@ -381,7 +716,7 @@ export default function TableMatelas({
      */
     const glisser = (e: React.DragEvent, l: MatelasLine) => {
         reduireA.current = null;
-        glisse.current = null; setEnGlisse(false);
+        if (glisse.current) { glisse.current = null; setEnGlisse(false); peindre(null); }
         const lot = (choisies.has(l.id) && choisies.size > 1 ? lignes.filter(x => choisies.has(x.id)) : [l])
             .map(x => ({ l: x, g: generer(x) }))
             .filter((x): x is { l: MatelasLine; g: NonNullable<ReturnType<typeof generer>> } => !!x.g)
@@ -411,10 +746,11 @@ export default function TableMatelas({
         setTimeout(() => { URL.revokeObjectURL(url); urls.current = urls.current.filter(u => u !== url); }, 120000);
     };
 
-    // Colonnes saisissables : 0 numero, 1 plis.
-    const cellule = grilleClavier(`matelas-${tissu.id}`, (ligne, colonne, bloc) => {
+    // Colonnes saisissables : 0 numero, 1 plis. Stable : une ligne ne se redessine pas pour lui.
+    const cellule = useMemo(() => grilleClavier(`matelas-${tissu.id}`, (ligne, colonne, bloc) => {
+        const { lignes: ls, onModifier: modifier } = vivant.current;
         bloc.forEach((rangee, i) => {
-            const l = lignes[ligne + i];
+            const l = ls[ligne + i];
             if (!l || l.fait) return;
             const patch: Partial<MatelasLine> = {};
             rangee.forEach((v, j) => {
@@ -422,10 +758,10 @@ export default function TableMatelas({
                 if (col === 0 && v.trim()) patch.numero = v.trim();
                 if (col === 1) { const n = Math.round(Number(v.replace(',', '.'))); if (Number.isFinite(n) && n >= 0) patch.plis = n; }
             });
-            if (Object.keys(patch).length) onModifier(l.id, patch);
+            if (Object.keys(patch).length) modifier(l.id, patch);
         });
         return true;
-    });
+    }), [tissu.id]);
 
     const couleurCellule = (c?: string) => {
         if (!c) return null;
@@ -436,6 +772,42 @@ export default function TableMatelas({
                 <span className="truncate">{c}</span>
             </span>
         );
+    };
+
+    /* Listes de choix des lignes : refaites seulement quand les placements ou les couleurs changent. */
+    const sigPlacements = placements.map(x => `${x.id}\u0001${x.nom}`).join('\u0002');
+    const optionsPlacements = useMemo(() => placements.map(x => ({ id: x.id, label: <span className="font-bold uppercase text-indigo-700 dark:text-indigo-300">{x.nom}</span> })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [sigPlacements]);
+    const sigCouleurs = couleurs.map(c => { const pc = pastille(c); return `${c}\u0001${pc.hex || ''}\u0001${pc.dotClass}`; }).join('\u0002');
+    const optionsCouleurs = useMemo(() => couleurs.map(c => ({ id: c, label: couleurCellule(c) })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [sigCouleurs]);
+
+    /* Gestes des lignes, lus au moment du geste. */
+    const gestes = useRef<GestesLigne>(null as unknown as GestesLigne);
+    gestes.current = {
+        onModifier,
+        onInserer,
+        apercu: l => { const p = placementDe(l); if (p) onApercu(l, p); },
+        telecharger,
+        envoyer,
+        glisser,
+        appui: (e, l, i) => {
+            const t = e.target as HTMLElement;
+            if (e.button !== 0 || t.closest('input,button,a')) return;
+            const tire = t.closest('[draggable="true"]');
+            if (tire && tire !== e.currentTarget) return;
+            // Dans la selection : pas de nouvelle selection, c'est peut-etre le debut d'un glisser.
+            if (choisies.has(l.id) && choisies.size > 1 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { reduireA.current = l.id; return; }
+            choisir(l.id, e);
+            if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { glisse.current = { depuis: i, jusqua: i }; setEnGlisse(true); }
+        },
+        relache: l => { if (reduireA.current === l.id) { setChoisies(new Set([l.id])); ancre.current = l.id; } reduireA.current = null; },
+        survol: (e, i) => { if (glisse.current && e.buttons === 1) etendreGlisse(i); },
+        focus: l => { if (!choisies.has(l.id)) { setChoisies(new Set([l.id])); ancre.current = l.id; } },
+        menu: (e, l) => { e.preventDefault(); if (!choisies.has(l.id)) { setChoisies(new Set([l.id])); ancre.current = l.id; } setMenuLigne({ x: e.clientX, y: e.clientY }); },
+        choisirPlacement: (l, id) => { const x = placements.find(pp => pp.id === id); if (x) onModifier(l.id, { placementId: x.id, ratios: { ...x.ratios }, longTracee: x.longueurM || 0 }); },
     };
 
     const ecartCls = (v: number) => v === 0 ? 'text-emerald-600 dark:text-emerald-400' : v < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400';
@@ -561,9 +933,10 @@ export default function TableMatelas({
                     )}
                 </div>
             ) : (
-            <div onKeyDown={clavierTableau}>
+            <div onKeyDown={clavierTableau} className={pleinEcran ? 'fixed left-0 right-0 bottom-0 top-12 z-[90] bg-slate-50 dark:bg-dk-bg p-3 flex flex-col' : ''}>
+                <style>{STYLE_GLISSE}</style>
                 {/* Barre des lignes choisies : les gestes d'Excel, a la souris ou au clavier. */}
-                <div className="flex flex-wrap items-center gap-1.5 mb-2 min-h-9">
+                <div className="flex flex-wrap items-center gap-1.5 mb-2 min-h-9 shrink-0">
                     {idsChoisis.length > 0 ? (
                         <>
                             <span className="h-8 px-2.5 inline-flex items-center rounded-lg bg-indigo-600 text-white text-[11px] font-bold whitespace-nowrap">
@@ -614,9 +987,18 @@ export default function TableMatelas({
                     <button type="button" onClick={() => setAvecCumuls(v => !v)} className={`ml-auto h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-[11px] font-semibold ${avecCumuls ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300' : 'border-slate-200 text-slate-500'}`} title={L('Cumul de chaque taille, couleur par couleur', 'المتراكم لكل مقاس، لوناً بلون', 'Running total per size, per colour')}>
                         <Sigma className="w-3.5 h-3.5" />{L('Cumul par taille', 'المتراكم لكل مقاس', 'Per-size running')}
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setPleinEcran(v => !v)}
+                        className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-[11px] font-semibold ${pleinEcran ? 'border-slate-900 bg-slate-900 text-white dark:bg-dk-accent dark:border-dk-accent' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:border-indigo-300'}`}
+                        title={pleinEcran ? L('Revenir a la page (Echap)', 'الرجوع إلى الصفحة (Esc)', 'Back to the page (Esc)') : L('Le tableau sur tout l\u2019ecran', 'الجدول على كامل الشاشة', 'Table on the whole screen')}
+                    >
+                        {pleinEcran ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                        {pleinEcran ? L('Reduire', 'تصغير', 'Exit') : L('Plein ecran', 'ملء الشاشة', 'Full screen')}
+                    </button>
                 </div>
 
-                <div className={`relative rounded-xl border border-slate-200 dark:border-dk-border overflow-auto max-h-[75vh] bg-white dark:bg-dk-surface ${enGlisse ? 'select-none' : ''}`}>
+                <div ref={zone} className={`relative rounded-xl border border-slate-200 dark:border-dk-border overflow-auto ${pleinEcran ? 'flex-1 min-h-0' : 'max-h-[75vh]'} bg-white dark:bg-dk-surface ${enGlisse ? 'select-none' : ''}`}>
                     <table className="w-full text-[12px] border-separate border-spacing-0">
                         <thead>
                             <tr className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-dk-muted">
@@ -646,7 +1028,7 @@ export default function TableMatelas({
                                 })()}
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody ref={corps}>
                             {lignes.length === 0 && (
                                 <tr><td colSpan={tailles.length * (avecCumuls ? 2 : 1) + colsFixes} className="py-8 text-center text-[12px] text-slate-400 dark:text-dk-muted">
                                     {L('Aucun matelas. « Calculer les matelas » les cree depuis vos placements et la commande.', 'لا توجد مفرشات. «حساب المفرشات» يُنشئها من التركيبات والطلب.', 'No lay yet. "Compute lays" creates them from your placements and the order.')}
@@ -665,135 +1047,39 @@ export default function TableMatelas({
                                     tailles.forEach(t => { cc[t] = (cc[t] || 0) + piecesTaille(l, t); });
                                     cumulCouleur.set(cle, cc);
                                     const cmdCouleur = l.couleur ? commande(l.couleur) : {};
-                                    const trop = p?.maxPlis && (l.plis || 0) > p.maxPlis;
-                                    const pret = !!p && !!p.fichier && !!l.numero;
-                                    const bloque = !!l.fait;
                                     const choisie = choisies.has(l.id);
-                                    // Fond opaque : les deux premieres colonnes restent collees a gauche en defilant.
-                                    const envoye = !l.fait && !!l.envoyeLe;
-                                    const fond = choisie ? 'bg-indigo-50 dark:bg-indigo-950' : l.fait ? 'bg-emerald-50 dark:bg-emerald-950' : envoye ? 'bg-sky-50 dark:bg-sky-950' : i % 2 ? 'bg-slate-50 dark:bg-dk-bg' : 'bg-white dark:bg-dk-surface';
-                                    const td = `${fond} border-b border-slate-100 dark:border-dk-border py-0.5 px-1.5`;
-                                    const caseSaisie = 'w-full h-7 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-dk-border focus:border-indigo-400 focus:bg-white dark:focus:bg-dk-surface bg-transparent outline-none tabular-nums disabled:hover:border-transparent';
+                                    const pret = !!p && !!p.fichier && !!l.numero;
+                                    const pc = l.couleur ? pastille(l.couleur) : null;
                                     return (
-                                        <tr
+                                        <LigneMatelas
                                             key={l.id}
-                                            draggable={choisie && choisies.size > 1 && lot2Pret}
-                                            onDragStart={e => { if (e.target === e.currentTarget) glisser(e, l); }}
-                                            onMouseDown={e => {
-                                                const t = e.target as HTMLElement;
-                                                if (e.button !== 0 || t.closest('input,button,a')) return;
-                                                const tire = t.closest('[draggable="true"]');
-                                                if (tire && tire !== e.currentTarget) return;
-                                                // Dans la selection : pas de nouvelle selection, c'est peut-etre le debut d'un glisser.
-                                                if (choisie && choisies.size > 1 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { reduireA.current = l.id; return; }
-                                                choisir(l.id, e);
-                                                if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { glisse.current = i; setEnGlisse(true); }
-                                            }}
-                                            onMouseUp={() => { if (reduireA.current === l.id) { setChoisies(new Set([l.id])); ancre.current = l.id; } reduireA.current = null; }}
-                                            onMouseEnter={e => { if (glisse.current !== null && e.buttons === 1) etendreGlisse(i); }}
-                                            onFocusCapture={() => { if (!choisies.has(l.id)) { setChoisies(new Set([l.id])); ancre.current = l.id; } }}
-                                            onContextMenu={e => { e.preventDefault(); if (!choisies.has(l.id)) { setChoisies(new Set([l.id])); ancre.current = l.id; } setMenuLigne({ x: e.clientX, y: e.clientY }); }}
-                                            className="group"
-                                        >
-                                            <td className={`${td} sticky z-10 text-center align-middle overflow-hidden ${choisie ? 'shadow-[inset_3px_0_0_0_rgb(79,70,229)]' : envoye ? 'shadow-[inset_3px_0_0_0_rgb(14,165,233)]' : ''}`} style={{ left: 0, width: COL_ETAT, minWidth: COL_ETAT, maxWidth: COL_ETAT }}>{renderEtat(l)}</td>
-                                            <td className={`${td} sticky z-10 border-r border-slate-100 dark:border-dk-border`} style={{ left: COL_ETAT, width: COL_NUMERO, minWidth: COL_NUMERO, maxWidth: COL_NUMERO }}>
-                                                <input
-                                                    {...cellule(i, 0)}
-                                                    value={l.numero ?? ''}
-                                                    disabled={bloque}
-                                                    onChange={e => onModifier(l.id, { numero: e.target.value.trim() })}
-                                                    placeholder={String(i + 1)}
-                                                    title={doublons.has((l.numero || '').trim()) ? L('Numero en double : deux paquets porteraient le meme numero', 'رقم مكرّر: حزمتان ستحملان نفس الرقم', 'Duplicate number') : undefined}
-                                                    className={`${caseSaisie} text-center text-[13px] font-bold ${doublons.has((l.numero || '').trim()) ? '!border-rose-400 !bg-rose-50 text-rose-700' : 'text-slate-900 dark:text-dk-text'}`}
-                                                />
-                                            </td>
-                                            <td className={td}>
-                                                {bloque ? (
-                                                    <span className="px-1.5 text-[12px] font-bold uppercase text-indigo-700 dark:text-indigo-300">{p?.nom || '—'}</span>
-                                                ) : (
-                                                    <Choix
-                                                        cellule
-                                                        valeur={p ? <span className="font-bold uppercase text-indigo-700 dark:text-indigo-300">{p.nom}</span> : null}
-                                                        vide={L('Choisir', 'اختر', 'Choose')}
-                                                        options={placements.map(x => ({ id: x.id, label: <span className="font-bold uppercase text-indigo-700 dark:text-indigo-300">{x.nom}</span> }))}
-                                                        onChoisir={id => { const x = placements.find(pp => pp.id === id); if (x) onModifier(l.id, { placementId: x.id, ratios: { ...x.ratios }, longTracee: x.longueurM || 0 }); }}
-                                                    />
-                                                )}
-                                            </td>
-                                            <td className={td}>
-                                                {bloque ? <span className="px-1.5 text-[12px] font-semibold">{couleurCellule(l.couleur)}</span> : (
-                                                    <Choix cellule valeur={couleurCellule(l.couleur)} vide={L('Couleur', 'اللون', 'Colour')} options={couleurs.map(c => ({ id: c, label: couleurCellule(c) }))} onChoisir={c => onModifier(l.id, { couleur: c })} />
-                                                )}
-                                            </td>
-                                            {avecMatiere && <td className={td}>{renderMatiere(l)}</td>}
-                                            <td className={td}>
-                                                <input
-                                                    {...cellule(i, 1)}
-                                                    type="number"
-                                                    min="0"
-                                                    value={l.plis || ''}
-                                                    disabled={bloque}
-                                                    onChange={e => onModifier(l.id, { plis: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
-                                                    placeholder="0"
-                                                    title={trop ? L(`Plus que ${p!.maxPlis} plis, le maximum de ce placement`, `أكثر من ${p!.maxPlis} طيّة، وهو الحدّ الأقصى لهذه التركيبة`, `Over ${p!.maxPlis} plies`) : undefined}
-                                                    className={`${caseSaisie} px-2 text-right text-[12px] font-bold ${trop ? '!border-rose-300 !bg-rose-50 text-rose-700' : 'text-slate-800 dark:text-dk-text'}`}
-                                                />
-                                            </td>
-                                            {tailles.map(t => {
-                                                const v = piecesTaille(l, t);
-                                                const cum = cc[t] || 0;
-                                                const cible = Number(cmdCouleur[t]) || 0;
-                                                const clsCum = cible > 0 && cum === cible ? 'text-emerald-600 dark:text-emerald-400 font-bold' : cible > 0 && cum > cible ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-400 dark:text-dk-muted';
-                                                return (
-                                                    <React.Fragment key={t}>
-                                                        <td className={`${td} text-right tabular-nums font-semibold border-l border-slate-100 dark:border-dk-border ${v ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-300 dark:text-dk-muted'}`}>{v || '·'}</td>
-                                                        {avecCumuls && (
-                                                            <td className={`${td} text-right tabular-nums text-[11px] ${clsCum}`} title={cible ? `${l.couleur} ${t} : ${cum} / ${cible}` : undefined}>{cum || '·'}</td>
-                                                        )}
-                                                    </React.Fragment>
-                                                );
-                                            })}
-                                            <td className={`${td} text-right tabular-nums font-bold text-slate-900 dark:text-dk-text border-l border-slate-200 dark:border-dk-border`}>{pieces}</td>
-                                            <td className={`${td} text-right tabular-nums text-slate-500 dark:text-dk-muted`}>{cumulGeneral}</td>
-                                            <td className={`${td} text-right tabular-nums`}>{celluleConso(l)}</td>
-                                            <td className={`${td} border-l border-slate-200 dark:border-dk-border`}>
-                                                {pret ? (
-                                                    <div className="flex items-center gap-0.5 min-w-0">
-                                                        <span
-                                                            draggable
-                                                            onDragStart={e => glisser(e, l)}
-                                                            className="flex-1 min-w-0 max-w-[180px] inline-flex items-center gap-1 h-6 px-1.5 rounded-md bg-indigo-50/70 dark:bg-indigo-900/20 cursor-grab active:cursor-grabbing"
-                                                            title={L('Glissez ce fichier dans Optitex ou dans un dossier', 'اسحب هذا الملف إلى Optitex أو إلى مجلّد', 'Drag this file into Optitex or a folder')}
-                                                        >
-                                                            <GripVertical className="w-3 h-3 text-indigo-400 shrink-0" />
-                                                            <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 truncate">{nomSortie(l, p!)}</span>
-                                                        </span>
-                                                        {problemes[p!.id] && surLaizeActive(l) && (
-                                                            <span className="p-1 text-rose-600 shrink-0" title={`${problemes[p!.id]} — ${L('verifiez le placement avant de tracer', 'راجع التركيبة قبل الإرسال', 'check the placement before plotting')}`}>
-                                                                <AlertTriangle className="w-3.5 h-3.5" />
-                                                            </span>
-                                                        )}
-                                                        <button type="button" onClick={() => onApercu(l, p!)} className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title={L('Voir le numero dans les pieces', 'معاينة الرقم في القطع', 'Preview')}><Eye className="w-3.5 h-3.5" /></button>
-                                                        <button type="button" onClick={() => telecharger(l)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Telecharger', 'تنزيل', 'Download')}><Download className="w-3.5 h-3.5" /></button>
-                                                        {deposer && (
-                                                            <button type="button" disabled={envoi === l.id} onClick={() => envoyer(l)} className="p-1 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40" title={L('Envoyer au traceur', 'إرسال إلى الـ traceur', 'Send to plotter')}><Send className="w-3.5 h-3.5" /></button>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-400 dark:text-dk-muted whitespace-nowrap">
-                                                        {!p ? L('Choisir un placement', 'اختر تركيبة', 'Choose a placement') : !p.fichier ? L('Placement sans trace PLT', 'تركيبة بلا ملف PLT', 'No PLT') : L('Sans numero', 'بلا رقم', 'No number')}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className={`${td} text-center whitespace-nowrap`}>
-                                                <div className="flex items-center justify-end gap-0.5 opacity-60 group-hover:opacity-100">
-                                                    <button type="button" onClick={() => onInserer(l.id)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Inserer un matelas en dessous', 'إدراج مفرشة تحت هذه', 'Insert below')}>
-                                                        <Plus className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    {renderActions(l)}
-                                                </div>
-                                            </td>
-                                        </tr>
+                                            l={l}
+                                            i={i}
+                                            p={p}
+                                            tailles={tailles}
+                                            choisie={choisie}
+                                            glissable={choisie && choisies.size > 1 && lot2Pret}
+                                            doublon={doublons.has((l.numero || '').trim())}
+                                            probleme={p && surLaizeActive(l) ? problemes[p.id] || undefined : undefined}
+                                            nomSortie={pret ? nomSortie(l, p!) : undefined}
+                                            envoiEnCours={envoi === l.id}
+                                            deposerDispo={!!deposer}
+                                            pieces={pieces}
+                                            cumulGeneral={cumulGeneral}
+                                            cumuls={tailles.map(t => cc[t] || 0)}
+                                            cibles={tailles.map(t => Number(cmdCouleur[t]) || 0)}
+                                            avecCumuls={avecCumuls}
+                                            avecMatiere={avecMatiere}
+                                            pastilleHex={pc?.hex || ''}
+                                            pastilleDot={pc?.dotClass || ''}
+                                            optionsPlacements={optionsPlacements}
+                                            optionsCouleurs={optionsCouleurs}
+                                            grille={cellule}
+                                            renderEtat={renderEtat}
+                                            renderMatiere={renderMatiere}
+                                            renderActions={renderActions}
+                                            gestes={gestes}
+                                        />
                                     );
                                 });
                             })()}

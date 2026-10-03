@@ -15,13 +15,13 @@
  * Lancer les tests : node --import tsx lib/coupeVues.test.ts
  */
 import type { MatelasLine, ModelData, PlanningEvent } from '../types';
-import { aujourdhui, commandeDe, metresLigne, piecesLigne, sommeRatios } from './coupeAtelier';
+import { aujourdhui, commandeDe, estDuTissuPrincipal, metresLigne, piecesLigne, sommeRatios } from './coupeAtelier';
 
 const statutDe = (m: ModelData) => m.ordreCoupe?.status || 'EN_PREPARATION';
 const ouvert = (m: ModelData) => { const s = statutDe(m); return s !== 'VALIDE' && s !== 'REJETE'; };
-/** Matelas qui font des vetements : tissu principal, au moins une taille. */
+/** Matelas qui font des vetements : tissu principal (« principal » ecrit ou pas), au moins une taille. */
 const lignesPieces = (m: ModelData): MatelasLine[] =>
-    (m.ordreCoupe?.matelasLines || []).filter(l => !l.tissu && sommeRatios(l) > 0);
+    (m.ordreCoupe?.matelasLines || []).filter(l => estDuTissuPrincipal(l) && sommeRatios(l) > 0);
 const nomCouleur = (c: any): string => (typeof c === 'string' ? c : c?.name || c?.id || '');
 const idCouleur = (c: any): string => (typeof c === 'string' ? c : c?.id || c?.name || '');
 

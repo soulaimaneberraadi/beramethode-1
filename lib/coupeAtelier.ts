@@ -54,10 +54,19 @@ export const estOuvert = (m: ModelData): boolean => {
 };
 
 /**
+ * Matelas du tissu principal. Un matelas cree depuis un placement porte
+ * `tissu: 'principal'` en toutes lettres, un matelas saisi a la main n'en
+ * porte pas : les deux sont du tissu principal. Ne garder que les seconds
+ * faisait disparaitre de l'accueil presque tous les matelas d'un ordre
+ * calcule (« 0 a couper » sur un ordre a moitie coupe).
+ */
+export const estDuTissuPrincipal = (l: Pick<MatelasLine, 'tissu'>): boolean => !l.tissu || l.tissu === 'principal';
+
+/**
  * Pieces du vetement = matelas du tissu principal. La vlieseline, la doublure
  * se coupent en plus : les compter doublerait la quantite coupee.
  */
-const lignesUtiles = (m: ModelData) => (m.ordreCoupe?.matelasLines || []).filter(l => sommeRatios(l) > 0 && !l.tissu);
+const lignesUtiles = (m: ModelData) => (m.ordreCoupe?.matelasLines || []).filter(l => sommeRatios(l) > 0 && estDuTissuPrincipal(l));
 
 const clientDe = (m: ModelData) => (m.ficheData?.client || '').trim();
 const typeDe = (m: ModelData) => (m.ficheData?.category || m.meta_data?.category || '').trim();

@@ -12,7 +12,7 @@
  */
 import type ExcelJS from 'exceljs';
 import type { ModelData, PlanningEvent } from '../types';
-import { metresLigne, piecesLigne } from './coupeAtelier';
+import { estDuTissuPrincipal, metresLigne, piecesLigne } from './coupeAtelier';
 import { bilanOrdre, detailCouleurTaille } from './coupeVues';
 
 const STATUTS: Record<string, string> = {
@@ -124,9 +124,9 @@ export async function classeurOrdresCoupe(models: ModelData[], evenements: Plann
             const tailles = Object.entries(l.ratios || {}).filter(([, v]) => Number(v) > 0).map(([t, v]) => (Number(v) > 1 ? `${v}${t}` : t)).join(' ');
             const etat = l.fait ? 'Coupé' : l.envoyeLe ? 'Envoyé' : 'À couper';
             wm.addRow([
-                b.nom, l.tissu ? tissus.get(l.tissu) || l.tissu : tissus.get('principal') || 'Tissu', l.numero || String(i + 1), p?.code || '',
+                b.nom, estDuTissuPrincipal(l) ? tissus.get('principal') || 'Tissu' : tissus.get(l.tissu!) || l.tissu, l.numero || String(i + 1), p?.code || '',
                 tailles, l.couleur || '', l.plis || 0, l.longTracee || null, arrondi(metresLigne(l)),
-                l.metresReels && l.metresReels > 0 ? l.metresReels : null, l.tissu ? null : piecesLigne(l), etat, heure(l.debut), heure(l.fin),
+                l.metresReels && l.metresReels > 0 ? l.metresReels : null, estDuTissuPrincipal(l) ? piecesLigne(l) : null, etat, heure(l.debut), heure(l.fin),
             ]);
         });
     }

@@ -59,6 +59,19 @@ const modele = (id: string, status: any, lignes: MatelasLine[], extra: Partial<M
 
     const solde = modele('d', 'VALIDE', [ligne({ plis: 10, longTracee: 2, ratios: { S: 3 } })]);
     assert.equal(resumerOrdre(solde).aCouper, 0, 'un ordre solde ne laisse rien a couper');
+
+    // Les matelas calcules depuis un placement portent « principal » en toutes lettres : ils comptent.
+    // La vlieseline et la doublure, elles, ne font pas de vetements.
+    const calcule = modele('e', 'EN_COURS', [
+        ligne({ plis: 100, longTracee: 2, ratios: { S: 6 }, tissu: 'principal', fait: true }),
+        ligne({ plis: 100, longTracee: 2, ratios: { S: 6 }, tissu: 'principal' }),
+        ligne({ plis: 50, longTracee: 2, ratios: { S: 6 } }),
+        ligne({ plis: 100, longTracee: 1, ratios: { S: 6 }, tissu: 'VL' }),
+    ]);
+    const rc = resumerOrdre(calcule);
+    assert.equal(rc.nbMatelas, 3, 'tissu principal seulement, ecrit ou pas');
+    assert.equal(rc.coupees, 600);
+    assert.equal(rc.aCouper, 900);
 }
 
 // --- Tissu : prevu, consomme, recu ---
