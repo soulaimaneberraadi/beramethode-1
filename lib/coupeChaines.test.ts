@@ -78,4 +78,34 @@ const suivi = (planningId: string, date: string, entrer: number, sorti: number):
     assert.equal(c1.etat, 'horsCoupe', 'pas « va s\u2019arreter » : la coupe ne connait pas ce modele');
 }
 
+// --- La serie donne des paquets a deux chaines : chacune ne coupe que les siens, dans l'ordre de la serie ---
+{
+    const lignes = Array.from({ length: 6 }, (_, i) => ligne(String(i + 1), 100, { S: 1, M: 1 }));
+    const m = modele('E', lignes, 1200);
+    // Serie : chaque matelas = 2 paquets (S, M) de 100 ; les matelas 1-3 vont a CHAINE 1, 4-6 a CHAINE 2.
+    const saisies: Record<string, { chaine: string }> = {};
+    for (const [i, l] of lignes.entries()) for (const t of ['S', 'M']) saisies[`${l.id}:${t}:0`] = { chaine: i < 3 ? 'CHAINE 1' : 'CHAINE 2' };
+    (m.ordreCoupe as any).serie = { saisies };
+    const ev = evenement('ev6', 'E', 'CHAINE 1', '2026-10-01');
+    const [c1, c2] = chainesDeCoupe({ models: [m], evenements: [ev], suivis: [], settings: reglages, joursAvance: 1, aujourdhui: '2026-10-05' });
+    const x1 = c1.modeles[0], x2 = c2.modeles[0];
+    assert.equal(x1.commande, 600, 'les paquets de la chaine 1');
+    assert.equal(x2.commande, 600, 'la chaine 2 a aussi un modele, sans evenement du Planning');
+    assert.deepEqual(x1.serie, { debut: 1, fin: 600, paquets: 6, entres: 0, sortis: 0 });
+    assert.deepEqual(x2.serie && [x2.serie.debut, x2.serie.fin], [601, 1200]);
+    // Chaine 1 : capacite 800/jour, avance 1 jour : tout ce qui lui reste (600) ; ses matelas 1, 2, 3.
+    assert.deepEqual(x1.matelas.map(l => l.numero), ['1', '2', '3']);
+    assert.deepEqual(x1.serieACouper, { debut: 1, fin: 600 });
+    // Chaine 2 : capacite 500/jour : 500 pieces = 3 matelas (200 chacun), les numeros 4, 5, 6 de SA serie.
+    assert.deepEqual(x2.matelas.map(l => l.numero), ['4', '5', '6']);
+    assert.deepEqual(x2.serieACouper, { debut: 601, fin: 1200 });
+
+    // Les premiers matelas de la chaine 1 coupes : ils ne comptent plus, et rien de la chaine 2 ne bouge.
+    lignes[0].fait = true;
+    const [d1, d2] = chainesDeCoupe({ models: [m], evenements: [ev], suivis: [], settings: reglages, joursAvance: 1, aujourdhui: '2026-10-05' });
+    assert.equal(d1.modeles[0].coupe, 200);
+    assert.deepEqual(d1.modeles[0].matelas.map(l => l.numero), ['2', '3']);
+    assert.deepEqual(d2.modeles[0].matelas.map(l => l.numero), ['4', '5', '6']);
+}
+
 console.log('coupeChaines : OK');
