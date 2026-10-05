@@ -15,7 +15,7 @@
  * reellement etales), marquer le trace imprime, corriger les plis. Chaque
  * geste est enregistre aussitot par La Coupe.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle, ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronRight, ListOrdered, Loader2, Minus, PencilLine, Plus, Printer, Scissors, Undo2, Wand2,
 } from 'lucide-react';
@@ -85,6 +85,18 @@ export default function SuiviMatieres({
     const renum = useMemo(() => renumeroterSelonLots(eq), [eq]);
     const nbRenum = Object.keys(renum.changements).length;
     const [confirmerRenum, setConfirmerRenum] = useState(false);
+    /** Page legere : alertes, ecarts et « pret pour la chaine » restent replies tant qu'on ne les ouvre pas. */
+    const [alertesOuvertes, setAlertesOuvertes] = useState(false);
+    const [pretOuvert, setPretOuvert] = useState(false);
+    const [ecartsOuverts, setEcartsOuverts] = useState<Set<string>>(new Set());
+    const nomGroupe = (id: string) => groupes.find(g => g.id === id)?.nom || '';
+    /** Matelas qu'on vient de confirmer d'un toucher : un bouton « Annuler » quelques secondes. */
+    const [annulable, setAnnulable] = useState<{ id: string; numero: string; code: string } | null>(null);
+    useEffect(() => {
+        if (!annulable) return;
+        const t = window.setTimeout(() => setAnnulable(null), 7000);
+        return () => window.clearTimeout(t);
+    }, [annulable]);
     /**
      * Numeros portes deux fois par le tissu : deux plans dans le meme ordre (un import en
      * lettres par-dessus des matelas en nombres). Les lots melangent alors les deux.
@@ -121,6 +133,15 @@ export default function SuiviMatieres({
         }
         return null;
     }, [fiche, eq]);
+
+    /** Toucher un matelas pas coupe : coupe confirmee (ses plis prevus, le groupe habituel). Un matelas coupe : sa fiche. */
+    const toucher = (x: MatelasEquilibre) => {
+        if (x.etat === 'coupe') { setFiche(x.id); return; }
+        onConfirmer(x.id, { plis: x.plis, creerReste: false, groupe: x.ligne.groupe || dernierGroupe });
+        setAnnulable({ id: x.id, numero: x.numero, code: eq.matieres.find(m => m.id === x.matiere)?.code || '' });
+    };
+    /** Maintenir : tout ce que dit la fiche (plis, serie, groupe, heure) et ses actions. */
+    const maintenir = (x: MatelasEquilibre) => setFiche(x.id);
 
     const commande = commandeDe(modele);
     const image = modele.image || modele.images?.front;
@@ -170,22 +191,30 @@ export default function SuiviMatieres({
                     const part = b.nbMatelas ? b.nbCoupes / b.nbMatelas : 0;
                     const partBleu = b.nbMatelas ? b.nbEnvoyes / b.nbMatelas : 0;
                     const ecarts = eq.ecartsPlan.filter(e => e.matiere === m.id);
+                    const ecartOuvert = ecartsOuverts.has(m.id);
                     return (
-                        <div key={m.id} className="px-3 py-2.5">
+                        <div key={m.id} className="px-3 py-2">
+                            {/* Une ligne par matiere : code, nom, avancement, n/N */}
                             <div className="flex items-center gap-2">
                                 <CodeMatiere m={m} />
-                                <span className="text-[13px] font-semibold text-slate-800 dark:text-dk-text truncate flex-1 min-w-0">{m.nom}</span>
+                                <span className="text-[12px] font-semibold text-slate-800 dark:text-dk-text truncate w-24 sm:w-32 shrink-0">{m.nom}</span>
+                                <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-dk-elevated overflow-hidden flex min-w-8" title={`${fmtN(b.piecesCoupees)} / ${fmtN(b.pieces)} ${L('pcs', 'قطعة', 'pcs')}`}>
+                                    <div className="h-full bg-emerald-500" style={{ width: `${Math.round(part * 100)}%` }} />
+                                    <div className="h-full bg-sky-400" style={{ width: `${Math.round(partBleu * 100)}%` }} />
+                                </div>
                                 <span className="text-[12px] font-bold tabular-nums text-slate-700 dark:text-dk-text-soft shrink-0">{b.nbCoupes}/{b.nbMatelas}</span>
+                                {ecarts.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setEcartsOuverts(prev => { const n = new Set(prev); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n; })}
+                                        aria-expanded={ecartOuvert}
+                                        className={`h-6 px-1.5 shrink-0 inline-flex items-center gap-0.5 rounded-md text-[10px] font-bold ${ecartOuvert ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/25 dark:text-amber-300 dark:border-amber-800'}`}
+                                    >
+                                        <AlertTriangle className="w-3 h-3" />{L('Écart', 'فارق', 'Gap')}
+                                    </button>
+                                )}
                             </div>
-                            <div className="mt-1.5 h-2 rounded-full bg-slate-100 dark:bg-dk-elevated overflow-hidden flex">
-                                <div className="h-full bg-emerald-500" style={{ width: `${Math.round(part * 100)}%` }} />
-                                <div className="h-full bg-sky-400" style={{ width: `${Math.round(partBleu * 100)}%` }} />
-                            </div>
-                            <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-dk-muted tabular-nums">
-                                <span>{fmtN(b.piecesCoupees)} / {fmtN(b.pieces)} {L('pcs', 'قطعة', 'pcs')}</span>
-                                {b.nbEnvoyes > 0 && <span className="text-sky-700 dark:text-sky-300 font-semibold">{b.nbEnvoyes} {L('tracé(s) imprimé(s)', 'ملف مطبوع', 'printed')}</span>}
-                            </div>
-                            {ecarts.length > 0 && (
+                            {ecarts.length > 0 && ecartOuvert && (
                                 <EcartPlan eq={eq} m={m} ecarts={ecarts} texteEcart={texteEcart} onAppliquer={onModifierPlis} />
                             )}
                         </div>
@@ -193,8 +222,22 @@ export default function SuiviMatieres({
                 })}
             </div>
 
-            {/* Le tissu porte deux fois les memes numeros : l'ordre de coupe n'est plus lisible */}
-            {doublonsTissu.length > 0 && (
+            {/* Alertes : une ligne, a ouvrir au besoin */}
+            {(doublonsTissu.length > 0 || nbRenum > 0) && (
+                <button
+                    type="button"
+                    onClick={() => setAlertesOuvertes(v => !v)}
+                    aria-expanded={alertesOuvertes}
+                    className="w-full h-10 px-3 flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-left"
+                >
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="flex-1 text-[12px] font-semibold text-amber-900 dark:text-amber-200 truncate">
+                        {(doublonsTissu.length > 0 ? 1 : 0) + (nbRenum > 0 ? 1 : 0)} {L('alerte(s) sur les numéros', 'تنبيه حول الأرقام', 'alert(s) about numbers')}
+                    </span>
+                    {alertesOuvertes ? <ChevronDown className="w-4 h-4 text-amber-600" /> : <ChevronRight className="w-4 h-4 text-amber-600" />}
+                </button>
+            )}
+            {alertesOuvertes && doublonsTissu.length > 0 && (
                 <div className="px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 space-y-2">
                     <p className="flex items-start gap-1.5 text-[12px] font-semibold text-rose-800 dark:text-rose-200">
                         <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
@@ -211,7 +254,7 @@ export default function SuiviMatieres({
             )}
 
             {/* Numeros des autres matieres dans le desordre : couper par numero ne suivrait pas le tissu */}
-            {nbRenum > 0 && (
+            {alertesOuvertes && nbRenum > 0 && (
                 <div className="px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 space-y-2">
                     <p className="flex items-start gap-1.5 text-[12px] font-semibold text-amber-900 dark:text-amber-200">
                         <ListOrdered className="w-4 h-4 shrink-0 mt-px" />
@@ -266,11 +309,14 @@ export default function SuiviMatieres({
             {/* Ce que la couture peut coudre : un vetement n'est pret que si toutes ses matieres sont coupees */}
             {colonnes.length > 1 && eq.parTaille.length > 0 && (
                 <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
-                    <div className="px-3 pt-2.5 pb-1.5">
-                        <p className="text-[13px] font-bold text-slate-900 dark:text-dk-text">{L('Prêt pour la chaîne', 'جاهز للسلسلة', 'Ready for the line')}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-dk-muted">{L('Par taille : seulement ce qui est coupé dans toutes les matières.', 'لكل مقاس: فقط ما قُصّ في كل المواد.', 'Per size: only what is cut in every material.')}</p>
-                    </div>
-                    <div className="divide-y divide-slate-100 dark:divide-dk-border">
+                    <button type="button" onClick={() => setPretOuvert(v => !v)} aria-expanded={pretOuvert} className="w-full px-3 h-11 flex items-center gap-2 text-left">
+                        {pretOuvert ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
+                        <span className="text-[13px] font-bold text-slate-900 dark:text-dk-text">{L('Prêt pour la chaîne', 'جاهز للسلسلة', 'Ready for the line')}</span>
+                        <span className="text-[11px] text-slate-500 dark:text-dk-muted hidden sm:inline">{L('par taille, toutes matières coupées', 'لكل مقاس، كل المواد مقصوصة', 'per size, all materials cut')}</span>
+                        <span className="flex-1" />
+                        <span className="text-[12px] tabular-nums shrink-0"><b className="text-emerald-600 dark:text-emerald-400">{fmtN(eq.prets)}</b><span className="text-slate-400"> / {fmtN(eq.vetements)}</span></span>
+                    </button>
+                    {pretOuvert && <div className="divide-y divide-slate-100 dark:divide-dk-border border-t border-slate-100 dark:border-dk-border">
                         {eq.parTaille.map(t => {
                             const part = t.prevu ? Math.min(1, t.prets / t.prevu) : 0;
                             const tissuCoupe = t.coupe[colonnes[0]?.id] ?? 0;
@@ -305,7 +351,7 @@ export default function SuiviMatieres({
                                 </div>
                             );
                         })}
-                    </div>
+                    </div>}
                 </div>
             )}
 
@@ -316,7 +362,9 @@ export default function SuiviMatieres({
                         <Legende cls="bg-white border-slate-300" label={L('À faire', 'للإنجاز', 'To do')} />
                         <Legende cls="bg-sky-100 border-sky-400" label={L('Tracé imprimé', 'الملف مطبوع', 'Printed')} />
                         <Legende cls="bg-emerald-100 border-emerald-400" label={L('Coupé', 'مقصوص', 'Cut')} />
+                        <span className="ml-auto hidden sm:inline text-slate-400">{L('Toucher : confirmer · Maintenir : détails', 'لمسة: تأكيد · ضغط مطوّل: التفاصيل', 'Tap: confirm · Hold: details')}</span>
                     </div>
+                    <p className="sm:hidden px-1 -mt-1 text-[11px] text-slate-400">{L('Toucher un matelas : confirmer · Maintenir : détails', 'لمسة على المفرشة: تأكيد · ضغط مطوّل: التفاصيل', 'Tap a lay: confirm · Hold: details')}</p>
                     <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
                         {([
                             ['tous', L('Tous', 'الكل', 'All')],
@@ -351,7 +399,9 @@ export default function SuiviMatieres({
                             pastille={pastille}
                             replie={lot.etat === 'coupe' && lot.manque.length === 0 && !ouverts.has(lot.rang)}
                             onBasculer={() => setOuverts(prev => { const n = new Set(prev); if (n.has(lot.rang)) n.delete(lot.rang); else n.add(lot.rang); return n; })}
-                            onToucher={id => setFiche(id)}
+                            onToucher={toucher}
+                            onMaintenir={maintenir}
+                            nomGroupe={nomGroupe}
                             nomMatiere={nomMatiere}
                             texteEcart={texteEcart}
                         />
@@ -368,7 +418,7 @@ export default function SuiviMatieres({
                                 <div key={m.id}>
                                     <div className="flex items-center gap-1 mb-1"><CodeMatiere m={m} /><span className="text-[10px] font-semibold text-slate-400 truncate">{m.nom}</span></div>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-                                        {eq.enPlus[m.id].map(x => <PuceMatelas key={x.id} x={x} couleursMultiples={couleursMultiples} pastille={pastille} onToucher={() => setFiche(x.id)} />)}
+                                        {eq.enPlus[m.id].map(x => <PuceMatelas key={x.id} x={x} couleursMultiples={couleursMultiples} pastille={pastille} nomGroupe={nomGroupe} onTap={() => toucher(x)} onLong={() => maintenir(x)} />)}
                                     </div>
                                 </div>
                             ))}
@@ -386,6 +436,16 @@ export default function SuiviMatieres({
                         </span>
                     </div>
                 </>
+            )}
+
+            {annulable && (
+                <div className="fixed left-1/2 -translate-x-1/2 bottom-4 z-[80] max-w-[92vw] h-12 pl-3 pr-1.5 flex items-center gap-3 rounded-xl bg-slate-900 text-white shadow-xl">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" strokeWidth={3} />
+                    <span className="text-[13px] font-semibold truncate">{annulable.code} N° {annulable.numero} {L('coupé', 'مقصوص', 'cut')}</span>
+                    <button type="button" onClick={() => { onAnnulerCoupe(annulable.id); setAnnulable(null); }} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-[12px] font-bold shrink-0">
+                        <Undo2 className="w-3.5 h-3.5" />{L('Annuler', 'تراجع', 'Undo')}
+                    </button>
+                </div>
             )}
 
             {matelasFiche && (
@@ -449,14 +509,41 @@ function Pastille({ couleur, pastille }: { couleur?: string; pastille: Props['pa
     return <span className={`w-2 h-2 rounded-full shrink-0 ${p.dotClass}`} style={p.hex ? { backgroundColor: p.hex } : undefined} />;
 }
 
-/** Un matelas : numero, placement, plis, pieces ; sa couleur dit ou il en est. */
-function PuceMatelas({ x, couleursMultiples, pastille, onToucher }: { x: MatelasEquilibre; couleursMultiples: boolean; pastille: Props['pastille']; onToucher: () => void }) {
+/** Maintenir un matelas (ms) : sa fiche s'ouvre ; un simple toucher confirme sa coupe. */
+const DUREE_MAINTIEN_MS = 500;
+
+/** Un matelas : numero, placement, plis, pieces ; sa couleur dit ou il en est, et la fiche y laisse ses traces. */
+function PuceMatelas({ x, couleursMultiples, pastille, nomGroupe, onTap, onLong }: {
+    x: MatelasEquilibre;
+    couleursMultiples: boolean;
+    pastille: Props['pastille'];
+    nomGroupe: (id: string) => string;
+    onTap: () => void;
+    onLong: () => void;
+}) {
     const { lang } = useLang();
+    const minuteur = useRef<number | null>(null);
+    const maintenu = useRef(false);
+    const arreter = () => { if (minuteur.current !== null) { window.clearTimeout(minuteur.current); minuteur.current = null; } };
+    useEffect(() => arreter, []);
+    const debut = (e: React.PointerEvent) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        maintenu.current = false;
+        arreter();
+        minuteur.current = window.setTimeout(() => { maintenu.current = true; minuteur.current = null; onLong(); }, DUREE_MAINTIEN_MS);
+    };
+    const groupe = x.ligne.groupe ? nomGroupe(x.ligne.groupe) : '';
     return (
         <button
             type="button"
-            onClick={onToucher}
-            className={`w-full min-h-[48px] px-2 py-1.5 rounded-lg border text-left active:scale-[0.98] transition-transform ${CLS_ETAT[x.etat]}`}
+            onPointerDown={debut}
+            onPointerUp={arreter}
+            onPointerLeave={arreter}
+            onPointerCancel={arreter}
+            onContextMenu={e => { e.preventDefault(); arreter(); maintenu.current = true; onLong(); }}
+            onClick={() => { if (maintenu.current) { maintenu.current = false; return; } onTap(); }}
+            style={{ WebkitTouchCallout: 'none' }}
+            className={`w-full min-h-[48px] px-2 py-1.5 rounded-lg border text-left select-none active:scale-[0.98] transition-transform ${CLS_ETAT[x.etat]}`}
         >
             <span className="flex items-center gap-1 min-w-0">
                 <b className="text-[15px] tabular-nums leading-none">{x.numero}</b>
@@ -473,6 +560,15 @@ function PuceMatelas({ x, couleursMultiples, pastille, onToucher }: { x: Matelas
                 <span className="mt-0.5 block text-[10px] font-semibold tabular-nums opacity-70 truncate" title={tx(lang, { fr: 'Série : numéros des pièces de ce matelas', ar: 'السيري: أرقام قطع هذه المفرشة', en: 'Series: piece numbers of this lay' })}>
                     {tx(lang, { fr: 'Série', ar: 'سيري', en: 'Series' })} {x.serie.debut}–{x.serie.fin}
                 </span>
+            )}
+            {/* Ce que la fiche a enregistre : quand, par quel groupe */}
+            {x.etat === 'coupe' && (x.ligne.fin || groupe) && (
+                <span className="mt-0.5 block text-[10px] font-semibold truncate opacity-90">
+                    {x.ligne.fin ? heureLocale(x.ligne.fin) : ''}{groupe ? `${x.ligne.fin ? ' · ' : ''}${groupe}` : ''}
+                </span>
+            )}
+            {x.etat === 'envoye' && x.ligne.envoyeLe && (
+                <span className="mt-0.5 block text-[10px] font-semibold truncate opacity-90">{tx(lang, { fr: 'Imprimé', ar: 'طُبع', en: 'Printed' })} {heureLocale(x.ligne.envoyeLe)}</span>
             )}
         </button>
     );
@@ -515,7 +611,7 @@ function EcartPlan({ eq, m, ecarts, texteEcart, onAppliquer }: {
 }
 
 function CarteLot({
-    lot, colonnes, couleursMultiples, pastille, replie, onBasculer, onToucher, nomMatiere, texteEcart,
+    lot, colonnes, couleursMultiples, pastille, replie, onBasculer, onToucher, onMaintenir, nomGroupe, nomMatiere, texteEcart,
 }: {
     lot: LotEquilibre;
     colonnes: MatiereEquilibre[];
@@ -523,7 +619,9 @@ function CarteLot({
     pastille: Props['pastille'];
     replie: boolean;
     onBasculer: () => void;
-    onToucher: (id: string) => void;
+    onToucher: (x: MatelasEquilibre) => void;
+    onMaintenir: (x: MatelasEquilibre) => void;
+    nomGroupe: (id: string) => string;
     nomMatiere: (id: string) => string;
     texteEcart: (e: EcartEquilibre) => string;
 }) {
@@ -592,7 +690,7 @@ function CarteLot({
                                             </p>
                                         )}
                                         {(lot.matelas[m.id] || []).map(x => (
-                                            <PuceMatelas key={x.id} x={x} couleursMultiples={couleursMultiples} pastille={pastille} onToucher={() => onToucher(x.id)} />
+                                            <PuceMatelas key={x.id} x={x} couleursMultiples={couleursMultiples} pastille={pastille} nomGroupe={nomGroupe} onTap={() => onToucher(x)} onLong={() => onMaintenir(x)} />
                                         ))}
                                     </div>
                                 </div>
