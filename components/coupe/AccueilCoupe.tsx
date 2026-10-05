@@ -360,6 +360,9 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
     const { lang } = useLang();
     const [filtre, setFiltre] = useState<'TOUS' | 'EN_PREPARATION' | 'EN_COURS' | 'SOUS_TRAITANCE'>('TOUS');
     const [q, setQ] = useState('');
+    /** Ordre de la liste : le plus a couper, le plus en retard face aux autres matieres, ou le moins avance. */
+    const [tri, setTri] = useState<'aCouper' | 'retard' | 'avancement'>('aCouper');
+    const [seulRetard, setSeulRetard] = useState(false);
 
     const lignes = useMemo(() => models.filter(estOuvert).map(m => {
         // Plusieurs matieres : leur avancement cote a cote, et les lots dont le tissu est parti sans elles.
@@ -370,12 +373,24 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
             matieres: matieres.length > 1 ? matieres.map(x => ({ id: x.id, code: x.code, faits: eq.parMatiere[x.id].nbCoupes, total: eq.parMatiere[x.id].nbMatelas })) : [],
             retards: eq.lots.filter(l => l.retard.length > 0).length,
             prets: matieres.length > 1 ? eq.prets : null,
+            // Pret pour la chaine, taille par taille (couleurs additionnees) : le moins coupe de toutes les matieres.
+            tailles: matieres.length > 1 ? Object.values(eq.parTaille.reduce<Record<string, { taille: string; prevu: number; prets: number; limite: Set<string> }>>((acc, t) => {
+                const x = acc[t.taille] || (acc[t.taille] = { taille: t.taille, prevu: 0, prets: 0, limite: new Set() });
+                x.prevu += t.prevu; x.prets += t.prets;
+                t.limite.forEach(id => x.limite.add(eq.matieres.find(mt => mt.id === id)?.code || ''));
+                return acc;
+            }, {})).filter(x => x.prevu > 0) : [],
         };
     }), [models]);
+    const nbEnRetard = lignes.filter(x => x.retards > 0).length;
     const visibles = lignes
         .filter(x => filtre === 'TOUS' || x.r.statut === filtre)
+        .filter(x => !seulRetard || x.retards > 0)
         .filter(x => !q.trim() || `${x.r.nom} ${x.r.client} ${x.r.type}`.toLowerCase().includes(q.trim().toLowerCase()))
-        .sort((a, b) => b.r.aCouper - a.r.aCouper);
+        .sort((a, b) =>
+            tri === 'retard' ? (b.retards - a.retards) || (b.r.aCouper - a.r.aCouper)
+            : tri === 'avancement' ? (a.r.avancement - b.r.avancement) || (b.r.aCouper - a.r.aCouper)
+            : b.r.aCouper - a.r.aCouper);
     const totalACouper = lignes.reduce((s, x) => s + x.r.aCouper, 0);
     const totalCoupees = lignes.reduce((s, x) => s + x.r.coupees, 0);
 
@@ -403,12 +418,31 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
                     <input value={q} onChange={e => setQ(e.target.value)} placeholder={tx(lang, { fr: 'Modèle, client, type…', ar: 'موديل، زبون، نوع…', en: 'Model, client, type…' })} className="flex-1 min-w-0 bg-transparent text-[12px] outline-none" />
                 </label>
             </div>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{tx(lang, { fr: 'Trier', ar: 'ترتيب', en: 'Sort' })}</span>
+                <Onglets valeur={tri} onChange={setTri} options={[
+                    { id: 'aCouper', label: tx(lang, { fr: 'Plus à couper', ar: 'الأكثر للقص', en: 'Most to cut' }) },
+                    { id: 'retard', label: tx(lang, { fr: 'Lots en retard', ar: 'الدفعات المتأخرة', en: 'Late lots' }) },
+                    { id: 'avancement', label: tx(lang, { fr: 'Moins avancé', ar: 'الأقل تقدّماً', en: 'Least advanced' }) },
+                ]} />
+                {nbEnRetard > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setSeulRetard(v => !v)}
+                        aria-pressed={seulRetard}
+                        className={`h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border text-[12px] font-bold ${seulRetard ? 'bg-rose-600 border-rose-600 text-white' : 'bg-white dark:bg-dk-surface border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'}`}
+                    >
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {tx(lang, { fr: 'Seulement en retard', ar: 'المتأخرة فقط', en: 'Late only' })} · {nbEnRetard}
+                    </button>
+                )}
+            </div>
 
             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border overflow-hidden">
                 {visibles.length === 0 && (
                     <p className="text-center text-[12px] text-slate-400 py-10">{tx(lang, { fr: 'Aucun ordre ouvert', ar: 'لا توجد أوامر جارية', en: 'No open order' })}</p>
                 )}
-                {visibles.map(({ m, r, matieres, retards, prets }) => {
+                {visibles.map(({ m, r, matieres, retards, prets, tailles }) => {
                     const st = STATUTS_ORDRE[r.statut] || STATUTS_ORDRE.EN_PREPARATION;
                     return (
                         <button key={m.id} type="button" onClick={() => onOpen(m)} className="w-full text-left px-3 sm:px-4 py-3 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
@@ -457,6 +491,25 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
                                             {retards} {tx(lang, { fr: 'lot(s) en retard', ar: 'دفعة متأخرة', en: 'late lot(s)' })}
                                         </span>
                                     )}
+                                </div>
+                            )}
+                            {tailles.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] tabular-nums">
+                                    <span className="font-bold uppercase tracking-wide text-slate-400 mr-0.5">{tx(lang, { fr: 'Chaîne', ar: 'للسلسلة', en: 'Line' })}</span>
+                                    {tailles.map(t => {
+                                        const plein = t.prets >= t.prevu;
+                                        const bloque = [...t.limite].filter(Boolean);
+                                        return (
+                                            <span
+                                                key={t.taille}
+                                                title={bloque.length ? tx(lang, { fr: `Retenu par ${bloque.join(', ')}`, ar: `تحبسه ${bloque.join('، ')}`, en: `Held by ${bloque.join(', ')}` }) : undefined}
+                                                className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border ${plein ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : t.prets > 0 ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-300' : 'border-slate-200 bg-white text-slate-500 dark:border-dk-border dark:bg-dk-surface dark:text-dk-muted'}`}
+                                            >
+                                                <b>{t.taille}</b>{fmtN(t.prets)}/{fmtN(t.prevu)}
+                                                {bloque.length > 0 && <span className="font-bold text-rose-600 dark:text-rose-400">{bloque.join('·')}</span>}
+                                            </span>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </button>
