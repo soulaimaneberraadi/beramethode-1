@@ -17,14 +17,14 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    AlertTriangle, ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronRight, Loader2, Minus, PencilLine, Plus, Printer, Scissors, Undo2, Wand2,
+    AlertTriangle, ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronRight, ListOrdered, Loader2, Minus, PencilLine, Plus, Printer, Scissors, Undo2, Wand2,
 } from 'lucide-react';
 import type { GroupeCoupe, ModelData, OrdreCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { commandeDe } from '../../lib/coupeAtelier';
 import {
-    equilibrerOrdre, proposerAjustement, type EcartEquilibre, type EquilibreOrdre, type LotEquilibre, type MatelasEquilibre, type MatiereEquilibre,
+    equilibrerOrdre, proposerAjustement, renumeroterSelonLots, type EcartEquilibre, type EquilibreOrdre, type LotEquilibre, type MatelasEquilibre, type MatiereEquilibre,
 } from '../../lib/equilibreMatieres';
 import SheetModal from '../shared/SheetModal';
 import { ChoixGroupe, heureLocale } from './AccueilCoupe';
@@ -50,6 +50,8 @@ interface Props {
     onModifierPlis: (id: string, plis: number) => void;
     /** Plis d'un matelas deja coupe (erreur du matelassier) ; rend vrai si sa serie n'a pas pu suivre. */
     onCorrigerPlisCoupe: (id: string, plis: number) => boolean;
+    /** Nouveaux numeros des matelas des autres matieres (id de ligne -> numero). */
+    onRenumeroter: (changements: Record<string, string>) => void;
 }
 
 const fmtN = (n: number) => n.toLocaleString('fr-FR');
@@ -65,7 +67,7 @@ type Filtre = 'tous' | 'acouper' | 'retard' | 'ecart';
 
 export default function SuiviMatieres({
     modele, ordre, tailles, groupes, dernierGroupe, sauvegarde, pastille,
-    onRetour, onOuvrirOrdre, onConfirmer, onAnnulerCoupe, onMarquerImprime, onModifierPlis, onCorrigerPlisCoupe,
+    onRetour, onOuvrirOrdre, onConfirmer, onAnnulerCoupe, onMarquerImprime, onModifierPlis, onCorrigerPlisCoupe, onRenumeroter,
 }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
@@ -79,6 +81,22 @@ export default function SuiviMatieres({
     const [filtre, setFiltre] = useState<Filtre>('tous');
     const [ouverts, setOuverts] = useState<Set<number>>(new Set());
     const [fiche, setFiche] = useState<string | null>(null);
+    /** Numeros des autres matieres qui ne suivent pas l'ordre des lots. */
+    const renum = useMemo(() => renumeroterSelonLots(eq), [eq]);
+    const nbRenum = Object.keys(renum.changements).length;
+    const [confirmerRenum, setConfirmerRenum] = useState(false);
+    /**
+     * Numeros portes deux fois par le tissu : deux plans dans le meme ordre (un import en
+     * lettres par-dessus des matelas en nombres). Les lots melangent alors les deux.
+     */
+    const doublonsTissu = useMemo(() => {
+        const vus = new Map<string, number>();
+        for (const x of eq.ordreConseille[eq.matieres.find(m => m.principal)?.id || ''] || []) {
+            const n = (x.ligne.numero || '').trim();
+            if (n) vus.set(n, (vus.get(n) || 0) + 1);
+        }
+        return [...vus.entries()].filter(([, c]) => c > 1).map(([n]) => n).sort((a, b) => Number(a) - Number(b));
+    }, [eq]);
 
     const compte = {
         tous: eq.lots.length,
@@ -174,6 +192,76 @@ export default function SuiviMatieres({
                     );
                 })}
             </div>
+
+            {/* Le tissu porte deux fois les memes numeros : l'ordre de coupe n'est plus lisible */}
+            {doublonsTissu.length > 0 && (
+                <div className="px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 space-y-2">
+                    <p className="flex items-start gap-1.5 text-[12px] font-semibold text-rose-800 dark:text-rose-200">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+                        <span>
+                            {L(`Le tissu porte deux fois les numéros ${doublonsTissu.slice(0, 6).join(', ')}${doublonsTissu.length > 6 ? '…' : ''} (${doublonsTissu.length}) : deux plans de matelas dans le même ordre. Les lots les mélangent. Renumérotez le tissu dans l\u2019ordre (ou retirez le plan en trop).`,
+                                `الثوب يحمل الأرقام ${doublonsTissu.slice(0, 6).join('، ')}${doublonsTissu.length > 6 ? '…' : ''} مرتين (${doublonsTissu.length}): خطتا مفرشات في نفس الأمر، والدفعات تخلط بينهما. أعد ترقيم الثوب من صفحة الأمر (أو احذف الخطة الزائدة).`,
+                                `The fabric carries numbers ${doublonsTissu.slice(0, 6).join(', ')} twice (${doublonsTissu.length}): two lay plans in one order. Renumber the fabric in the order page.`)}
+                        </span>
+                    </p>
+                    <button type="button" onClick={onOuvrirOrdre} className="h-10 px-3 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-dk-surface text-[12px] font-bold text-rose-700 dark:text-rose-300">
+                        <PencilLine className="w-4 h-4" />{L('Ouvrir l\u2019ordre', 'فتح الأمر', 'Open order')}
+                    </button>
+                </div>
+            )}
+
+            {/* Numeros des autres matieres dans le desordre : couper par numero ne suivrait pas le tissu */}
+            {nbRenum > 0 && (
+                <div className="px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 space-y-2">
+                    <p className="flex items-start gap-1.5 text-[12px] font-semibold text-amber-900 dark:text-amber-200">
+                        <ListOrdered className="w-4 h-4 shrink-0 mt-px" />
+                        <span>
+                            {L('Les numéros de', 'أرقام', 'The numbers of')} {Object.keys(renum.parMatiere).map(nomMatiere).join(', ')} {L(
+                                'ne suivent pas l\u2019ordre du tissu : un lot appelle des numéros éloignés. En salle, couper par numéro retarderait la chaîne.',
+                                'لا تتبع ترتيب الثوب: الدفعة الواحدة تطلب أرقاماً متباعدة. في القاعة، القص بالترتيب الرقمي سيؤخّر السلسلة.',
+                                'do not follow the fabric order: one lot calls far-apart numbers. Cutting by number would hold the line.')}
+                        </span>
+                    </p>
+                    <button type="button" onClick={() => setConfirmerRenum(true)} className="h-10 px-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white text-[12px] font-bold hover:bg-amber-700">
+                        <ListOrdered className="w-4 h-4" />{L('Numéroter dans l\u2019ordre du tissu', 'ترقيم حسب ترتيب الثوب', 'Number in fabric order')}
+                    </button>
+                </div>
+            )}
+            {confirmerRenum && (
+                <SheetModal
+                    onClose={() => setConfirmerRenum(false)}
+                    size="sm"
+                    zClass="z-[95]"
+                    title={L('Numéroter dans l\u2019ordre du tissu', 'ترقيم حسب ترتيب الثوب', 'Number in fabric order')}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 space-y-3"
+                >
+                    <p className="text-[13px] text-slate-700 dark:text-dk-text-soft">
+                        {L('Chaque lot aura des numéros qui se suivent : 1, 2, 3 pour le lot 1, puis le lot 2… Couper par numéro suivra alors le tissu.',
+                            'ستأخذ كل دفعة أرقاماً متتالية: 1، 2، 3 للدفعة الأولى، ثم الثانية… فيصير القص بالترتيب الرقمي تابعاً للثوب.',
+                            'Each lot gets consecutive numbers: 1, 2, 3 for lot 1, then lot 2… Cutting by number then follows the fabric.')}
+                    </p>
+                    <ul className="space-y-1">
+                        {Object.entries(renum.parMatiere).map(([id, nb]) => (
+                            <li key={id} className="flex items-center justify-between gap-2 px-2.5 h-9 rounded-lg bg-slate-100 dark:bg-dk-elevated text-[12px]">
+                                <span className="font-semibold text-slate-800 dark:text-dk-text">{nomMatiere(id)}</span>
+                                <span className="tabular-nums text-slate-600 dark:text-dk-text-soft">{nb} {L('matelas renumérotés', 'مفرشة يتغيّر رقمها', 'lays renumbered')}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    <p className="text-[11px] text-slate-500 dark:text-dk-muted">
+                        {L('Le tissu ne change pas.', 'الثوب لا يتغيّر.', 'The fabric does not change.')}{' '}
+                        {renum.gardes > 0 && L(`${renum.gardes} matelas coupés ou au tracé imprimé gardent leur numéro (déjà écrit sur les pièces ou le papier).`,
+                            `${renum.gardes} مفرشة مقصوصة أو ملفها مطبوع تحتفظ برقمها (مكتوب على القطع أو الورق).`,
+                            `${renum.gardes} cut or printed lays keep their number.`)}
+                    </p>
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button type="button" onClick={() => setConfirmerRenum(false)} className="h-10 px-4 rounded-lg border border-slate-200 dark:border-dk-border text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft">{L('Annuler', 'إلغاء', 'Cancel')}</button>
+                        <button type="button" onClick={() => { onRenumeroter(renum.changements); setConfirmerRenum(false); }} className="h-10 px-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[12px] font-bold">
+                            <Check className="w-4 h-4" />{L('Renuméroter', 'إعادة الترقيم', 'Renumber')}
+                        </button>
+                    </div>
+                </SheetModal>
+            )}
 
             {/* Ce que la couture peut coudre : un vetement n'est pret que si toutes ses matieres sont coupees */}
             {colonnes.length > 1 && eq.parTaille.length > 0 && (

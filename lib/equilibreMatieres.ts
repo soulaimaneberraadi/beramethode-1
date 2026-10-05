@@ -156,6 +156,12 @@ export interface EquilibreOrdre {
     parMatiere: Record<string, BilanMatiere>;
     /** Ecarts du plan entier, matiere par matiere, face au tissu principal. */
     ecartsPlan: EcartEquilibre[];
+    /**
+     * Ordre de coupe qui suit le tissu, matiere par matiere : les matelas du lot 1, puis du
+     * lot 2... (ceux qu'aucun lot n'appelle a la fin). C'est l'ordre que doivent suivre leurs
+     * numeros pour qu'en salle, couper « par numero » serve la chaine.
+     */
+    ordreConseille: Record<string, MatelasEquilibre[]>;
 }
 
 const SEP = '\u001f';
@@ -265,8 +271,9 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
 
     /* ---- Ordre de coupe des autres matieres ---- */
     // Pour chaque matelas de tissu, dans son ordre de coupe, chaque autre matiere prend les
-    // matelas qui couvrent le mieux ce qui manque (sans regarder s'ils sont coupes : le plan ne
-    // bouge pas quand on confirme) ; celui qui apporte le plus de pieces utiles (38-40 +
+    // matelas qui couvrent le mieux ce qui manque : d'abord ceux deja coupes (une vlieseline
+    // 42-44 coupee est celle qui sert le tissu deja coupe, quel que soit son numero), puis les
+    // traces imprimes, puis le reste par numero ; parmi eux, celui qui apporte le plus de pieces utiles (38-40 +
     // 42×2 + 42-44 face a « 38-40-42×3-44 », pas quatre 42-44). Un matelas qui deborderait
     // surtout sur la suite attend qu'elle en ait besoin : quelques pieces qui manquent (100
     // plis de tissu, 99 de vlieseline) passent au matelas de tissu suivant au lieu d'appeler
@@ -276,6 +283,7 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
     const cumul: Vecteur[] = [];
     { const d: Vecteur = {}; for (const x of princ) { ajouter(d, x.pieces); cumul.push({ ...d }); } }
     const avantRangee = (j: number): Vecteur => (j > 0 ? cumul[j - 1] : {});
+    const RANGS: EtatMatelas[] = ['coupe', 'envoye', 'a_faire'];
     const sequence: Record<string, number[]> = {};
     for (const id of autres) {
         const liste = parMat[id];
@@ -290,17 +298,20 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
                 for (const k in cible) if (concerne(id, k) && cible[k] > (C[k] || 0)) D[k] = cible[k] - (C[k] || 0);
                 if (!Object.keys(D).length) break;
                 let choix = -1, meilleur = -Infinity;
-                liste.forEach((x, i) => {
-                    if (utilise[i]) return;
-                    let utile = 0, deborde = 0;
-                    for (const k in x.pieces) {
-                        utile += Math.min(x.pieces[k], D[k] || 0);
-                        deborde += Math.max(0, x.pieces[k] - Math.max(0, (horizon[k] || 0) - (C[k] || 0)));
-                    }
-                    if (utile <= 0 || (!dernier && utile < deborde)) return;
-                    const note = dernier ? utile * 1e6 - deborde : utile - deborde;
-                    if (note > meilleur) { meilleur = note; choix = i; }
-                });
+                for (const etat of RANGS) {
+                    liste.forEach((x, i) => {
+                        if (utilise[i] || x.etat !== etat) return;
+                        let utile = 0, deborde = 0;
+                        for (const k in x.pieces) {
+                            utile += Math.min(x.pieces[k], D[k] || 0);
+                            deborde += Math.max(0, x.pieces[k] - Math.max(0, (horizon[k] || 0) - (C[k] || 0)));
+                        }
+                        if (utile <= 0 || (!dernier && utile < deborde)) return;
+                        const note = dernier ? utile * 1e6 - deborde : utile - deborde;
+                        if (note > meilleur) { meilleur = note; choix = i; }
+                    });
+                    if (choix >= 0) break;
+                }
                 if (choix < 0) break;
                 utilise[choix] = true;
                 seq.push(choix);
@@ -455,6 +466,17 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
         return { rang: num + 1, matelas, vetements, prets, manque, etat, retard: Object.keys(attente), attente };
     });
 
+    const ordreConseille: Record<string, MatelasEquilibre[]> = { [P]: [...princ] };
+    for (const id of autres) {
+        const pos = new Map(sequence[id].map((i, r) => [i, r]));
+        const loin = Number.MAX_SAFE_INTEGER;
+        ordreConseille[id] = parMat[id]
+            .map((x, i) => ({ x, i }))
+            .sort((a, b) => ((rangee[id][a.i] < 0 ? loin : rangee[id][a.i]) - (rangee[id][b.i] < 0 ? loin : rangee[id][b.i]))
+                || ((pos.get(a.i) ?? loin) - (pos.get(b.i) ?? loin)) || a.i - b.i)
+            .map(({ x }) => x);
+    }
+
     const enPlus: Record<string, MatelasEquilibre[]> = {};
     for (const id of autres) {
         const reste = parMat[id].filter((_, i) => rangee[id][i] < 0);
@@ -497,7 +519,52 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
         prets,
         parMatiere,
         ecartsPlan,
+        ordreConseille,
     };
+}
+
+/* ------------------------------------------------------------------ */
+/* Numeroter les autres matieres dans l'ordre du tissu                  */
+/* ------------------------------------------------------------------ */
+
+export interface Renumerotation {
+    /** Nouveau numero, par id de ligne : seulement ceux qui changent. */
+    changements: Record<string, string>;
+    /** Matelas renumerotes, par matiere. */
+    parMatiere: Record<string, number>;
+    /** Matelas qui gardent leur numero parce qu'ils sont coupes ou leur trace imprime. */
+    gardes: number;
+}
+
+/**
+ * Une vlieseline numerotee par placement (1-19 en 38-40, 20-47 en 42-44, 48-79 en 42×2)
+ * coupe les bonnes pieces, mais pas dans l'ordre du tissu : face au tissu 3 il faut ses
+ * numeros 3, 22 et 50, et la salle qui coupe « par numero » bloque la chaine en 42-44.
+ * On renumerote 1, 2, 3... dans l'ordre des lots. Le tissu ne change jamais (c'est lui
+ * l'ordre, et sa serie d'etiquettes en depend) ; un matelas coupe ou dont le trace est
+ * imprime garde son numero (il est ecrit sur les pieces, sur le papier), et les nouveaux
+ * numeros l'evitent.
+ */
+export function renumeroterSelonLots(eq: EquilibreOrdre): Renumerotation {
+    const changements: Record<string, string> = {}, parMatiere: Record<string, number> = {};
+    let gardes = 0;
+    for (const m of eq.matieres) {
+        if (m.principal) continue;
+        const liste = eq.ordreConseille[m.id] || [];
+        const fixe = (x: MatelasEquilibre) => x.etat !== 'a_faire';
+        const pris = new Set(liste.filter(fixe).map(x => x.numero.trim()));
+        let suivant = 1;
+        for (const x of liste) {
+            if (fixe(x)) { gardes++; continue; }
+            while (pris.has(String(suivant))) suivant++;
+            const num = String(suivant++);
+            if (num !== (x.ligne.numero || '').trim()) {
+                changements[x.id] = num;
+                parMatiere[m.id] = (parMatiere[m.id] || 0) + 1;
+            }
+        }
+    }
+    return { changements, parMatiere, gardes };
 }
 
 /* ------------------------------------------------------------------ */

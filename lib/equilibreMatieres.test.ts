@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import type { MatelasLine, OrdreCoupe } from '../types';
-import { corrigerPlisFiges, equilibrerOrdre, proposerAjustement } from './equilibreMatieres';
+import { corrigerPlisFiges, equilibrerOrdre, proposerAjustement, renumeroterSelonLots } from './equilibreMatieres';
 
 const TAILLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 let n = 0;
@@ -260,6 +260,24 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     assert.deepEqual(numeros(eq.lots[0].matelas.principal), ['9', '10']);
     assert.deepEqual(numeros(eq.lots[0].matelas.FO), ['5'], 'le foro 5 en face des tissus 9 et 10');
     assert.deepEqual(numeros(eq.lots[1].matelas.FO), ['6']);
+}
+
+// --- WA33-Q : vlieseline numerotee par placement, renumerotee dans l'ordre du tissu ---
+{
+    const lignes = [
+        ligne('principal', '1', 100, { M: 1, L: 1, XL: 3, XXL: 1 }), ligne('principal', '2', 100, { M: 1, L: 1, XL: 3, XXL: 1 }),
+        ligne('VL', '1', 100, { M: 1, L: 1 }, { fait: true }), ligne('VL', '2', 100, { M: 1, L: 1 }),
+        ligne('VL', '3', 100, { XL: 1, XXL: 1 }), ligne('VL', '4', 100, { XL: 1, XXL: 1 }),
+        ligne('VL', '5', 100, { XL: 2 }), ligne('VL', '6', 100, { XL: 2 }),
+    ];
+    const eq = equilibrerOrdre(ordre(lignes), TAILLES);
+    assert.deepEqual(eq.lots.map(l => numeros(l.matelas.VL)), [['1', '3', '5'], ['2', '4', '6']], 'les bonnes pieces, numeros eloignes');
+    const r = renumeroterSelonLots(eq);
+    assert.equal(r.gardes, 1, 'le VL 1 coupe garde son numero');
+    const avecNumeros = lignes.map(l => (r.changements[l.id] ? { ...l, numero: r.changements[l.id] } : l));
+    const eq2 = equilibrerOrdre(ordre(avecNumeros), TAILLES);
+    assert.deepEqual(eq2.lots.map(l => numeros(l.matelas.VL)), [['1', '2', '3'], ['4', '5', '6']], 'chaque lot : des numeros qui se suivent');
+    assert.deepEqual(renumeroterSelonLots(eq2).changements, {}, 'une seconde fois ne change plus rien');
 }
 
 console.log('equilibreMatieres : OK');

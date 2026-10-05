@@ -1146,6 +1146,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             enregistrerSuivi();
             return conflit;
         },
+        /** Autres matieres numerotees dans l'ordre des lots du tissu. */
+        renumeroter: (changements: Record<string, string>) => {
+            if (!Object.keys(changements).length) return;
+            setOrdre(prev => ({
+                ...prev,
+                matelasLines: (prev.matelasLines || []).map(x => (changements[x.id] && !x.fait && !x.envoyeLe ? { ...x, numero: changements[x.id] } : x)),
+            }));
+            enregistrerSuivi();
+        },
     };
 
     /*
@@ -2805,6 +2814,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             onMarquerImprime={suivi.imprime}
                             onModifierPlis={suivi.plis}
                             onCorrigerPlisCoupe={suivi.corrigerCoupe}
+                            onRenumeroter={suivi.renumeroter}
                         />
                     ) : selectedModel ? (
                         <div className="w-full max-w-[1920px] mx-auto p-3 md:p-5 space-y-4 md:space-y-5">
