@@ -262,6 +262,19 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     assert.deepEqual(numeros(eq.lots[1].matelas.FO), ['6']);
 }
 
+// --- Confirmer une doublure ne la deplace pas non plus (la 17 restait au lot 5, elle montait au lot 1) ---
+{
+    const lignes = [
+        ligne('principal', '1', 10, { S: 1 }), ligne('principal', '2', 10, { S: 1 }), ligne('principal', '3', 10, { S: 1 }),
+        ligne('FO', '1', 10, { S: 1 }), ligne('FO', '2', 10, { S: 1 }), ligne('FO', '3', 10, { S: 1 }),
+    ];
+    const plan = (eq: ReturnType<typeof equilibrerOrdre>) => eq.lots.map(l => numeros(l.matelas.FO));
+    const avant = plan(equilibrerOrdre(ordre(lignes), TAILLES));
+    lignes[5].fait = true;
+    lignes[4].envoyeLe = '2026-10-05T10:00:00Z';
+    assert.deepEqual(plan(equilibrerOrdre(ordre(lignes), TAILLES)), avant, 'le foro 3 coupe reste au lot 3');
+}
+
 // --- WA33-Q : vlieseline numerotee par placement, renumerotee dans l'ordre du tissu ---
 {
     const lignes = [

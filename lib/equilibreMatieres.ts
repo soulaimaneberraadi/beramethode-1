@@ -271,19 +271,21 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
 
     /* ---- Ordre de coupe des autres matieres ---- */
     // Pour chaque matelas de tissu, dans son ordre de coupe, chaque autre matiere prend les
-    // matelas qui couvrent le mieux ce qui manque : d'abord ceux deja coupes (une vlieseline
-    // 42-44 coupee est celle qui sert le tissu deja coupe, quel que soit son numero), puis les
-    // traces imprimes, puis le reste par numero ; parmi eux, celui qui apporte le plus de pieces utiles (38-40 +
+    // matelas qui couvrent le mieux ce qui manque ; celui qui apporte le plus de pieces utiles (38-40 +
     // 42×2 + 42-44 face a « 38-40-42×3-44 », pas quatre 42-44). Un matelas qui deborderait
     // surtout sur la suite attend qu'elle en ait besoin : quelques pieces qui manquent (100
     // plis de tissu, 99 de vlieseline) passent au matelas de tissu suivant au lieu d'appeler
     // un matelas entier. Au dernier matelas de tissu, tout ce qui manque se couvre.
+    // Ni l'etat ni le numero n'entrent dans ce choix : confirmer la doublure 17 ne la fait pas
+    // remonter au lot 1 (Soulaimane, 2026-10-05), et renumeroter ne change pas les lots. A
+    // egalite (matelas identiques), la ligne du tableau la plus haute passe d'abord. Ce qui est
+    // deja coupe se compte ailleurs : prets et retards regardent les pieces coupees de la
+    // matiere entiere, pas le lot ou le matelas est range.
     const princ = parMat[P];
     const n = princ.length;
     const cumul: Vecteur[] = [];
     { const d: Vecteur = {}; for (const x of princ) { ajouter(d, x.pieces); cumul.push({ ...d }); } }
     const avantRangee = (j: number): Vecteur => (j > 0 ? cumul[j - 1] : {});
-    const RANGS: EtatMatelas[] = ['coupe', 'envoye', 'a_faire'];
     const sequence: Record<string, number[]> = {};
     for (const id of autres) {
         const liste = parMat[id];
@@ -298,20 +300,17 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
                 for (const k in cible) if (concerne(id, k) && cible[k] > (C[k] || 0)) D[k] = cible[k] - (C[k] || 0);
                 if (!Object.keys(D).length) break;
                 let choix = -1, meilleur = -Infinity;
-                for (const etat of RANGS) {
-                    liste.forEach((x, i) => {
-                        if (utilise[i] || x.etat !== etat) return;
-                        let utile = 0, deborde = 0;
-                        for (const k in x.pieces) {
-                            utile += Math.min(x.pieces[k], D[k] || 0);
-                            deborde += Math.max(0, x.pieces[k] - Math.max(0, (horizon[k] || 0) - (C[k] || 0)));
-                        }
-                        if (utile <= 0 || (!dernier && utile < deborde)) return;
-                        const note = dernier ? utile * 1e6 - deborde : utile - deborde;
-                        if (note > meilleur) { meilleur = note; choix = i; }
-                    });
-                    if (choix >= 0) break;
-                }
+                liste.forEach((x, i) => {
+                    if (utilise[i]) return;
+                    let utile = 0, deborde = 0;
+                    for (const k in x.pieces) {
+                        utile += Math.min(x.pieces[k], D[k] || 0);
+                        deborde += Math.max(0, x.pieces[k] - Math.max(0, (horizon[k] || 0) - (C[k] || 0)));
+                    }
+                    if (utile <= 0 || (!dernier && utile < deborde)) return;
+                    const note = dernier ? utile * 1e6 - deborde : utile - deborde;
+                    if (note > meilleur || (note === meilleur && (rangDe.get(x.id) || 0) < (rangDe.get(liste[choix].id) || 0))) { meilleur = note; choix = i; }
+                });
                 if (choix < 0) break;
                 utilise[choix] = true;
                 seq.push(choix);
