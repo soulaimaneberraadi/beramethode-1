@@ -491,7 +491,11 @@ function CarteLot({
                                     <div className="space-y-1">
                                         {(lot.matelas[m.id] || []).length === 0 && (
                                             <p className="min-h-[48px] px-1 flex items-center justify-center text-center rounded-lg border border-dashed border-slate-200 dark:border-dk-border text-slate-400 text-[10px] leading-tight">
-                                                {m.principal ? '—' : L('couvert plus haut', 'مغطّى في الأعلى', 'covered above')}
+                                                {m.principal ? '—'
+                                                    // Plus aucun matelas de cette matiere dans l'ordre : ce n'est pas couvert, ca manque.
+                                                    : lot.manque.some(e => e.matiere === m.id)
+                                                        ? <span className="font-semibold text-amber-700 dark:text-amber-300">{L('aucun matelas prévu : à ajouter', 'لا مفرشة مبرمجة: يجب إضافتها', 'no lay planned: add one')}</span>
+                                                        : L('couvert plus haut', 'مغطّى في الأعلى', 'covered above')}
                                             </p>
                                         )}
                                         {(lot.matelas[m.id] || []).map(x => (
