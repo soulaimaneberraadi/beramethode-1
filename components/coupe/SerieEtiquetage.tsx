@@ -8,7 +8,7 @@
  * suivent. La chaine proposee est celle que le Planning a donnee au modele.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Tag, ChevronDown, CalendarCheck, LogIn, LogOut, X, Factory, FileSpreadsheet, Loader2, Download, Lock } from 'lucide-react';
+import { Tag, ChevronDown, CalendarCheck, LogIn, LogOut, X, Factory, FileSpreadsheet, Loader2, Download, Lock, Maximize2, Minimize2 } from 'lucide-react';
 import type { MatelasLine, SaisiePaquet, SerieEtiquetage as Serie } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -125,11 +125,20 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
         return <p className="py-4 text-[12px] text-slate-400">{L('La serie se calcule des matelas du tissu principal : ajoutez-en d’abord.', 'تُحسب السلسلة من مفرشات الثوب الرئيسي: أضفها أولاً.', 'The series comes from main-fabric lays.')}</p>;
     }
 
+    /* La serie sur tout l'ecran, comme le tableau des matelas : sous la barre de l'application, Echap pour sortir. */
+    const [pleinEcran, setPleinEcran] = useState(false);
+    useEffect(() => {
+        if (!pleinEcran) return;
+        const touche = (e: KeyboardEvent) => { if (e.key === 'Escape') setPleinEcran(false); };
+        window.addEventListener('keydown', touche);
+        return () => window.removeEventListener('keydown', touche);
+    }, [pleinEcran]);
+
     /* Cellule saisissable facon Excel : sans cadre, la grille du tableau fait les bords. */
     const champ = 'w-full h-full min-h-[26px] px-1 bg-transparent outline-none text-center text-[12px] tabular-nums focus:bg-white dark:focus:bg-dk-surface focus:ring-2 focus:ring-inset focus:ring-emerald-500';
 
     return (
-        <div className="space-y-2">
+        <div className={pleinEcran ? 'fixed left-0 right-0 bottom-0 top-12 z-[90] bg-slate-50 dark:bg-dk-bg p-3 flex flex-col gap-2' : 'space-y-2'}>
             {/* Meme bloc que la numerotation des matelas */}
             <div className="flex flex-wrap items-end gap-2 p-3 rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border">
                 <label className="block">
@@ -160,6 +169,15 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                         {exportExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}{L('Telecharger Excel', 'تنزيل Excel', 'Download Excel')}
                     </button>
                 )}
+                <button
+                    type="button"
+                    onClick={() => setPleinEcran(v => !v)}
+                    className={`h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border text-[12px] font-semibold ${pleinEcran ? 'border-slate-900 bg-slate-900 text-white dark:bg-dk-accent dark:border-dk-accent' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:border-indigo-300'}`}
+                    title={pleinEcran ? L('Revenir a la page (Echap)', 'الرجوع إلى الصفحة (Esc)', 'Back to the page (Esc)') : L('La serie sur tout l\u2019ecran', 'السلسلة على كامل الشاشة', 'Series on the whole screen')}
+                >
+                    {pleinEcran ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                    {pleinEcran ? L('Reduire', 'تصغير', 'Exit') : L('Plein ecran', 'ملء الشاشة', 'Full screen')}
+                </button>
                 <div className="flex flex-wrap gap-1.5 ml-auto">
                     {Object.entries(parChaine).map(([c, n]) => (
                         <span key={c} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-[12px] font-semibold text-indigo-700 dark:text-indigo-300">
@@ -198,7 +216,7 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                 )}
             </div>
 
-            <div className="overflow-auto max-h-[65vh] bg-white dark:bg-dk-surface">
+            <div className={`overflow-auto bg-white dark:bg-dk-surface ${pleinEcran ? 'flex-1 min-h-0 border border-slate-200 dark:border-dk-border rounded-xl' : 'max-h-[65vh]'}`}>
                 <table className="border-collapse text-[12px] select-none">
                     <colgroup>
                         {[80, 64, 64, 76, 76, 60, 96, 44, 80, 64, 80, 120].map((w, i) => <col key={i} style={{ width: w }} />)}

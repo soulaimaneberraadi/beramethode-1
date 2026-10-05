@@ -4356,23 +4356,32 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 
             {quitterVers && (
                 <SheetModal onClose={() => setQuitterVers(null)} size="sm" zClass="z-[97]" closeOnBackdrop={false} bodyClassName="flex-1 overflow-y-auto min-h-0 p-5">
-                    <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Modifications non enregistrees', ar: 'تعديلات غير محفوظة', en: 'Unsaved changes' })}</h3>
-                    <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-1">{tx(lang, { fr: 'Cet ordre a des modifications qui ne sont pas encore enregistrees.', ar: 'في هذا الأمر تعديلات لم تُحفظ بعد.', en: 'This order has changes that are not saved yet.' })}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-5">
-                        <button type="button" onClick={() => setQuitterVers(null)} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Rester', ar: 'البقاء', en: 'Stay' })}</button>
-                        <button type="button" onClick={() => {
-                            const suite = quitterVers;
-                            setQuitterVers(null);
-                            // La grille s'ecrit dans la liste des modeles au fil de la saisie : on la remet comme a l'ouverture.
-                            const f = ficheOuverte.current;
-                            if (f) {
-                                setModels(prev => prev.map(m => (m.id === f.id ? { ...m, ficheData: f.fiche } : m)));
-                                if (currentModelId === f.id && setFicheData) setFicheData(f.fiche);
-                            }
-                            empreinteOuverte.current = '';
-                            suite();
-                        }} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200">{tx(lang, { fr: 'Quitter sans enregistrer', ar: 'خروج دون حفظ', en: 'Leave without saving' })}</button>
-                        <button type="button" onClick={async () => { const suite = quitterVers; setQuitterVers(null); const ok = await handleSaveCoupe(false); if (ok) suite(); }} className="h-10 px-3 rounded-lg text-[12px] font-semibold bg-slate-900 text-white hover:bg-slate-800">{tx(lang, { fr: 'Enregistrer et continuer', ar: 'حفظ ثم متابعة', en: 'Save and continue' })}</button>
+                    <div className="flex items-start gap-3">
+                        <span className="w-10 h-10 shrink-0 rounded-full bg-amber-50 dark:bg-amber-900/25 text-amber-600 dark:text-amber-300 inline-flex items-center justify-center"><AlertTriangle className="w-5 h-5" /></span>
+                        <div className="min-w-0">
+                            <h3 className="text-[15px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Modifications non enregistrees', ar: 'تعديلات غير محفوظة', en: 'Unsaved changes' })}</h3>
+                            <p className="text-[12px] leading-snug text-slate-500 dark:text-dk-muted mt-1">{tx(lang, { fr: 'Cet ordre a des modifications qui ne sont pas encore enregistrees.', ar: 'في هذا الأمر تعديلات لم تُحفظ بعد.', en: 'This order has changes that are not saved yet.' })}</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-2 mt-5">
+                        <button type="button" onClick={async () => { const suite = quitterVers; setQuitterVers(null); const ok = await handleSaveCoupe(false); if (ok) suite(); }} className="h-11 w-full px-4 inline-flex items-center justify-center gap-2 rounded-xl text-[13px] font-bold bg-slate-900 dark:bg-dk-accent text-white hover:bg-slate-800 whitespace-nowrap">
+                            <Save className="w-4 h-4" />{tx(lang, { fr: 'Enregistrer et continuer', ar: 'حفظ ثم متابعة', en: 'Save and continue' })}
+                        </button>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => setQuitterVers(null)} className="h-11 flex-1 px-3 rounded-xl text-[13px] font-semibold border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated whitespace-nowrap">{tx(lang, { fr: 'Rester', ar: 'البقاء', en: 'Stay' })}</button>
+                            <button type="button" onClick={() => {
+                                const suite = quitterVers;
+                                setQuitterVers(null);
+                                // La grille s'ecrit dans la liste des modeles au fil de la saisie : on la remet comme a l'ouverture.
+                                const f = ficheOuverte.current;
+                                if (f) {
+                                    setModels(prev => prev.map(m => (m.id === f.id ? { ...m, ficheData: f.fiche } : m)));
+                                    if (currentModelId === f.id && setFicheData) setFicheData(f.fiche);
+                                }
+                                empreinteOuverte.current = '';
+                                suite();
+                            }} className="h-11 flex-[1.4] px-3 rounded-xl text-[13px] font-semibold text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-900/20 whitespace-nowrap">{tx(lang, { fr: 'Quitter sans enregistrer', ar: 'خروج دون حفظ', en: 'Leave without saving' })}</button>
+                        </div>
                     </div>
                 </SheetModal>
             )}
