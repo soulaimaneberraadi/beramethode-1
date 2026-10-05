@@ -13,9 +13,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ArrowLeft, Scissors, Users, Layers, Search, Plus, Trash2, Edit3, Check, X,
-    RefreshCw, Trophy, Clock, Building2, ChevronRight, AlertTriangle,
+    RefreshCw, Trophy, Clock, Building2, ChevronRight, AlertTriangle, Factory, CalendarDays, Activity,
 } from 'lucide-react';
-import type { AppSettings, GroupeCoupe, ModelData, OuvrierCoupe, PointageCoupe } from '../../types';
+import type { AppSettings, GroupeCoupe, ModelData, OuvrierCoupe, PlanningEvent, PointageCoupe, SuiviData } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import {
@@ -23,8 +23,9 @@ import {
     resumerOrdre, statsGroupes, tempsStandard, minutesPrevues, texteDuree, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
 } from '../../lib/coupeAtelier';
 import { equilibrerOrdre } from '../../lib/equilibreMatieres';
+import { chainesDeCoupe, type ChaineCoupe, type EtatChaine } from '../../lib/coupeChaines';
 
-export type PageAccueil = 'ordres' | 'groupes' | 'tissu';
+export type PageAccueil = 'ordres' | 'groupes' | 'tissu' | 'chaines';
 
 /* ------------------------------------------------------------------ */
 /* Formats                                                              */
@@ -303,12 +304,14 @@ function Carte({ label, valeur, sous, icon: Icon, couleur, onClick }: {
     );
 }
 
-export function CartesAccueil({ models, groupes, presence, etatRh, onOuvrir }: {
+export function CartesAccueil({ models, groupes, presence, etatRh, onOuvrir, chaines }: {
     models: ModelData[];
     groupes: GroupeCoupe[];
     presence: PresenceGroupe[];
     etatRh: EtatRh;
     onOuvrir: (p: PageAccueil) => void;
+    /** Ce que chaque chaine attend de la coupe (Planning + Suivi) : la quatrieme carte. */
+    chaines?: ChaineCoupe[];
 }) {
     const { lang } = useLang();
     const ouverts = models.filter(estOuvert);
@@ -325,8 +328,12 @@ export function CartesAccueil({ models, groupes, presence, etatRh, onOuvrir }: {
             : etatRh === 'chargement' ? '…'
                 : `${ouvriersPresents} ${tx(lang, { fr: 'ouvriers au travail', ar: 'عامل حاضر', en: 'workers in' })}`;
 
+    const actives = (chaines || []).filter(c => c.etat !== 'libre');
+    const enRisque = actives.filter(c => c.etat === 'arret').length;
+    const matelasChaines = actives.reduce((s, c) => s + c.matelasACouper, 0);
+
     return (
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <Carte
                 label={tx(lang, { fr: 'Ordres en cours', ar: 'أوامر جارية', en: 'Open orders', es: 'Órdenes abiertas' })}
                 valeur={fmtN(ouverts.length)}
@@ -347,6 +354,17 @@ export function CartesAccueil({ models, groupes, presence, etatRh, onOuvrir }: {
                 sous={`${tx(lang, { fr: 'sur', ar: 'من', en: 'of' })} ${fmtM(prevu)} ${tx(lang, { fr: 'prévus', ar: 'مقرّرة', en: 'planned' })}`}
                 icon={Layers} couleur="bg-indigo-500"
                 onClick={() => onOuvrir('tissu')}
+            />
+            <Carte
+                label={tx(lang, { fr: 'Chaînes', ar: 'السلاسل', en: 'Sewing lines', es: 'Líneas' })}
+                valeur={actives.length === 0 ? '—' : `${fmtN(matelasChaines)} ${tx(lang, { fr: 'mat.', ar: 'مفرشة', en: 'lays' })}`}
+                sous={actives.length === 0
+                    ? tx(lang, { fr: 'Rien au Planning', ar: 'لا شيء في التخطيط', en: 'Nothing planned' })
+                    : enRisque > 0
+                        ? `${enRisque} ${tx(lang, { fr: 'chaîne(s) en risque', ar: 'سلسلة مهدّدة', en: 'line(s) at risk' })}`
+                        : `${actives.length} ${tx(lang, { fr: 'chaîne(s) couvertes', ar: 'سلسلة مغطّاة', en: 'line(s) covered' })}`}
+                icon={Factory} couleur={enRisque > 0 ? 'bg-rose-600' : 'bg-amber-500'}
+                onClick={() => onOuvrir('chaines')}
             />
         </div>
     );
@@ -516,6 +534,182 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
                     );
                 })}
             </div>
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/* Page : chaines                                                       */
+/* ------------------------------------------------------------------ */
+
+const ETATS_CHAINE: Record<EtatChaine, { fr: string; ar: string; en: string; cls: string; barre: string }> = {
+    arret: { fr: 'Va s’arrêter', ar: 'ستتوقف', en: 'Will stop', cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/25 dark:text-rose-300 dark:border-rose-800', barre: 'bg-rose-500' },
+    juste: { fr: 'Juste', ar: 'على الحدّ', en: 'Tight', cls: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/25 dark:text-amber-300 dark:border-amber-800', barre: 'bg-amber-500' },
+    couverte: { fr: 'Couverte', ar: 'مغطّاة', en: 'Covered', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-300 dark:border-emerald-800', barre: 'bg-emerald-500' },
+    horsCoupe: { fr: 'Sans ordre de coupe', ar: 'بلا أمر قص', en: 'No cutting order', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-dk-elevated dark:text-dk-text-soft dark:border-dk-border', barre: 'bg-slate-400' },
+    libre: { fr: 'Sans modèle', ar: 'بلا موديل', en: 'No model', cls: 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border', barre: 'bg-slate-300' },
+};
+
+/** « 5 → 9 » quand les numeros se suivent, sinon la liste. */
+const plageNumeros = (ns: string[]) => {
+    const v = ns.map(n => parseInt(n, 10));
+    if (v.length > 2 && v.every((x, i) => Number.isFinite(x) && (i === 0 || x === v[i - 1] + 1))) return `${ns[0]} → ${ns[ns.length - 1]}`;
+    return ns.join(', ');
+};
+
+export function PageChaines({ models, evenements, suivis, settings, joursAvance, setJoursAvance, onBack, onOpen, onNavigate }: {
+    models: ModelData[];
+    evenements: PlanningEvent[];
+    suivis: SuiviData[];
+    settings?: AppSettings;
+    joursAvance: number;
+    setJoursAvance: (j: number) => void;
+    onBack: () => void;
+    onOpen: (m: ModelData) => void;
+    onNavigate?: (view: string) => void;
+}) {
+    const { lang } = useLang();
+    const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
+    const [toutes, setToutes] = useState(false);
+
+    const chaines = useMemo(
+        () => chainesDeCoupe({ models, evenements, suivis, settings, joursAvance, aujourdhui: aujourdhui() }),
+        [models, evenements, suivis, settings, joursAvance],
+    );
+    const ordre: Record<EtatChaine, number> = { arret: 0, juste: 1, couverte: 2, horsCoupe: 3, libre: 4 };
+    const visibles = chaines.filter(c => toutes || c.etat !== 'libre').sort((a, b) => ordre[a.etat] - ordre[b.etat]);
+    const matelas = chaines.reduce((s, c) => s + c.matelasACouper, 0);
+    const pieces = chaines.reduce((s, c) => s + c.piecesACouper, 0);
+    const enRisque = chaines.filter(c => c.etat === 'arret').length;
+    const modeleDe = (id: string) => models.find(m => m.id === id);
+    const locale = lang === 'ar' ? 'ar-MA' : lang === 'en' ? 'en-GB' : lang === 'es' ? 'es-ES' : 'fr-FR';
+    const jour = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { day: '2-digit', month: 'short' }) : '—');
+
+    return (
+        <div>
+            <EnTetePage
+                titre={L('Chaînes', 'السلاسل', 'Sewing lines')}
+                sousTitre={L('Ce que chaque chaîne attend de la coupe : Planning + Suivi de production', 'ما تنتظره كل سلسلة من القص: التخطيط + متابعة الإنتاج', 'What each line needs from cutting: Planning + production follow-up')}
+                onBack={onBack}
+                actions={onNavigate ? (
+                    <div className="hidden sm:flex items-center gap-1.5">
+                        <button type="button" onClick={() => onNavigate('planning')} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><CalendarDays className="w-3.5 h-3.5" />{L('Planning', 'التخطيط', 'Planning')}</button>
+                        <button type="button" onClick={() => onNavigate('suivi')} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Activity className="w-3.5 h-3.5" />{L('Suivi', 'المتابعة', 'Follow-up')}</button>
+                    </div>
+                ) : undefined}
+            />
+            <Resume items={[
+                { label: L('Matelas à couper', 'مفرشات للقص', 'Lays to cut'), valeur: fmtN(matelas), ton: matelas > 0 ? 'text-rose-600 dark:text-rose-400' : undefined },
+                { label: L('Pièces', 'قطع', 'Pieces'), valeur: fmtN(pieces) },
+                { label: L('Chaînes en risque', 'سلاسل مهدّدة', 'Lines at risk'), valeur: fmtN(enRisque), ton: enRisque > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400' },
+            ]} />
+
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{L('Avance voulue', 'التقدّم المطلوب', 'Buffer')}</span>
+                <Onglets
+                    valeur={String(joursAvance)}
+                    onChange={v => setJoursAvance(Number(v))}
+                    options={['1', '2', '3', '5'].map(j => ({ id: j, label: `${j} ${L(j === '1' ? 'jour' : 'jours', j === '1' ? 'يوم' : 'أيام', j === '1' ? 'day' : 'days')}` }))}
+                />
+                <button type="button" onClick={() => setToutes(v => !v)} className="h-9 px-3 rounded-lg text-[12px] font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-dk-elevated">
+                    {toutes ? L('Masquer les chaînes sans modèle', 'إخفاء السلاسل بلا موديل', 'Hide idle lines') : L('Voir toutes les chaînes', 'كل السلاسل', 'Show all lines')}
+                </button>
+            </div>
+
+            {visibles.length === 0 && (
+                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border px-4 py-10 text-center">
+                    <p className="text-[13px] text-slate-500 dark:text-dk-muted">{L('Aucun modèle planifié sur une chaîne.', 'لا يوجد موديل مبرمج على أي سلسلة.', 'No model planned on a line.')}</p>
+                    {onNavigate && (
+                        <button type="button" onClick={() => onNavigate('planning')} className="mt-3 h-10 px-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[12px] font-bold"><CalendarDays className="w-4 h-4" />{L('Ouvrir le Planning', 'فتح التخطيط', 'Open Planning')}</button>
+                    )}
+                </div>
+            )}
+
+            <div className="space-y-2">
+                {visibles.map(c => {
+                    const st = ETATS_CHAINE[c.etat];
+                    return (
+                        <div key={c.id} className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-slate-100 dark:border-dk-border">
+                                <span className={`w-1.5 h-6 rounded-full ${st.barre}`} />
+                                <Factory className="w-4 h-4 text-slate-400 shrink-0" />
+                                <span className="text-[14px] font-bold text-slate-900 dark:text-dk-text truncate flex-1 min-w-0">{c.nom}</span>
+                                {c.matelasACouper > 0 && (
+                                    <span className="h-7 px-2 inline-flex items-center gap-1 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[11px] font-bold tabular-nums shrink-0">
+                                        <Scissors className="w-3 h-3" />{c.matelasACouper}
+                                    </span>
+                                )}
+                                <span className={`h-7 px-2 inline-flex items-center rounded-lg border text-[11px] font-bold shrink-0 ${st.cls}`}>{tx(lang, st)}</span>
+                            </div>
+
+                            {c.modeles.length === 0 && (
+                                <p className="px-4 py-2.5 text-[12px] text-slate-400">{L('Aucun modèle planifié sur cette chaîne.', 'لا يوجد موديل مبرمج على هذه السلسلة.', 'No model planned on this line.')}</p>
+                            )}
+
+                            <div className="divide-y divide-slate-100 dark:divide-dk-border">
+                                {c.modeles.map(x => {
+                                    const m = modeleDe(x.modelId);
+                                    const lance = x.joursAvantLancement === null || x.joursAvantLancement <= 0;
+                                    const avance = x.joursAvance === null ? null : Math.round(x.joursAvance * 10) / 10;
+                                    const partAvance = x.joursAvance === null || joursAvance <= 0 ? 0 : Math.min(1, x.joursAvance / joursAvance);
+                                    return (
+                                        <div key={x.eventId} className="px-3 sm:px-4 py-2">
+                                            <button type="button" disabled={!m || !x.aUnOrdre} onClick={() => m && onOpen(m)} className="w-full flex items-center gap-2.5 text-left disabled:cursor-default">
+                                                <div className="w-9 h-9 rounded-lg overflow-hidden bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center">
+                                                    {x.image ? <img src={x.image} alt="" className="w-full h-full object-cover" /> : <Scissors className="w-3.5 h-3.5 text-slate-300" />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-[13px] font-semibold text-slate-800 dark:text-dk-text truncate">
+                                                        {x.nom}
+                                                        <span className="ml-1.5 text-[11px] font-normal text-slate-400">{[x.client, lance ? `${L('lancé', 'انطلق', 'started')} ${jour(x.lancement)}` : `${L('dans', 'بعد', 'in')} ${x.joursAvantLancement} ${L('j', 'ي', 'd')}`, x.dds ? `DDS ${jour(x.dds)}` : ''].filter(Boolean).join(' · ')}</span>
+                                                    </p>
+                                                    {/* Une seule ligne de chiffres : coupe, pret, en chaine, cadence */}
+                                                    <p className="text-[11px] text-slate-500 dark:text-dk-muted tabular-nums truncate">
+                                                        {x.aUnOrdre && <>{L('Coupé', 'مقصوص', 'Cut')} <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.coupe)}</b>/{fmtN(x.commande)} · {L('prêts', 'جاهزة', 'ready')} <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.prets)}</b> · </>}
+                                                        {L('en chaîne', 'في السلسلة', 'in line')} <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(Math.max(x.entre, x.sorti))}</b>
+                                                        {x.cadence > 0 && <> · <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.cadence)}</b> {x.sourceCadence === 'suivi' ? L('pcs/j réel', 'ق/يوم فعلي', 'pcs/d actual') : L('pcs/j plan', 'ق/يوم مخطط', 'pcs/d plan')}</>}
+                                                    </p>
+                                                </div>
+                                                {/* Ce que la coupe doit faire : une puce, pas un bloc */}
+                                                {!x.aUnOrdre ? (
+                                                    <span className="shrink-0 h-7 px-2 inline-flex items-center rounded-lg bg-slate-100 dark:bg-dk-elevated text-[11px] font-semibold text-slate-500">{L('Pas d\u2019ordre de coupe', 'بلا أمر قص', 'No cutting order')}</span>
+                                                ) : x.plusTard ? (
+                                                    <span className="shrink-0 h-7 px-2 inline-flex items-center rounded-lg bg-slate-100 dark:bg-dk-elevated text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{L('Dès le', 'ابتداءً من', 'From')} {jour(x.commencerLe)}</span>
+                                                ) : x.sansMatelas ? (
+                                                    <span className="shrink-0 h-7 px-2 inline-flex items-center rounded-lg bg-amber-50 dark:bg-amber-900/25 text-[11px] font-bold text-amber-800 dark:text-amber-200">{fmtN(x.aCouperPieces)} {L('pcs · sans matelas', 'ق · بلا مفرشات', 'pcs · no lays')}</span>
+                                                ) : x.matelas.length > 0 ? (
+                                                    <span className="shrink-0 h-8 px-2.5 inline-flex flex-col justify-center rounded-lg bg-slate-900 dark:bg-dk-accent text-white leading-tight">
+                                                        <b className="text-[12px]">{L(`Couper ${x.matelas.length}`, `اقطع ${x.matelas.length}`, `Cut ${x.matelas.length}`)}</b>
+                                                        <span className="text-[10px] opacity-80">N° {plageNumeros(x.matelas.map(l => l.numero || '?'))}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="shrink-0 h-7 px-2 inline-flex items-center gap-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/25 text-[11px] font-bold text-emerald-700 dark:text-emerald-300"><Check className="w-3 h-3" />{x.resteACouper === 0 ? L('Tout coupé', 'كل شيء مقصوص', 'All cut') : L('Avance OK', 'التقدّم كافٍ', 'Buffer OK')}</span>
+                                                )}
+                                                {m && x.aUnOrdre && <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />}
+                                            </button>
+                                            {/* L'avance de la coupe : un trait fin, seulement quand elle compte */}
+                                            {x.aUnOrdre && !x.plusTard && (
+                                                <div className="mt-1.5 flex items-center gap-2">
+                                                    <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-dk-elevated overflow-hidden">
+                                                        <div className={`h-full rounded-full ${partAvance < 0.5 ? 'bg-rose-500' : partAvance < 1 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.round(partAvance * 100)}%` }} />
+                                                    </div>
+                                                    <span className="text-[10px] tabular-nums text-slate-500 dark:text-dk-muted shrink-0">{L('avance', 'تقدّم', 'buffer')} {avance !== null ? `${avance} ${L('j', 'ي', 'd')}` : fmtN(x.enAttente)} / {joursAvance} {L('j', 'ي', 'd')}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            {onNavigate && (
+                <div className="sm:hidden mt-3 grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => onNavigate('planning')} className="h-11 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft"><CalendarDays className="w-4 h-4" />{L('Planning', 'التخطيط', 'Planning')}</button>
+                    <button type="button" onClick={() => onNavigate('suivi')} className="h-11 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft"><Activity className="w-4 h-4" />{L('Suivi de production', 'متابعة الإنتاج', 'Production follow-up')}</button>
+                </div>
+            )}
         </div>
     );
 }

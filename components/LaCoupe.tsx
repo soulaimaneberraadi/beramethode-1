@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe, PlacementCoupe, TissuCoupe, PlanningEvent } from '../types';
+import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe, PlacementCoupe, TissuCoupe, PlanningEvent, SuiviData } from '../types';
 import {
     Scissors, FileText, CheckCircle2, Clock, Search, Layers, ChevronRight,
     AlertCircle, Printer, PackageSearch, Plus, Trash2, Barcode,
@@ -18,7 +18,7 @@ import ExcelInput from './ExcelInput';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import AnnotationPlt from './coupe/AnnotationPlt';
 import {
-    CartesAccueil, PageOrdres, PageTissu, PageGroupes, useAtelierCoupe, ChampHeure, ChoixGroupe,
+    CartesAccueil, PageOrdres, PageTissu, PageGroupes, PageChaines, useAtelierCoupe, ChampHeure, ChoixGroupe,
     isoDepuisHeure, heureLocale, type PageAccueil,
 } from './coupe/AccueilCoupe';
 import { aujourdhui, commandeDe, matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../lib/coupeAtelier';
@@ -33,6 +33,7 @@ import { classeurOrdresCoupe } from '../lib/exportOrdresCoupe';
 import SerieEtiquetage from './coupe/SerieEtiquetage';
 import { appliquerImport } from '../lib/appliquerImport';
 import { figerSerie, paquetsSerie, saisieDe, saisiesDepuisSerie } from '../lib/serieEtiquetage';
+import { chainesDeCoupe } from '../lib/coupeChaines';
 import TablePlacements from './coupe/TablePlacements';
 import TableMatelas from './coupe/TableMatelas';
 import { grilleClavier } from './coupe/grilleClavier';
@@ -89,6 +90,8 @@ interface LaCoupeProps {
     setSettings?: React.Dispatch<React.SetStateAction<AppSettings>>;
     /** OF du Planning : la chaine d'un modele est proposee pour ses paquets. */
     planningEvents?: PlanningEvent[];
+    /** Saisies du Suivi de production : entrees et sorties de chaque chaine (page Chaines). */
+    suivis?: SuiviData[];
 }
 
 const MOBILE_BREAKPOINT = 768;
@@ -116,7 +119,7 @@ function useIsMobile(): boolean {
     return isMobile;
 }
 
-export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning, settings, setSettings, planningEvents }: LaCoupeProps) {
+export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning, settings, setSettings, planningEvents, suivis }: LaCoupeProps) {
     const isMobile = useIsMobile();
     const { lang } = useLang();
     /* Préférence d'agrandissement partagée : celui qui agrandit la liste des
@@ -3736,6 +3739,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 onSuivre={m => openModel(m, 'suivi')}
                                 page={pageAccueil}
                                 setPage={setPageAccueil}
+                                evenements={planningEvents || []}
+                                suivis={suivis || []}
+                                settings={settings}
+                                onNavigate={onNavigate}
                             />
                         )
                     )}
@@ -4659,8 +4666,13 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 /* ─────── Empty Dashboard (when no model selected) ─────── */
 function EmptyDashboard({
     models, ordres, tousModeles, groupes, setGroupes, ouvriersCoupe, pointageCoupe, majReglages, statusMap, prepCount, activeCount, valCount, getProgress, onNew, onOpen,
-    onSuivre, page, setPage,
+    onSuivre, page, setPage, evenements, suivis, settings, onNavigate,
 }: {
+    /** Planning et Suivi de production : la page Chaines en tire ce que chaque chaine attend de la coupe. */
+    evenements: PlanningEvent[];
+    suivis: SuiviData[];
+    settings?: AppSettings;
+    onNavigate?: (view: string) => void;
     ouvriersCoupe?: AppSettings['ouvriersCoupe'];
     pointageCoupe?: AppSettings['pointageCoupe'];
     majReglages: (f: (prev: AppSettings) => AppSettings) => void;
@@ -4695,12 +4707,30 @@ function EmptyDashboard({
     const rh = useAtelierCoupe(ouvriersCoupe, pointageCoupe, majReglages);
     const presence = useMemo(() => presenceGroupes(groupes, rh.ouvriers, rh.pointage, rh.date), [groupes, rh.ouvriers, rh.pointage, rh.date]);
 
+    // Ce que chaque chaine attend de la coupe (Planning + Suivi de production) : la carte de l'accueil.
+    const chainesAccueil = useMemo(() => chainesDeCoupe({
+        models: tousModeles, evenements, suivis, settings, joursAvance: settings?.coupeJoursAvance ?? 2, aujourdhui: aujourdhui(),
+    }), [tousModeles, evenements, suivis, settings]);
+
     // Chaque carte ouvre sa page a la place de l'accueil, avec un retour.
     if (page) {
         return (
             <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto">
                 {page === 'ordres' && <PageOrdres models={ordres} onBack={() => setPage(null)} onOpen={onSuivre} />}
                 {page === 'tissu' && <PageTissu models={tousModeles} onBack={() => setPage(null)} onOpen={onOpen} />}
+                {page === 'chaines' && (
+                    <PageChaines
+                        models={tousModeles}
+                        evenements={evenements}
+                        suivis={suivis}
+                        settings={settings}
+                        joursAvance={settings?.coupeJoursAvance ?? 2}
+                        setJoursAvance={j => majReglages(prev => ({ ...prev, coupeJoursAvance: j }))}
+                        onBack={() => setPage(null)}
+                        onOpen={m => onSuivre(m)}
+                        onNavigate={onNavigate}
+                    />
+                )}
                 {page === 'groupes' && <PageGroupes models={tousModeles} groupes={groupes} setGroupes={setGroupes} rh={rh} onBack={() => setPage(null)} />}
             </div>
         );
@@ -4740,7 +4770,7 @@ function EmptyDashboard({
             </div>
 
             {/* Trois chiffres de l'atelier ; chacun ouvre sa page */}
-            <CartesAccueil models={ordres} groupes={groupes} presence={presence} etatRh={rh.etat} onOuvrir={setPage} />
+            <CartesAccueil models={ordres} groupes={groupes} presence={presence} etatRh={rh.etat} onOuvrir={setPage} chaines={chainesAccueil} />
 
             {/* Recent orders */}
             {recent.length > 0 && (

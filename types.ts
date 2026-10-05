@@ -362,6 +362,11 @@ export interface AppSettings {
    */
   groupesCoupe?: GroupeCoupe[];
   /**
+   * Jours de couture d'avance que la coupe garde a chaque chaine (page Chaines
+   * de La Coupe) : en dessous, elle dit combien de matelas couper. 2 par defaut.
+   */
+  coupeJoursAvance?: number;
+  /**
    * Ouvriers de la salle de coupe, saisis dans La Coupe (sans passer par la RH) :
    * ce sont eux qu'on met dans les groupes et qu'on pointe chaque jour.
    */

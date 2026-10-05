@@ -66,7 +66,7 @@ export const estDuTissuPrincipal = (l: Pick<MatelasLine, 'tissu'>): boolean => !
  * Pieces du vetement = matelas du tissu principal. La vlieseline, la doublure
  * se coupent en plus : les compter doublerait la quantite coupee.
  */
-const lignesUtiles = (m: ModelData) => (m.ordreCoupe?.matelasLines || []).filter(l => sommeRatios(l) > 0 && estDuTissuPrincipal(l));
+export const lignesUtiles = (m: ModelData) => (m.ordreCoupe?.matelasLines || []).filter(l => sommeRatios(l) > 0 && estDuTissuPrincipal(l));
 
 const clientDe = (m: ModelData) => (m.ficheData?.client || '').trim();
 const typeDe = (m: ModelData) => (m.ficheData?.category || m.meta_data?.category || '').trim();

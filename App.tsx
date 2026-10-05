@@ -2263,6 +2263,7 @@ export default function App() {
                             settings={globalSettings}
                             setSettings={setGlobalSettings}
                             planningEvents={planningEvents}
+                            suivis={suivis}
                         />
                     )}
 
