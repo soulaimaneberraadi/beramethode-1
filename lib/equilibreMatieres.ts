@@ -25,6 +25,10 @@
  * juste (100 plis de tissu, 99 de vlieseline), chaque matelas de tissu fait
  * son lot avec les matelas qui le couvrent.
  *
+ * Quand une matiere est tracee sur la serie du tissu (feuille ZINTURA : la
+ * doublure 5 « XS-XL×2 » = serie 1229-1516 = tissus 9 et 10), c'est la serie
+ * qui la met en face, et chaque matelas montre sa plage « de ... a ... ».
+ *
  * Un lot est pret pour la production quand son tissu et tout ce qui le couvre
  * est coupe ; tissu coupe et doublure pas encore = matiere en retard.
  *
@@ -34,6 +38,7 @@
 import type { MatelasLine, OrdreCoupe, SerieEtiquetage, TissuCoupe } from '../types';
 import { TISSU_PRINCIPAL, codeMatiere, tissuDe } from './ordreCoupe';
 import { nomPlacement } from './planMatelas';
+import { paquetsSerie } from './serieEtiquetage';
 
 export type EtatMatelas = 'a_faire' | 'envoye' | 'coupe';
 
@@ -67,6 +72,12 @@ export interface MatelasEquilibre {
     total: number;
     etat: EtatMatelas;
     ligne: MatelasLine;
+    /**
+     * Plage de la serie couverte par le matelas, comme la feuille « SERIE » : la serie court
+     * dans chaque matiere, matelas apres matelas, dans l'ordre des numeros. Le tissu 10
+     * (XL×2) = 1373-1516 ; la doublure 5 (XS-XL×2) = 1229-1516 : elle coupe ses pieces.
+     */
+    serie?: { debut: number; fin: number; paquets: { taille: string; debut: number; fin: number }[] };
 }
 
 export interface EcartEquilibre {
@@ -217,6 +228,22 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
     const parNumero = (a: MatelasEquilibre, b: MatelasEquilibre) => numeroTri(a.numero) - numeroTri(b.numero) || (rangDe.get(a.id) || 0) - (rangDe.get(b.id) || 0);
     for (const id of ids) parMat[id].sort(parNumero);
 
+    // La serie de chaque matiere : celle du tissu garde son depart et ses plages figees.
+    const taillesSerie = [...tailles, ...[...new Set(lignes.flatMap(x => Object.keys(x.l.ratios || {})))].filter(t => !tailles.includes(t))];
+    for (const id of ids) {
+        const paquets = paquetsSerie(lignes.map(x => x.l), taillesSerie, id === P ? (o?.serie?.depart || 1) : 1, id === P ? o?.serie?.figes : undefined, id);
+        const parId = new Map<string, typeof paquets>();
+        for (const q of paquets) { const a = parId.get(q.matelasId) || []; a.push(q); parId.set(q.matelasId, a); }
+        for (const x of parMat[id]) {
+            const qs = parId.get(x.id);
+            if (!qs?.length) continue;
+            x.serie = {
+                debut: Math.min(...qs.map(q => q.debut)), fin: Math.max(...qs.map(q => q.fin)),
+                paquets: qs.map(q => ({ taille: q.taille, debut: q.debut, fin: q.fin })),
+            };
+        }
+    }
+
     const total: Record<string, Vecteur> = {}, coupe: Record<string, Vecteur> = {};
     const parMatiere: Record<string, BilanMatiere> = {};
     for (const id of ids) {
@@ -283,6 +310,23 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
         sequence[id] = seq;
     }
 
+    /* ---- Matieres tracees sur la serie du tissu ---- */
+    // Sur la feuille de l'atelier, la doublure suit la serie du tissu : chacun de ses matelas
+    // finit la ou finit un matelas de tissu (doublure 5 = tissu 9 + 10, 1229-1516). Une telle
+    // matiere se met en face par la serie : chaque matelas en face du matelas de tissu dont il
+    // recouvre le plus de numeros (le dernier a egalite, la ou il finit). Les autres
+    // (l'entretoile en « M×26 » pour tout l'ordre) restent rangees taille par taille.
+    // Couleur par couleur quand chaque matiere a ses couleurs : une fin ne compte que face au tissu de sa couleur.
+    const teinte = (x: MatelasEquilibre) => (parCouleur ? (x.couleur || '').trim() : '');
+    const finsP = new Set(princ.filter(x => x.serie).map(x => `${teinte(x)}${SEP}${x.serie!.fin}`));
+    const surSerie: Record<string, boolean> = {};
+    for (const id of autres) {
+        const liste = parMat[id].filter(x => x.serie);
+        const alignes = liste.filter(x => finsP.has(`${teinte(x)}${SEP}${x.serie!.fin}`)).length;
+        surSerie[id] = liste.length > 0 && alignes >= 0.7 * liste.length;
+        if (surSerie[id]) sequence[id] = parMat[id].map((_, i) => i);
+    }
+
     /* ---- Chaque matelas en face du matelas de tissu dont il coupe le plus de pieces ---- */
     const rangee: Record<string, number[]> = {};
     for (const id of autres) {
@@ -301,6 +345,17 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
             }
             rangee[id][i] = mieux;
         }
+        if (!surSerie[id]) continue;
+        parMat[id].forEach((x, i) => {
+            if (!x.serie) return;
+            let mieux = -1, max = 0;
+            princ.forEach((t, j) => {
+                if (!t.serie || teinte(t) !== teinte(x)) return;
+                const commun = Math.min(x.serie!.fin, t.serie.fin) - Math.max(x.serie!.debut, t.serie.debut) + 1;
+                if (commun > 0 && commun >= max) { max = commun; mieux = j; }
+            });
+            rangee[id][i] = mieux;
+        });
     }
 
     /* ---- Lots ---- */
@@ -314,9 +369,12 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
         const cum: Vecteur = {};
         rattache[id] = parRangee.map(v => { ajouter(cum, v); return { ...cum }; });
     }
+    // Une matiere sur la serie ferme les lots la ou les fins tombent juste ; une matiere en
+    // grands matelas (une taille pour tout l'ordre) ne tombe jamais juste et ne compte pas.
+    const pourLots = autres.some(id => surSerie[id]) ? autres.filter(id => surSerie[id]) : autres;
     const decalage = (j: number) => {
         let max = 0;
-        for (const id of autres) {
+        for (const id of pourLots) {
             let e = 0;
             for (const k of new Set([...Object.keys(cumul[j]), ...Object.keys(rattache[id][j])])) {
                 if (concerne(id, k)) e += Math.abs((rattache[id][j][k] || 0) - (cumul[j][k] || 0));

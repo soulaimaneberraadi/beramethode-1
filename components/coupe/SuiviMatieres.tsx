@@ -381,6 +381,11 @@ function PuceMatelas({ x, couleursMultiples, pastille, onToucher }: { x: Matelas
                 <span>{x.plis} {tx(lang, { fr: 'plis', ar: 'طيّة', en: 'plies' })}</span>
                 <span className="ml-auto font-semibold">{fmtN(x.total)}</span>
             </span>
+            {x.serie && (
+                <span className="mt-0.5 block text-[10px] font-semibold tabular-nums opacity-70 truncate" title={tx(lang, { fr: 'Série : numéros des pièces de ce matelas', ar: 'السيري: أرقام قطع هذه المفرشة', en: 'Series: piece numbers of this lay' })}>
+                    {tx(lang, { fr: 'Série', ar: 'سيري', en: 'Series' })} {x.serie.debut}–{x.serie.fin}
+                </span>
+            )}
         </button>
     );
 }
@@ -580,6 +585,23 @@ function FicheMatelas({
                     {fmtN(taillesLigne.reduce((s, t) => s + ratioTaille(t) * n, 0))} {L('pcs', 'قطعة', 'pcs')}
                 </span>
             </div>
+
+            {/* La serie : de quel numero a quel numero, paquet par paquet (comme la feuille SERIE) */}
+            {x.serie && (
+                <div className="rounded-xl border border-slate-200 dark:border-dk-border p-2.5">
+                    <p className="flex items-baseline justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                        {L('Série', 'السيري', 'Series')}
+                        <span className="text-[15px] normal-case tracking-normal tabular-nums text-slate-800 dark:text-dk-text">{x.serie.debut} → {x.serie.fin}</span>
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                        {x.serie.paquets.map((q, i) => (
+                            <span key={i} className="px-1.5 h-6 inline-flex items-center gap-1 rounded-md bg-slate-100 dark:bg-dk-elevated text-[11px] tabular-nums text-slate-600 dark:text-dk-text-soft">
+                                <b className="uppercase text-slate-800 dark:text-dk-text">{q.taille}</b>{q.debut}–{q.fin}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Ou il en est */}
             <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-dk-elevated text-[11px] font-bold text-center">

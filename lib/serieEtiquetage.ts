@@ -14,7 +14,7 @@
  * Une fois le matelas coupe, ses plages se figent : ses etiquettes sont collees.
  */
 import type { MatelasLine, SaisiePaquet, SerieEtiquetage } from '../types';
-import { estPrincipal } from './ordreCoupe';
+import { TISSU_PRINCIPAL, tissuDe } from './ordreCoupe';
 
 export interface PaquetSerie {
     /** Cle stable des saisies : `${matelasId}:${taille}:${rang}`. */
@@ -40,11 +40,11 @@ const numeroTri = (l: MatelasLine) => {
 };
 
 /**
- * Paquets du tissu principal, dans l'ordre des numeros de matelas, avec leurs plages.
+ * Paquets d'une matiere (le tissu principal par defaut), dans l'ordre des numeros de matelas, avec leurs plages.
  * Un paquet fige (matelas deja coupe) garde sa plage ; les autres suivent en
  * sautant les plages figees, sans jamais les chevaucher.
  */
-export function paquetsSerie(lignes: MatelasLine[], tailles: string[], depart = 1, figes?: SerieEtiquetage['figes']): PaquetSerie[] {
+export function paquetsSerie(lignes: MatelasLine[], tailles: string[], depart = 1, figes?: SerieEtiquetage['figes'], matiere: string = TISSU_PRINCIPAL): PaquetSerie[] {
     const bloquees = Object.values(figes || {}).filter(f => Number.isFinite(f?.debut) && Number.isFinite(f?.fin)).sort((a, b) => a.debut - b.debut);
     const libre = (n: number, plis: number) => {
         for (let bouge = true; bouge;) {
@@ -55,7 +55,7 @@ export function paquetsSerie(lignes: MatelasLine[], tailles: string[], depart = 
     };
     const principales = lignes
         .map((l, rang) => ({ l, rang }))
-        .filter(({ l }) => estPrincipal(l) && (Number(l.plis) || 0) > 0 && Object.values(l.ratios || {}).some(v => Number(v) > 0))
+        .filter(({ l }) => tissuDe(l) === matiere && (Number(l.plis) || 0) > 0 && Object.values(l.ratios || {}).some(v => Number(v) > 0))
         .sort((a, b) => numeroTri(a.l) - numeroTri(b.l) || a.rang - b.rang);
 
     const out: PaquetSerie[] = [];

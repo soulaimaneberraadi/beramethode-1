@@ -244,4 +244,22 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     assert.deepEqual(libre.serie!.figes!['b:S:0'], { debut: 83, fin: 172 });
 }
 
+// --- Une doublure tracee sur la serie du tissu se met en face par la serie (ZINTURA) ---
+{
+    const lignes = [
+        ligne('principal', '9', 72, { XS: 2 }), ligne('principal', '10', 72, { XL: 2 }),
+        ligne('principal', '11', 71, { XS: 2 }), ligne('principal', '12', 71, { XL: 2 }),
+        ligne('FO', '5', 72, { XS: 2, XL: 2 }), ligne('FO', '6', 71, { XS: 2, XL: 2 }),
+    ];
+    // Chaque matiere numerote sa serie depuis 1 : tissu 9 = 1-144, 10 = 145-288 ; foro 5 = 1-288.
+    const eq = equilibrerOrdre(ordre(lignes), TAILLES);
+    const t10 = eq.lots.flatMap(l => l.matelas.principal).find(x => x.numero === '10')!;
+    assert.deepEqual([t10.serie!.debut, t10.serie!.fin], [145, 288], 'tissu 10 : 145-288');
+    assert.deepEqual(t10.serie!.paquets, [{ taille: 'XL', debut: 145, fin: 216 }, { taille: 'XL', debut: 217, fin: 288 }]);
+    assert.equal(eq.lots.length, 2, 'un lot par paire de tissu');
+    assert.deepEqual(numeros(eq.lots[0].matelas.principal), ['9', '10']);
+    assert.deepEqual(numeros(eq.lots[0].matelas.FO), ['5'], 'le foro 5 en face des tissus 9 et 10');
+    assert.deepEqual(numeros(eq.lots[1].matelas.FO), ['6']);
+}
+
 console.log('equilibreMatieres : OK');
