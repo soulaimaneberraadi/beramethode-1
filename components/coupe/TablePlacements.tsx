@@ -294,7 +294,7 @@ export default function TablePlacements({ placements, tailles, correspondance, n
         }
     };
 
-    const champNombre = 'w-full text-center h-8 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white dark:focus:bg-dk-surface focus:border-indigo-400';
+    const champNombre = 'w-full min-w-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none tabular-nums text-center h-8 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white dark:focus:bg-dk-surface focus:border-indigo-400';
 
     // Colonnes saisissables : 0 nom, 1..n tailles, n+1 longueur, n+2 plis max.
     const cellule = grilleClavier('placements', (l, c, bloc) => {
@@ -399,9 +399,9 @@ export default function TablePlacements({ placements, tailles, correspondance, n
                             {tailles.map(t => <th key={t} className="py-2 px-1 text-center text-emerald-700 dark:text-emerald-300 min-w-[44px]">{t}</th>)}
                             <th className="py-2 px-2 text-center w-14" title={L('Pieces par pli', 'قطع في الطيّة', 'Pieces per ply')}>{L('Pcs/pli', 'قطعة/طيّة', 'Pcs/ply')}</th>
                             <th className="py-2 px-2 text-left min-w-[200px]">{L('Trace PLT', 'ملف PLT', 'PLT marker')}</th>
-                            <th className="py-2 px-2 text-center w-20" title={L('Longueur du trace = consommation d’un pli', 'طول التفصيلة = استهلاك الطيّة', 'Marker length = one ply')}>{L('Long. (m)', 'الطول (م)', 'Length (m)')}</th>
+                            <th className="py-2 px-2 text-center min-w-[84px]" title={L('Longueur du trace = consommation d’un pli', 'طول التفصيلة = استهلاك الطيّة', 'Marker length = one ply')}>{L('Long. (m)', 'الطول (م)', 'Length (m)')}</th>
                             <th className="py-2 px-2 text-center w-20" title={L('Tissu d’une piece : longueur du trace / pieces par pli', 'ثوب القطعة الواحدة: طول التفصيلة ÷ قطع الطيّة', 'Fabric per piece: marker length / pieces per ply')}>{L('Conso/pc', 'استهلاك/قطعة', 'Use/pc')}</th>
-                            <th className="py-2 px-2 text-center w-16" title={L('Plis au plus dans un matelas de ce placement (hauteur de la table, lame) : au-dela, le calcul fait un matelas de plus', 'أقصى عدد طيّات في مفرشة واحدة من هذه التركيبة؛ ما زاد يصير مفرشة أخرى', 'Most plies in one lay of this placement; beyond that, another lay')}>{L('Plis max', 'أقصى طيّات', 'Max plies')}</th>
+                            <th className="py-2 px-2 text-center min-w-[64px]" title={L('Plis au plus dans un matelas de ce placement (hauteur de la table, lame) : au-dela, le calcul fait un matelas de plus', 'أقصى عدد طيّات في مفرشة واحدة من هذه التركيبة؛ ما زاد يصير مفرشة أخرى', 'Most plies in one lay of this placement; beyond that, another lay')}>{L('Plis max', 'أقصى طيّات', 'Max plies')}</th>
                             <th className="py-2 px-2 text-center w-24" title={L('Nombre de matelas de ce placement, et le tissu qu’ils consomment ensemble (plis × (longueur + 3 cm d’amorce))', 'عدد مفرشات هذه التركيبة، والثوب الذي تستهلكه كلها (الطيّات × (الطول + 3 سم))', 'Number of lays of this placement, and the fabric they use together')}>{L('Matelas · m', 'مفرشات · م', 'Lays · m')}</th>
                             <th className="py-2 px-2 text-center w-20"></th>
                         </tr>
@@ -548,13 +548,13 @@ export default function TablePlacements({ placements, tailles, correspondance, n
                                                                     {L('Le fichier contient', 'الملف فيه', 'The file holds')} <b className="uppercase">{nomPlacement(trace, tailles)}</b> ({pcsTrace} {L('pc/pli', 'قطعة/طيّة', 'pc/ply')}), {L('la ligne dit', 'والسطر يقول', 'the row says')} <b className="uppercase">{nomPlacement(p.ratios || {}, tailles) || '—'}</b> ({pcs} {L('pc/pli', 'قطعة/طيّة', 'pc/ply')}).
                                                                 </span>
                                                             </div>
-                                                            <div className="flex items-center justify-between gap-2 mt-1">
-                                                                <span className="text-[9px] text-amber-700 dark:text-amber-400">{L('Mauvais fichier ? Remplacez-le.', 'ملف خاطئ؟ استبدله.', 'Wrong file? Replace it.')}</span>
-                                                                <div className="flex items-center gap-1 shrink-0">
-                                                                    <button type="button" onClick={() => onModifier(p.id, { ecartAccepte: signature })} className="h-6 px-2 rounded border border-amber-300 bg-white dark:bg-dk-surface text-amber-800 dark:text-amber-300 text-[10px] font-bold hover:bg-amber-100" title={L('La ligne est juste telle quelle : garder ses tailles et ne plus alerter', 'السطر صحيح كما هو: تبقى مقاساته ولا يعود التنبيه', 'The row is right as is')}>
+                                                            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-1">
+                                                                <span className="text-[9px] text-amber-700 dark:text-amber-400 whitespace-nowrap">{L('Mauvais fichier ? Remplacez-le.', 'ملف خاطئ؟ استبدله.', 'Wrong file? Replace it.')}</span>
+                                                                <div className="flex flex-wrap items-center gap-1 min-w-0">
+                                                                    <button type="button" onClick={() => onModifier(p.id, { ecartAccepte: signature })} className="h-6 px-2 rounded border border-amber-300 whitespace-nowrap bg-white dark:bg-dk-surface text-amber-800 dark:text-amber-300 text-[10px] font-bold hover:bg-amber-100" title={L('La ligne est juste telle quelle : garder ses tailles et ne plus alerter', 'السطر صحيح كما هو: تبقى مقاساته ولا يعود التنبيه', 'The row is right as is')}>
                                                                         {L('C\u2019est voulu', 'مقصود', 'Intended')}
                                                                     </button>
-                                                                    <button type="button" onClick={() => onModifier(p.id, { ratios: { ...trace }, nom: nomPlacement(trace, tailles), taillesTrace: trace })} className="h-6 px-2 rounded bg-amber-600 text-white text-[10px] font-bold hover:bg-amber-700">
+                                                                    <button type="button" onClick={() => onModifier(p.id, { ratios: { ...trace }, nom: nomPlacement(trace, tailles), taillesTrace: trace })} className="min-h-6 px-2 py-0.5 rounded bg-amber-600 text-white text-left leading-tight text-[10px] font-bold hover:bg-amber-700">
                                                                         {L('Prendre les tailles du fichier', 'اعتماد مقاسات الملف', 'Use the file sizes')}
                                                                     </button>
                                                                 </div>
