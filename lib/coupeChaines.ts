@@ -22,7 +22,7 @@
  * Aucune dependance a React : ce calcul se verifie par un test.
  * Lancer : node --import tsx lib/coupeChaines.test.ts
  */
-import type { AppSettings, ModelData, PlanningEvent, SuiviData } from '../types';
+import type { AppSettings, ModelData, PlanningEvent, ReglageChaineCoupe, SuiviData } from '../types';
 import { capaciteJournaliereChaine } from '../utils/planning';
 import { estOuvert, lignesUtiles, piecesLigne, resumerOrdre } from './coupeAtelier';
 import { equilibrerOrdre, type EquilibreOrdre } from './equilibreMatieres';
@@ -55,7 +55,13 @@ export interface ModeleSurChaine {
     sorti: number;
     /** Pieces/jour : moyenne des derniers jours produits au Suivi, sinon capacite du Planning. */
     cadence: number;
-    sourceCadence: 'suivi' | 'planning';
+    sourceCadence: 'manuel' | 'suivi' | 'planning';
+    /** Derniers jours saisis au Suivi pour cette chaine : entrees et sorties. */
+    jours: { date: string; entre: number; sorti: number }[];
+    /** Les paquets de la chaine, taille par taille. */
+    parTaille: { taille: string; pieces: number; coupees: number }[];
+    /** Tous les matelas encore a couper pour cette chaine, dans l'ordre de la serie ; `choisi` : a couper maintenant. */
+    aCouperTous: { id: string; numero: string; pieces: number; debut: number | null; fin: number | null; choisi: boolean }[];
     /** Pret et pas encore entre en chaine. */
     enAttente: number;
     /** Jours de couture que l'attente represente. */
@@ -85,6 +91,8 @@ export interface ChaineCoupe {
     id: string;
     nom: string;
     etat: EtatChaine;
+    /** Reglee a la main dans La Coupe (sinon : celle du Planning ou de la serie). */
+    reglee: boolean;
     /** Le modele en cours (le premier lance), puis les suivants. */
     modeles: ModeleSurChaine[];
     matelasACouper: number;
@@ -139,6 +147,18 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
     const modeles = new Map(e.models.map(m => [m.id, m]));
     const objectif = Math.max(0, e.joursAvance);
 
+    // Chaines reglees a la main dans La Coupe : un nom, ses alias, sa cadence, ses modeles.
+    const regl: ReglageChaineCoupe[] = (e.settings?.chainesCoupe || []).filter(c => c && c.id);
+    const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+    /** Le nom brut d'une chaine (serie, Planning) rendu a l'id de la chaine reglee qui le porte. */
+    const versId = (brut: string | undefined): string => {
+        if (!brut) return '';
+        const n = norm(brut);
+        const r = regl.find(c => norm(c.id) === n || norm(c.nom) === n || (c.alias || []).some(a => norm(a) === n));
+        return r ? r.id : brut;
+    };
+    const reglageDe = (id: string) => regl.find(c => c.id === id);
+
     const suivisPar = new Map<string, SuiviData[]>();
     for (const s of e.suivis) (suivisPar.get(s.planningId) || suivisPar.set(s.planningId, []).get(s.planningId)!).push(s);
 
@@ -154,7 +174,7 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         let v = vues.get(m.id);
         if (v) return v;
         const o = m.ordreCoupe;
-        const chaineParDefaut = evParModele.get(m.id)?.[0]?.chaineId || '';
+        const chaineParDefaut = regl.find(c => (c.modeles || []).includes(m.id))?.id || versId(evParModele.get(m.id)?.[0]?.chaineId);
         const tailles = m.ficheData?.sizes || m.meta_data?.sizes || [];
         const lignes = o?.matelasLines || [];
         const toutes = [...tailles, ...[...new Set(lignes.flatMap(l => Object.keys(l.ratios || {})))].filter(t => !tailles.includes(t))];
@@ -165,16 +185,20 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         return v;
     };
     const chaineDuPaquet = (m: ModelData, p: PaquetSerie): string =>
-        saisieDe(m.ordreCoupe?.serie, p.cle).chaine || vueDe(m).chaineParDefaut;
+        versId(saisieDe(m.ordreCoupe?.serie, p.cle).chaine) || vueDe(m).chaineParDefaut;
 
     // Chaines connues : celles des reglages, du Planning, et de la serie.
     const nb = e.settings?.chainsCount || 4;
-    const ids = Array.from({ length: nb }, (_, i) => `CHAINE ${i + 1}`);
+    const ids: string[] = regl.length ? regl.map(c => c.id) : Array.from({ length: nb }, (_, i) => `CHAINE ${i + 1}`);
     const ajouterId = (id: string) => { if (id && !ids.includes(id)) ids.push(id); };
-    for (const ev of evs) ajouterId(ev.chaineId);
+    for (const ev of evs) ajouterId(versId(ev.chaineId));
     for (const m of e.models) if (m.ordreCoupe && estOuvert(m)) for (const p of vueDe(m).paquets) ajouterId(chaineDuPaquet(m, p));
 
-    const ligneModele = (id: string, m: ModelData | undefined, ev: PlanningEvent | undefined): ModeleSurChaine | null => {
+    /**
+     * `ev` : l'OF du Planning sur CETTE chaine (son Suivi lui appartient) ; `evDates` :
+     * n'importe quel OF du modele, pour les dates quand la serie le met sur une autre chaine.
+     */
+    const ligneModele = (id: string, m: ModelData | undefined, ev: PlanningEvent | undefined, evDates: PlanningEvent | undefined = ev): ModeleSurChaine | null => {
         const suivis = ev ? suivisPar.get(ev.id) || [] : [];
         const entre = suivis.reduce((s, x) => s + (Number(x.entrer) || 0), 0);
         const sortiSuivi = suivis.reduce((s, x) => s + sortiesDuJour(x), 0);
@@ -201,14 +225,17 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         // Cadence : les derniers jours ou la chaine a sorti ce modele.
         const produits = suivis.map(s => ({ date: s.date, n: sortiesDuJour(s) })).filter(x => x.n > 0).sort((a, b) => b.date.localeCompare(a.date)).slice(0, JOURS_CADENCE);
         let cadence = 0, sourceCadence: ModeleSurChaine['sourceCadence'] = 'planning';
-        if (produits.length) { cadence = produits.reduce((s, x) => s + x.n, 0) / produits.length; sourceCadence = 'suivi'; }
+        const main = reglageDe(id);
+        const cadenceMain = Number(m && main?.cadences?.[m.id]) || Number(main?.cadence) || 0;
+        if (cadenceMain > 0) { cadence = cadenceMain; sourceCadence = 'manuel'; }
+        else if (produits.length) { cadence = produits.reduce((s, x) => s + x.n, 0) / produits.length; sourceCadence = 'suivi'; }
         else if (e.settings) cadence = capaciteJournaliereChaine(e.settings, id, Math.max(0.1, Number(m?.meta_data?.total_temps) || 15), performancePlanning(m));
 
         const consomme = Math.max(entre, sorti);
         const enAttente = Math.max(0, prets - consomme);
         const joursAvance = cadence > 0 ? enAttente / cadence : null;
 
-        const lancement = ev ? debutEvenement(ev) : null;
+        const lancement = evDates ? debutEvenement(evDates) : null;
         const joursAvantLancement = lancement ? joursEntre(e.aujourdhui, lancement) : null;
         // Avant le lancement, la coupe commence « avance » jours plus tot ; avant, rien ne presse.
         const plusTard = joursAvantLancement !== null && joursAvantLancement > Math.ceil(objectif);
@@ -267,13 +294,23 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         }
 
         const debuts = siens.map(p => p.debut), fins = siens.map(p => p.fin);
+        const dejaChoisis = new Set(choisis.map(c => c.id));
+        const parTaille = new Map<string, { taille: string; pieces: number; coupees: number }>();
+        for (const p of siens) {
+            const t = parTaille.get(p.taille) || { taille: p.taille, pieces: 0, coupees: 0 };
+            t.pieces += piecesPaquet(p); if (p.fait) t.coupees += piecesPaquet(p);
+            parTaille.set(p.taille, t);
+        }
         const serieChoisie = choisis.filter(c => Number.isFinite(c.debut));
         return {
-            eventId: ev?.id || `${id}-${m?.id || ''}`, modelId: m?.id || ev?.modelId || '',
-            nom: ev?.modelName || m?.ordreCoupe?.refModele || m?.meta_data?.nom_modele || ev?.modelId || '',
-            client: ((m?.ficheData as any)?.client || ev?.clientName || '').trim(),
+            eventId: ev?.id || `${id}-${m?.id || ''}`, modelId: m?.id || evDates?.modelId || '',
+            nom: evDates?.modelName || m?.ordreCoupe?.refModele || m?.meta_data?.nom_modele || evDates?.modelId || '',
+            client: ((m?.ficheData as any)?.client || evDates?.clientName || '').trim(),
             image: m?.image || m?.images?.front || undefined,
-            aUnOrdre, lancement, dds: ev ? jourDe(ev.dateExport || ev.strictDeadline_DDS) : null, joursAvantLancement,
+            aUnOrdre, lancement, dds: evDates ? jourDe(evDates.dateExport || evDates.strictDeadline_DDS) : null, joursAvantLancement,
+            jours: suivis.map(s => ({ date: s.date, entre: Number(s.entrer) || 0, sorti: sortiesDuJour(s) })).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7),
+            parTaille: [...parTaille.values()],
+            aCouperTous: restants.map(c => ({ id: c.id, numero: c.numero, pieces: c.pieces, debut: Number.isFinite(c.debut) ? c.debut : null, fin: Number.isFinite(c.fin) ? c.fin : null, choisi: dejaChoisis.has(c.id) })),
             commande, coupe, prets, entre, sorti,
             cadence: Math.round(cadence), sourceCadence, enAttente, joursAvance,
             aCouperPieces: besoin, matelas: choisis.map(c => ({ id: c.id, numero: c.numero, pieces: c.pieces })), autres, resteACouper,
@@ -293,15 +330,23 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         // Les modeles de la chaine : ceux que le Planning y met, et ceux dont la serie lui donne des paquets.
         const lignes: ModeleSurChaine[] = [];
         const vus = new Set<string>();
-        for (const ev of evs.filter(x => x.chaineId === id)) {
+        for (const ev of evs.filter(x => versId(x.chaineId) === id)) {
             const l = ligneModele(id, modeles.get(ev.modelId), ev);
-            if (l) { lignes.push(l); vus.add(ev.modelId); }
+            vus.add(ev.modelId); // OF termine (rien a couper) : la serie ne le ramene pas
+            if (l) lignes.push(l);
         }
         for (const m of e.models) {
             if (vus.has(m.id) || !m.ordreCoupe || !estOuvert(m)) continue;
             if (!vueDe(m).paquets.some(p => chaineDuPaquet(m, p) === id)) continue;
-            const l = ligneModele(id, m, (evParModele.get(m.id) || [])[0]);
-            if (l) lignes.push(l);
+            const l = ligneModele(id, m, undefined, (evParModele.get(m.id) || [])[0]);
+            if (l) { lignes.push(l); vus.add(m.id); }
+        }
+        // Modeles donnes a la main a cette chaine, meme sans paquet ni OF au Planning.
+        for (const mid of reglageDe(id)?.modeles || []) {
+            const m = modeles.get(mid);
+            if (!m || vus.has(mid) || !m.ordreCoupe || !estOuvert(m)) continue;
+            const l = ligneModele(id, m, undefined, (evParModele.get(mid) || [])[0]);
+            if (l) { lignes.push(l); vus.add(mid); }
         }
         lignes.sort((a, b) => (a.lancement || '9999').localeCompare(b.lancement || '9999') || b.aCouperPieces - a.aCouperPieces);
 
@@ -318,7 +363,8 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         }
         return {
             id,
-            nom: e.settings?.chainNames?.[id] || id,
+            nom: reglageDe(id)?.nom || e.settings?.chainNames?.[id] || id,
+            reglee: !!reglageDe(id),
             etat,
             modeles: lignes,
             matelasACouper: lignes.reduce((s, x) => s + x.matelas.length, 0),

@@ -367,6 +367,12 @@ export interface AppSettings {
    */
   coupeJoursAvance?: number;
   /**
+   * Chaines de la coupe, reglees dans La Coupe seulement (le Planning ne bouge pas) :
+   * leur nom, les noms qu'elles portent ailleurs (« STAR1+2 » dans la serie), leur
+   * cadence a la main, les modeles qu'on leur donne. Vide : les chaines du Planning.
+   */
+  chainesCoupe?: ReglageChaineCoupe[];
+  /**
    * Ouvriers de la salle de coupe, saisis dans La Coupe (sans passer par la RH) :
    * ce sont eux qu'on met dans les groupes et qu'on pointe chaque jour.
    */
@@ -786,6 +792,19 @@ export interface SerieEtiquetage {
    * renumerote ensuite ne doit plus deplacer leurs numeros.
    */
   figes?: Record<string, { debut: number; fin: number }>;
+}
+
+export interface ReglageChaineCoupe {
+  id: string;
+  nom: string;
+  /** Autres noms de cette chaine (serie importee d'Excel, Planning) : ils y sont ranges. */
+  alias?: string[];
+  /** Pieces par jour, a la main : prime sur le Suivi et le Planning. */
+  cadence?: number;
+  /** Modeles donnes a la main a cette chaine (leurs paquets sans chaine vont ici). */
+  modeles?: string[];
+  /** Cadence a la main pour un modele de cette chaine (id du modele). */
+  cadences?: Record<string, number>;
 }
 
 export interface SaisiePaquet {

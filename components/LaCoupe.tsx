@@ -4716,7 +4716,7 @@ function EmptyDashboard({
     if (page) {
         return (
             <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto">
-                {page === 'ordres' && <PageOrdres models={ordres} onBack={() => setPage(null)} onOpen={onSuivre} />}
+                {page === 'ordres' && <PageOrdres models={ordres} onBack={() => setPage(null)} onOpen={onSuivre} chaines={chainesAccueil} />}
                 {page === 'tissu' && <PageTissu models={tousModeles} onBack={() => setPage(null)} onOpen={onOpen} />}
                 {page === 'chaines' && (
                     <PageChaines
@@ -4726,6 +4726,8 @@ function EmptyDashboard({
                         settings={settings}
                         joursAvance={settings?.coupeJoursAvance ?? 2}
                         setJoursAvance={j => majReglages(prev => ({ ...prev, coupeJoursAvance: j }))}
+                        reglages={settings?.chainesCoupe || []}
+                        setReglages={r => majReglages(prev => ({ ...prev, chainesCoupe: r }))}
                         onBack={() => setPage(null)}
                         onOpen={m => onSuivre(m)}
                         onNavigate={onNavigate}

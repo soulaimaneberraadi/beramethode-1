@@ -108,4 +108,34 @@ const suivi = (planningId: string, date: string, entrer: number, sorti: number):
     assert.deepEqual(d2.modeles[0].matelas.map(l => l.numero), ['4', '5', '6']);
 }
 
+// --- Chaines reglees a la main : alias de la serie, cadence, modele donne a la main ---
+{
+    const lignes = Array.from({ length: 4 }, (_, i) => ligne(String(i + 1), 100, { S: 1, M: 1 }));
+    const m = modele('F', lignes, 800);
+    const saisies: Record<string, { chaine: string }> = {};
+    for (const l of lignes) for (const t of ['S', 'M']) saisies[`${l.id}:${t}:0`] = { chaine: 'STAR1+2' };
+    (m.ordreCoupe as any).serie = { saisies };
+    const sansEvenement = modele('G', [ligne('1', 100, { S: 1, M: 1 })], 200);
+    const regl = {
+        ...reglages,
+        chainesCoupe: [
+            { id: 'A', nom: 'Star 1+2', alias: ['star1+2', 'CHAINE 1'], cadence: 300, cadences: { F: 100 } },
+            { id: 'B', nom: 'Star 3', modeles: ['G'] },
+        ],
+    } as unknown as AppSettings;
+    const [a1, b1] = chainesDeCoupe({ models: [m, sansEvenement], evenements: [], suivis: [], settings: regl, joursAvance: 1, aujourdhui: '2026-10-05' });
+    assert.deepEqual([a1.id, a1.nom, a1.reglee], ['A', 'Star 1+2', true], 'seules les chaines reglees existent');
+    assert.equal(a1.modeles[0].commande, 800, 'le nom brut « STAR1+2 » de la serie va a la chaine A');
+    assert.equal(a1.modeles[0].cadence, 100, 'cadence a la main pour ce modele');
+    assert.equal(a1.modeles[0].sourceCadence, 'manuel');
+    assert.equal(a1.modeles[0].aCouperPieces, 100);
+    assert.deepEqual(a1.modeles[0].parTaille.map(t => t.taille).sort(), ['M', 'S']);
+    assert.equal(a1.modeles[0].aCouperTous.length, 4, 'tous les matelas restants, dans l’ordre de la serie');
+    assert.equal(a1.modeles[0].aCouperTous.filter(x => x.choisi).length, 1);
+    assert.equal(b1.modeles[0].modelId, 'G', 'modele donne a la main : present sans OF ni paquet de serie attribue');
+    // Cadence de la chaine, sans cadence propre au modele.
+    const [a2] = chainesDeCoupe({ models: [m], evenements: [], suivis: [], settings: { ...regl, chainesCoupe: [{ id: 'A', nom: 'A', alias: ['STAR1+2'], cadence: 300 }] } as unknown as AppSettings, joursAvance: 1, aujourdhui: '2026-10-05' });
+    assert.equal(a2.modeles[0].cadence, 300);
+}
+
 console.log('coupeChaines : OK');

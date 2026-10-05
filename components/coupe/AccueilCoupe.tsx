@@ -15,7 +15,8 @@ import {
     ArrowLeft, Scissors, Users, Layers, Search, Plus, Trash2, Edit3, Check, X,
     RefreshCw, Trophy, Clock, Building2, ChevronRight, AlertTriangle, Factory, CalendarDays, Activity,
 } from 'lucide-react';
-import type { AppSettings, GroupeCoupe, ModelData, OuvrierCoupe, PlanningEvent, PointageCoupe, SuiviData } from '../../types';
+import type { AppSettings, GroupeCoupe, ModelData, OuvrierCoupe, PlanningEvent, PointageCoupe, ReglageChaineCoupe, SuiviData } from '../../types';
+import SheetModal from '../shared/SheetModal';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import {
@@ -23,7 +24,7 @@ import {
     resumerOrdre, statsGroupes, tempsStandard, minutesPrevues, texteDuree, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
 } from '../../lib/coupeAtelier';
 import { equilibrerOrdre } from '../../lib/equilibreMatieres';
-import { chainesDeCoupe, type ChaineCoupe, type EtatChaine } from '../../lib/coupeChaines';
+import { chainesDeCoupe, type ChaineCoupe, type EtatChaine, type ModeleSurChaine } from '../../lib/coupeChaines';
 
 export type PageAccueil = 'ordres' | 'groupes' | 'tissu' | 'chaines';
 
@@ -374,8 +375,14 @@ export function CartesAccueil({ models, groupes, presence, etatRh, onOuvrir, cha
 /* Page : ordres en cours                                               */
 /* ------------------------------------------------------------------ */
 
-export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; onBack: () => void; onOpen: (m: ModelData) => void }) {
+export function PageOrdres({ models, onBack, onOpen, chaines }: { models: ModelData[]; onBack: () => void; onOpen: (m: ModelData) => void; chaines?: ChaineCoupe[] }) {
     const { lang } = useLang();
+    /** Pour chaque modele, ce que chaque chaine attend de la coupe (Planning + Suivi + serie). */
+    const parModele = useMemo(() => {
+        const t = new Map<string, { chaine: ChaineCoupe; x: ModeleSurChaine }[]>();
+        for (const c of chaines || []) for (const x of c.modeles) (t.get(x.modelId) || t.set(x.modelId, []).get(x.modelId)!).push({ chaine: c, x });
+        return t;
+    }, [chaines]);
     const [filtre, setFiltre] = useState<'TOUS' | 'EN_PREPARATION' | 'EN_COURS' | 'SOUS_TRAITANCE'>('TOUS');
     const [q, setQ] = useState('');
     /** Ordre de la liste : le plus a couper, le plus en retard face aux autres matieres, ou le moins avance. */
@@ -511,6 +518,17 @@ export function PageOrdres({ models, onBack, onOpen }: { models: ModelData[]; on
                                     )}
                                 </div>
                             )}
+                            {(parModele.get(m.id) || []).filter(e => e.x.matelas.length > 0).length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold tabular-nums">
+                                    <span className="font-bold uppercase tracking-wide text-slate-400">{tx(lang, { fr: 'À couper', ar: 'للقص', en: 'To cut' })}</span>
+                                    {(parModele.get(m.id) || []).filter(e => e.x.matelas.length > 0).map(e => (
+                                        <span key={e.chaine.id} className={`px-1.5 h-5 inline-flex items-center gap-1 rounded ${ORANGE_PLEIN}`}>
+                                            <Factory className="w-3 h-3" />{e.chaine.nom} · {e.x.matelas.length} {tx(lang, { fr: 'mat.', ar: 'مفرشة', en: 'lays' })} · N° {plageNumeros(e.x.matelas.map(l => l.numero || '?'))}
+                                            {e.x.autres.map(a => <span key={a.code} className="opacity-90">· {a.code} {plageNumeros(a.numeros)}</span>)}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                             {tailles.length > 0 && (
                                 <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] tabular-nums">
                                     <span className="font-bold uppercase tracking-wide text-slate-400 mr-0.5">{tx(lang, { fr: 'Chaîne', ar: 'للسلسلة', en: 'Line' })}</span>
@@ -550,6 +568,10 @@ const ETATS_CHAINE: Record<EtatChaine, { fr: string; ar: string; en: string; cls
     libre: { fr: 'Sans modèle', ar: 'بلا موديل', en: 'No model', cls: 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border', barre: 'bg-slate-300' },
 };
 
+/** Orange partout : ce que la coupe doit couper. */
+const ORANGE_PLEIN = 'bg-orange-500 text-white border border-orange-500';
+const ORANGE_DOUX = 'bg-orange-50 text-orange-800 border border-orange-200 dark:bg-orange-900/25 dark:text-orange-200 dark:border-orange-800';
+
 /** « 5 → 9 » quand les numeros se suivent, sinon la liste. */
 const plageNumeros = (ns: string[]) => {
     const v = ns.map(n => parseInt(n, 10));
@@ -557,13 +579,40 @@ const plageNumeros = (ns: string[]) => {
     return ns.join(', ');
 };
 
-export function PageChaines({ models, evenements, suivis, settings, joursAvance, setJoursAvance, onBack, onOpen, onNavigate }: {
+/** Ce qu'il faut couper pour un modele sur une chaine : orange, numeros, serie, matieres en face. */
+function ACouper({ x, L, jour, large }: { x: ModeleSurChaine; L: (fr: string, ar: string, en: string) => string; jour: (iso: string | null) => string; large?: boolean }) {
+    if (!x.aUnOrdre) return <span className="inline-flex items-center h-7 px-2 rounded-lg bg-slate-100 dark:bg-dk-elevated text-[11px] font-semibold text-slate-500">{L('Pas d’ordre de coupe pour ce modèle', 'لا أمر قص لهذا الموديل', 'No cutting order for this model')}</span>;
+    if (x.plusTard) return <span className="inline-flex items-center h-7 px-2 rounded-lg bg-slate-100 dark:bg-dk-elevated text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{L('Rien avant le', 'لا شيء قبل', 'Nothing before')} {jour(x.commencerLe)}</span>;
+    if (x.serieAbsente) return <span className={`inline-flex items-center h-7 px-2 rounded-lg text-[11px] font-semibold ${ORANGE_DOUX}`}>{L('Attribuez des paquets à cette chaîne', 'أعطِ حزماً لهذه السلسلة', 'Assign bundles to this line')}</span>;
+    if (x.sansMatelas) return <span className={`inline-flex items-center h-7 px-2 rounded-lg text-[11px] font-bold ${ORANGE_DOUX}`}>{fmtN(x.aCouperPieces)} {L('pcs à couper · pas de matelas calculés', 'ق للقص · لا مفرشات محسوبة', 'pcs to cut · no lays')}</span>;
+    if (x.matelas.length === 0) return <span className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/25 text-[11px] font-bold text-emerald-700 dark:text-emerald-300"><Check className="w-3 h-3" />{x.resteACouper === 0 ? L('Tout coupé pour cette chaîne', 'كل شيء مقصوص لهذه السلسلة', 'All cut for this line') : L('Avance suffisante : rien à couper', 'التقدّم كافٍ: لا شيء للقص', 'Enough buffer: nothing to cut')}</span>;
+    return (
+        <div className={`flex flex-wrap items-center gap-1.5 text-[11px] ${large ? 'text-[12px]' : ''}`}>
+            <span className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg font-bold ${ORANGE_PLEIN}`}>
+                <Scissors className="w-3.5 h-3.5" />
+                {L(`${x.matelas.length} matelas`, `${x.matelas.length} مفرشة`, `${x.matelas.length} lays`)} · N° {plageNumeros(x.matelas.map(l => l.numero || '?'))}
+                <span className="font-semibold opacity-90">· {fmtN(x.matelas.reduce((t, l) => t + l.pieces, 0))} {L('pcs', 'ق', 'pcs')}</span>
+            </span>
+            {x.serieACouper && <span className={`inline-flex items-center h-8 px-2 rounded-lg font-semibold tabular-nums ${ORANGE_DOUX}`}>{L('série', 'سيري', 'series')} {fmtN(x.serieACouper.debut)}–{fmtN(x.serieACouper.fin)}</span>}
+            {x.autres.map(a => (
+                <span key={a.code} title={a.nom} className={`inline-flex items-center h-8 px-2 rounded-lg font-semibold tabular-nums ${ORANGE_DOUX}`}>
+                    <b className="mr-1">{a.code}</b>N° {plageNumeros(a.numeros)}
+                </span>
+            ))}
+        </div>
+    );
+}
+
+export function PageChaines({ models, evenements, suivis, settings, joursAvance, setJoursAvance, reglages, setReglages, onBack, onOpen, onNavigate }: {
     models: ModelData[];
     evenements: PlanningEvent[];
     suivis: SuiviData[];
     settings?: AppSettings;
     joursAvance: number;
     setJoursAvance: (j: number) => void;
+    /** Chaines reglees a la main (dans La Coupe seulement) ; vide : celles du Planning. */
+    reglages: ReglageChaineCoupe[];
+    setReglages: (r: ReglageChaineCoupe[]) => void;
     onBack: () => void;
     onOpen: (m: ModelData) => void;
     onNavigate?: (view: string) => void;
@@ -572,10 +621,13 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
     /** Chaine choisie dans le bandeau (null : toutes celles qui ont un modele). */
     const [choix, setChoix] = useState<string | null>(null);
+    /** Chaine dont on lit tout le detail. */
+    const [ouverte, setOuverte] = useState<string | null>(null);
+    const [editeur, setEditeur] = useState(false);
 
     const chaines = useMemo(
-        () => chainesDeCoupe({ models, evenements, suivis, settings, joursAvance, aujourdhui: aujourdhui() }),
-        [models, evenements, suivis, settings, joursAvance],
+        () => chainesDeCoupe({ models, evenements, suivis, settings: settings ? { ...settings, chainesCoupe: reglages } : ({ chainesCoupe: reglages } as AppSettings), joursAvance, aujourdhui: aujourdhui() }),
+        [models, evenements, suivis, settings, reglages, joursAvance],
     );
     const ordre: Record<EtatChaine, number> = { arret: 0, juste: 1, couverte: 2, horsCoupe: 3, libre: 4 };
     const triees = [...chaines].sort((a, b) => ordre[a.etat] - ordre[b.etat] || a.id.localeCompare(b.id, undefined, { numeric: true }));
@@ -587,21 +639,75 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
     const locale = lang === 'ar' ? 'ar-MA' : lang === 'en' ? 'en-GB' : lang === 'es' ? 'es-ES' : 'fr-FR';
     const jour = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { day: '2-digit', month: 'short' }) : '—');
 
+    /** Les reglages a modifier : si rien n'est regle, on part des chaines affichees (aucune ne disparait). */
+    const reglagesCompletes = (): ReglageChaineCoupe[] => (reglages.length ? reglages : chaines.map(c => ({ id: c.id, nom: c.nom })));
+    const majChaine = (id: string, f: (c: ReglageChaineCoupe) => ReglageChaineCoupe) =>
+        setReglages(reglagesCompletes().map(c => (c.id === id ? f(c) : c)));
+    const fixerCadence = (id: string, modelId: string, valeur: number | undefined) => majChaine(id, c => {
+        const cadences = { ...(c.cadences || {}) };
+        if (valeur && valeur > 0) cadences[modelId] = valeur; else delete cadences[modelId];
+        return { ...c, cadences };
+    });
+    const retirerModele = (id: string, modelId: string) => majChaine(id, c => ({ ...c, modeles: (c.modeles || []).filter(x => x !== modelId) }));
+
+    const ouvertes = models.filter(m => m.ordreCoupe && estOuvert(m));
+    const chaineOuverte = ouverte ? chaines.find(c => c.id === ouverte) : undefined;
+
+    const editeurModal = editeur && (
+        <EditeurChaines
+            depart={reglagesCompletes()}
+            modeles={ouvertes}
+            onFermer={() => setEditeur(false)}
+            onEnregistrer={r => { setReglages(r); setEditeur(false); }}
+            onRevenir={reglages.length ? () => { setReglages([]); setEditeur(false); setChoix(null); setOuverte(null); } : undefined}
+        />
+    );
+
+    if (chaineOuverte) {
+        return (
+            <div>
+                <EnTetePage
+                    titre={chaineOuverte.nom}
+                    sousTitre={L('Tout ce que la coupe sait de cette chaîne', 'كل ما يعرفه القص عن هذه السلسلة', 'Everything cutting knows about this line')}
+                    onBack={() => setOuverte(null)}
+                    actions={<button type="button" onClick={() => setEditeur(true)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Edit3 className="w-3.5 h-3.5" />{L('Régler', 'ضبط', 'Edit')}</button>}
+                />
+                <DetailChaine
+                    chaine={chaineOuverte}
+                    reglage={reglages.find(r => r.id === chaineOuverte.id)}
+                    joursAvance={joursAvance}
+                    modeleDe={modeleDe}
+                    jour={jour}
+                    L={L}
+                    onOpen={onOpen}
+                    onCadence={(modelId, v) => fixerCadence(chaineOuverte.id, modelId, v)}
+                    onRetirer={modelId => retirerModele(chaineOuverte.id, modelId)}
+                />
+                {editeurModal}
+            </div>
+        );
+    }
+
     return (
         <div>
             <EnTetePage
                 titre={L('Chaînes', 'السلاسل', 'Sewing lines')}
                 sousTitre={L('Ce que chaque chaîne attend de la coupe : Planning + Suivi de production', 'ما تنتظره كل سلسلة من القص: التخطيط + متابعة الإنتاج', 'What each line needs from cutting: Planning + production follow-up')}
                 onBack={onBack}
-                actions={onNavigate ? (
-                    <div className="hidden sm:flex items-center gap-1.5">
-                        <button type="button" onClick={() => onNavigate('planning')} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><CalendarDays className="w-3.5 h-3.5" />{L('Planning', 'التخطيط', 'Planning')}</button>
-                        <button type="button" onClick={() => onNavigate('suivi')} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Activity className="w-3.5 h-3.5" />{L('Suivi', 'المتابعة', 'Follow-up')}</button>
+                actions={(
+                    <div className="flex items-center gap-1.5">
+                        <button type="button" onClick={() => setEditeur(true)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Edit3 className="w-3.5 h-3.5" /><span className="hidden sm:inline">{L('Régler les chaînes', 'ضبط السلاسل', 'Set lines')}</span></button>
+                        {onNavigate && (
+                            <>
+                                <button type="button" onClick={() => onNavigate('planning')} className="hidden sm:inline-flex h-9 px-3 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><CalendarDays className="w-3.5 h-3.5" />{L('Planning', 'التخطيط', 'Planning')}</button>
+                                <button type="button" onClick={() => onNavigate('suivi')} className="hidden sm:inline-flex h-9 px-3 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Activity className="w-3.5 h-3.5" />{L('Suivi', 'المتابعة', 'Follow-up')}</button>
+                            </>
+                        )}
                     </div>
-                ) : undefined}
+                )}
             />
             <Resume items={[
-                { label: L('Matelas à couper', 'مفرشات للقص', 'Lays to cut'), valeur: fmtN(matelas), ton: matelas > 0 ? 'text-rose-600 dark:text-rose-400' : undefined },
+                { label: L('Matelas à couper', 'مفرشات للقص', 'Lays to cut'), valeur: fmtN(matelas), ton: matelas > 0 ? 'text-orange-600 dark:text-orange-400' : undefined },
                 { label: L('Pièces', 'قطع', 'Pieces'), valeur: fmtN(pieces) },
                 { label: L('Chaînes en risque', 'سلاسل مهدّدة', 'Lines at risk'), valeur: fmtN(enRisque), ton: enRisque > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400' },
             ]} />
@@ -640,9 +746,10 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
             {visibles.length === 0 && (
                 <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border px-4 py-10 text-center">
                     <p className="text-[13px] text-slate-500 dark:text-dk-muted">{choix ? L('Aucun modèle sur cette chaîne.', 'لا يوجد موديل على هذه السلسلة.', 'No model on this line.') : L('Aucun modèle planifié sur une chaîne.', 'لا يوجد موديل مبرمج على أي سلسلة.', 'No model planned on a line.')}</p>
-                    {onNavigate && (
-                        <button type="button" onClick={() => onNavigate('planning')} className="mt-3 h-10 px-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[12px] font-bold"><CalendarDays className="w-4 h-4" />{L('Ouvrir le Planning', 'فتح التخطيط', 'Open Planning')}</button>
-                    )}
+                    <div className="mt-3 flex items-center justify-center gap-2">
+                        <button type="button" onClick={() => setEditeur(true)} className="h-10 px-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[12px] font-bold"><Edit3 className="w-4 h-4" />{L('Régler les chaînes', 'ضبط السلاسل', 'Set lines')}</button>
+                        {onNavigate && <button type="button" onClick={() => onNavigate('planning')} className="h-10 px-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft"><CalendarDays className="w-4 h-4" />{L('Ouvrir le Planning', 'فتح التخطيط', 'Open Planning')}</button>}
+                    </div>
                 </div>
             )}
 
@@ -651,17 +758,19 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
                     const st = ETATS_CHAINE[c.etat];
                     return (
                         <div key={c.id} className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
-                            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-slate-100 dark:border-dk-border">
+                            {/* Toucher la chaine : tout son detail */}
+                            <button type="button" onClick={() => setOuverte(c.id)} className="w-full flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-slate-100 dark:border-dk-border text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
                                 <span className={`w-1.5 h-6 rounded-full ${st.barre}`} />
                                 <Factory className="w-4 h-4 text-slate-400 shrink-0" />
                                 <span className="text-[14px] font-bold text-slate-900 dark:text-dk-text truncate flex-1 min-w-0">{c.nom}</span>
                                 {c.matelasACouper > 0 && (
-                                    <span className="h-7 px-2 inline-flex items-center gap-1 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[11px] font-bold tabular-nums shrink-0">
+                                    <span className={`h-7 px-2 inline-flex items-center gap-1 rounded-lg text-[11px] font-bold tabular-nums shrink-0 ${ORANGE_PLEIN}`}>
                                         <Scissors className="w-3 h-3" />{c.matelasACouper}
                                     </span>
                                 )}
                                 <span className={`h-7 px-2 inline-flex items-center rounded-lg border text-[11px] font-bold shrink-0 ${st.cls}`}>{tx(lang, st)}</span>
-                            </div>
+                                <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                            </button>
 
                             {c.modeles.length === 0 && (
                                 <p className="px-4 py-2.5 text-[12px] text-slate-400">{L('Aucun modèle planifié sur cette chaîne.', 'لا يوجد موديل مبرمج على هذه السلسلة.', 'No model planned on this line.')}</p>
@@ -693,7 +802,7 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
                                                 <div className="min-w-0">
                                                     <p className="text-slate-500 dark:text-dk-muted tabular-nums truncate">
                                                         {L('entré', 'دخل', 'in')} <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.entre)}</b> · {L('sorti', 'خرج', 'out')} <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.sorti)}</b>
-                                                        {x.cadence > 0 && <> · <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.cadence)}</b> {x.sourceCadence === 'suivi' ? L('pcs/j réel', 'ق/يوم فعلي', 'pcs/d actual') : L('pcs/j plan', 'ق/يوم مخطط', 'pcs/d plan')}</>}
+                                                        {x.cadence > 0 && <> · <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.cadence)}</b> {x.sourceCadence === 'manuel' ? L('pcs/j (réglé)', 'ق/يوم (مضبوط)', 'pcs/d (set)') : x.sourceCadence === 'suivi' ? L('pcs/j réel', 'ق/يوم فعلي', 'pcs/d actual') : L('pcs/j plan', 'ق/يوم مخطط', 'pcs/d plan')}</>}
                                                         {x.aUnOrdre && <> · {L('prêts', 'جاهزة', 'ready')} <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.prets)}</b></>}
                                                     </p>
                                                     {x.aUnOrdre && !x.plusTard && (
@@ -711,37 +820,13 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
                                                 <p className="text-slate-500 dark:text-dk-muted tabular-nums truncate">
                                                     {x.serie
                                                         ? <><b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.serie.debut)} → {fmtN(x.serie.fin)}</b> · {x.serie.paquets} {L('paquets', 'حزمة', 'bundles')} · {L('entrés', 'دخلت', 'in')} {x.serie.entres} · {L('sortis', 'خرجت', 'out')} {x.serie.sortis}</>
-                                                        : x.serieAbsente ? <span className="text-amber-700 dark:text-amber-300">{L('aucun paquet donné à cette chaîne (page Série de l\u2019ordre)', 'لم تُعطَ أي حزمة لهذه السلسلة (صفحة السيري في الأمر)', 'no bundle given to this line')}</span>
+                                                        : x.serieAbsente ? <span className="text-orange-700 dark:text-orange-300">{L('aucun paquet donné à cette chaîne', 'لم تُعطَ أي حزمة لهذه السلسلة', 'no bundle given to this line')}</span>
                                                             : '—'}
                                                 </p>
 
                                                 {/* 4. L'ordre de coupe : quoi couper, dans l'ordre de la production */}
                                                 <span className="font-bold uppercase tracking-wide text-slate-400 text-[9px]">{L('Coupe', 'القص', 'Cut')}</span>
-                                                <div className="min-w-0">
-                                                    {!x.aUnOrdre ? (
-                                                        <span className="inline-flex items-center h-7 px-2 rounded-lg bg-slate-100 dark:bg-dk-elevated font-semibold text-slate-500">{L('Pas d\u2019ordre de coupe pour ce modèle', 'لا أمر قص لهذا الموديل', 'No cutting order for this model')}</span>
-                                                    ) : x.plusTard ? (
-                                                        <span className="inline-flex items-center h-7 px-2 rounded-lg bg-slate-100 dark:bg-dk-elevated font-semibold text-slate-600 dark:text-dk-text-soft">{L('Rien avant le', 'لا شيء قبل', 'Nothing before')} {jour(x.commencerLe)}</span>
-                                                    ) : x.serieAbsente ? (
-                                                        <span className="inline-flex items-center h-7 px-2 rounded-lg bg-amber-50 dark:bg-amber-900/25 font-semibold text-amber-800 dark:text-amber-200">{L('Attribuez des paquets à cette chaîne', 'أعطِ حزماً لهذه السلسلة', 'Assign bundles to this line')}</span>
-                                                    ) : x.sansMatelas ? (
-                                                        <span className="inline-flex items-center h-7 px-2 rounded-lg bg-amber-50 dark:bg-amber-900/25 font-bold text-amber-800 dark:text-amber-200">{fmtN(x.aCouperPieces)} {L('pcs à couper · pas de matelas calculés', 'ق للقص · لا مفرشات محسوبة', 'pcs to cut · no lays')}</span>
-                                                    ) : x.matelas.length > 0 ? (
-                                                        <div className="flex flex-wrap items-center gap-1.5">
-                                                            <span className="inline-flex flex-col justify-center h-9 px-2.5 rounded-lg bg-slate-900 dark:bg-dk-accent text-white leading-tight">
-                                                                <b className="text-[12px]">{L(`Couper ${x.matelas.length} matelas`, `اقطع ${x.matelas.length} مفرشة`, `Cut ${x.matelas.length} lays`)} · {fmtN(x.matelas.reduce((t, l) => t + l.pieces, 0))} {L('pcs', 'ق', 'pcs')}</b>
-                                                                <span className="text-[10px] opacity-80">N° {plageNumeros(x.matelas.map(l => l.numero || '?'))}{x.serieACouper ? ` · ${L('série', 'سيري', 'series')} ${fmtN(x.serieACouper.debut)}–${fmtN(x.serieACouper.fin)}` : ''}</span>
-                                                            </span>
-                                                            {x.autres.map(a => (
-                                                                <span key={a.code} title={a.nom} className="inline-flex items-center h-9 px-2 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface font-semibold text-slate-700 dark:text-dk-text-soft tabular-nums">
-                                                                    <b className="mr-1">{a.code}</b>N° {plageNumeros(a.numeros)}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/25 font-bold text-emerald-700 dark:text-emerald-300"><Check className="w-3 h-3" />{x.resteACouper === 0 ? L('Tout coupé pour cette chaîne', 'كل شيء مقصوص لهذه السلسلة', 'All cut for this line') : L('Avance suffisante : rien à couper', 'التقدّم كافٍ: لا شيء للقص', 'Enough buffer: nothing to cut')}</span>
-                                                    )}
-                                                </div>
+                                                <ACouper x={x} L={L} jour={jour} />
                                             </div>
                                         </div>
                                     );
@@ -757,7 +842,222 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
                     <button type="button" onClick={() => onNavigate('suivi')} className="h-11 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft"><Activity className="w-4 h-4" />{L('Suivi de production', 'متابعة الإنتاج', 'Production follow-up')}</button>
                 </div>
             )}
+            {editeurModal}
         </div>
+    );
+}
+
+/** Toute la chaine : pour chaque modele, son suivi des derniers jours, sa serie par taille, et chaque matelas a couper. */
+function DetailChaine({ chaine, reglage, joursAvance, modeleDe, jour, L, onOpen, onCadence, onRetirer }: {
+    chaine: ChaineCoupe;
+    reglage?: ReglageChaineCoupe;
+    joursAvance: number;
+    modeleDe: (id: string) => ModelData | undefined;
+    jour: (iso: string | null) => string;
+    L: (fr: string, ar: string, en: string) => string;
+    onOpen: (m: ModelData) => void;
+    onCadence: (modelId: string, v: number | undefined) => void;
+    onRetirer: (modelId: string) => void;
+}) {
+    const { lang } = useLang();
+    const st = ETATS_CHAINE[chaine.etat];
+    return (
+        <div className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                    { l: L('État', 'الحالة', 'Status'), v: tx(lang, st), cls: st.cls },
+                    { l: L('Modèles', 'موديلات', 'Models'), v: String(chaine.modeles.length) },
+                    { l: L('Matelas à couper', 'مفرشات للقص', 'Lays to cut'), v: fmtN(chaine.matelasACouper), cls: chaine.matelasACouper > 0 ? ORANGE_DOUX : undefined },
+                    { l: L('Pièces à couper', 'قطع للقص', 'Pieces to cut'), v: fmtN(chaine.piecesACouper), cls: chaine.piecesACouper > 0 ? ORANGE_DOUX : undefined },
+                ].map(k => (
+                    <div key={k.l} className={`rounded-xl px-3 py-2 min-w-0 ${k.cls || 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border'}`}>
+                        <p className="text-[9px] font-bold uppercase tracking-wide opacity-70 truncate">{k.l}</p>
+                        <p className="text-[16px] font-bold tabular-nums truncate">{k.v}</p>
+                    </div>
+                ))}
+            </div>
+
+            {chaine.modeles.length === 0 && (
+                <p className="px-4 py-6 text-center text-[12px] text-slate-400 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border">{L('Aucun modèle sur cette chaîne. Donnez-lui un modèle avec « Régler ».', 'لا موديل على هذه السلسلة. أعطها موديلاً عبر «ضبط».', 'No model on this line. Give it one with Edit.')}</p>
+            )}
+
+            {chaine.modeles.map(x => {
+                const m = modeleDe(x.modelId);
+                const donneAMain = (reglage?.modeles || []).includes(x.modelId);
+                const jours = x.jours;
+                return (
+                    <section key={x.eventId} className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                        <header className="flex items-center gap-2.5 px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-dk-border">
+                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center">
+                                {x.image ? <img src={x.image} alt="" className="w-full h-full object-cover" /> : <Scissors className="w-4 h-4 text-slate-300" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[14px] font-semibold text-slate-900 dark:text-dk-text truncate">{x.nom}</p>
+                                <p className="text-[11px] text-slate-500 dark:text-dk-muted truncate">{[x.client, x.lancement ? `${L('lancement', 'الانطلاق', 'start')} ${jour(x.lancement)}` : '', x.dds ? `DDS ${jour(x.dds)}` : '', `${fmtN(x.commande)} ${L('pcs', 'قطعة', 'pcs')}`].filter(Boolean).join(' · ')}</p>
+                            </div>
+                            {donneAMain && <button type="button" onClick={() => onRetirer(x.modelId)} title={L('Retirer ce modèle de la chaîne', 'إزالة الموديل من السلسلة', 'Remove from the line')} className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><X className="w-4 h-4" /></button>}
+                            {m && x.aUnOrdre && <button type="button" onClick={() => onOpen(m)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300 shrink-0">{L('Ouvrir l’ordre', 'فتح الأمر', 'Open order')}<ChevronRight className="w-3.5 h-3.5" /></button>}
+                        </header>
+
+                        <div className="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4 text-[12px]">
+                            {/* Suivi */}
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{L('Suivi de production', 'متابعة الإنتاج', 'Production follow-up')}</p>
+                                <div className="grid grid-cols-3 gap-1.5 text-center mb-2">
+                                    {[
+                                        { l: L('Prêts', 'جاهزة', 'Ready'), v: fmtN(x.prets) },
+                                        { l: L('Entré', 'دخل', 'In'), v: fmtN(x.entre) },
+                                        { l: L('Sorti', 'خرج', 'Out'), v: fmtN(x.sorti) },
+                                    ].map(k => (
+                                        <div key={k.l} className="rounded-lg bg-slate-50 dark:bg-dk-bg py-1.5">
+                                            <p className="text-[9px] font-bold uppercase text-slate-400">{k.l}</p>
+                                            <p className="text-[14px] font-bold tabular-nums text-slate-800 dark:text-dk-text">{k.v}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Cadence : celle du Suivi ou du Planning, ou celle qu'on fixe a la main */}
+                                <label className="flex items-center gap-2 mb-2">
+                                    <span className="text-slate-500 dark:text-dk-muted shrink-0">{L('Cadence pcs/j', 'الوتيرة ق/يوم', 'Rate pcs/d')}</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={reglage?.cadences?.[x.modelId] || ''}
+                                        onChange={e => onCadence(x.modelId, e.target.value === '' ? undefined : Math.max(0, Number(e.target.value)))}
+                                        placeholder={String(x.cadence || '')}
+                                        className="h-8 w-24 px-2 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-bg text-[12px] font-bold tabular-nums outline-none focus:border-orange-400"
+                                    />
+                                    <span className="text-[10px] text-slate-400">{x.sourceCadence === 'manuel' ? L('réglé', 'مضبوط', 'set') : x.sourceCadence === 'suivi' ? L('réel (Suivi)', 'فعلي (المتابعة)', 'actual') : L('plan (Planning)', 'مخطط (التخطيط)', 'planned')}</span>
+                                </label>
+                                {jours.length > 0 ? (
+                                    <table className="w-full tabular-nums text-[11px]">
+                                        <thead><tr className="text-slate-400 text-left"><th className="font-semibold py-0.5">{L('Jour', 'اليوم', 'Day')}</th><th className="font-semibold text-right">{L('Entré', 'دخل', 'In')}</th><th className="font-semibold text-right">{L('Sorti', 'خرج', 'Out')}</th></tr></thead>
+                                        <tbody>{jours.map(j => <tr key={j.date} className="border-t border-slate-100 dark:border-dk-border"><td className="py-0.5">{jour(j.date)}</td><td className="text-right">{fmtN(j.entre)}</td><td className="text-right font-semibold">{fmtN(j.sorti)}</td></tr>)}</tbody>
+                                    </table>
+                                ) : <p className="text-slate-400">{L('Aucune saisie au Suivi pour cette chaîne.', 'لا تسجيل في المتابعة لهذه السلسلة.', 'No follow-up entries yet.')}</p>}
+                                {x.aUnOrdre && !x.plusTard && (
+                                    <p className="mt-2 text-slate-500 dark:text-dk-muted">{L('Avance de la coupe', 'تقدّم القص', 'Cutting buffer')} : <b className="text-slate-700 dark:text-dk-text-soft tabular-nums">{fmtN(x.enAttente)} {L('pcs', 'ق', 'pcs')}{x.joursAvance !== null ? ` · ${Math.round(x.joursAvance * 10) / 10} ${L('j', 'ي', 'd')}` : ''}</b> / {joursAvance} {L('j', 'ي', 'd')}</p>
+                                )}
+                            </div>
+
+                            {/* Serie */}
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{L('Série de la chaîne', 'سيري السلسلة', 'Series of this line')}</p>
+                                {x.serie ? (
+                                    <>
+                                        <p className="text-[15px] font-bold tabular-nums text-slate-800 dark:text-dk-text">{fmtN(x.serie.debut)} → {fmtN(x.serie.fin)}</p>
+                                        <p className="text-slate-500 dark:text-dk-muted mb-2">{x.serie.paquets} {L('paquets', 'حزمة', 'bundles')} · {L('entrés', 'دخلت', 'in')} {x.serie.entres} · {L('sortis', 'خرجت', 'out')} {x.serie.sortis}</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {x.parTaille.map(t => (
+                                                <span key={t.taille} className="px-1.5 h-6 inline-flex items-center gap-1 rounded-md bg-slate-100 dark:bg-dk-elevated tabular-nums text-[11px] text-slate-600 dark:text-dk-text-soft">
+                                                    <b className="uppercase text-slate-800 dark:text-dk-text">{t.taille}</b>{fmtN(t.coupees)}/{fmtN(t.pieces)}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : x.serieAbsente
+                                    ? <p className="text-orange-700 dark:text-orange-300">{L('La série existe mais aucun paquet n’est donné à cette chaîne : donnez-lui des paquets dans la page Série de l’ordre.', 'السيري موجود لكن لا حزمة معطاة لهذه السلسلة: أعطها حزماً من صفحة السيري في الأمر.', 'No bundle is given to this line.')}</p>
+                                    : <p className="text-slate-400">{L('Pas de série pour ce modèle.', 'لا سيري لهذا الموديل.', 'No series for this model.')}</p>}
+                            </div>
+
+                            {/* Coupe */}
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{L('Ordre de coupe', 'أمر القص', 'Cutting order')}</p>
+                                <ACouper x={x} L={L} jour={jour} large />
+                                {x.aCouperTous.length > 0 && (
+                                    <div className="mt-2">
+                                        <p className="text-slate-500 dark:text-dk-muted mb-1">{L('Tous les matelas restants, dans l’ordre de la série', 'كل المفرشات المتبقية بترتيب السيري', 'All remaining lays, in series order')} ({x.aCouperTous.length})</p>
+                                        <div className="flex flex-wrap gap-1 max-h-40 overflow-y-auto">
+                                            {x.aCouperTous.map(c => (
+                                                <span key={c.id} title={c.debut !== null ? `${L('série', 'سيري', 'series')} ${c.debut}–${c.fin}` : undefined} className={`px-1.5 h-6 inline-flex items-center gap-1 rounded-md tabular-nums text-[11px] ${c.choisi ? `font-bold ${ORANGE_PLEIN}` : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted'}`}>
+                                                    {c.numero || '?'}<span className="opacity-70 font-normal">{fmtN(c.pieces)}</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+                );
+            })}
+        </div>
+    );
+}
+
+/** Regler les chaines de la coupe : nom, autres noms, cadence, modeles. Le Planning ne bouge pas. */
+function EditeurChaines({ depart, modeles, onFermer, onEnregistrer, onRevenir }: {
+    depart: ReglageChaineCoupe[];
+    modeles: ModelData[];
+    onFermer: () => void;
+    onEnregistrer: (r: ReglageChaineCoupe[]) => void;
+    onRevenir?: () => void;
+}) {
+    const { lang } = useLang();
+    const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
+    const [liste, setListe] = useState<ReglageChaineCoupe[]>(() => depart.map(c => ({ ...c })));
+    const maj = (i: number, p: Partial<ReglageChaineCoupe>) => setListe(l => l.map((c, k) => (k === i ? { ...c, ...p } : c)));
+    const nomModele = (id: string) => { const m = modeles.find(x => x.id === id); return m?.ordreCoupe?.refModele || m?.meta_data?.nom_modele || id; };
+    const ajouter = () => setListe(l => {
+        let n = l.length + 1;
+        while (l.some(c => c.id === `COUPE ${n}`)) n++;
+        return [...l, { id: `COUPE ${n}`, nom: `${L('Chaîne', 'سلسلة', 'Line')} ${l.length + 1}` }];
+    });
+    const champ = 'h-9 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-bg text-[13px] outline-none focus:border-indigo-400';
+    return (
+        <SheetModal
+            onClose={onFermer}
+            size="md"
+            zClass="z-[95]"
+            title={L('Régler les chaînes de la coupe', 'ضبط سلاسل القص', 'Set the cutting lines')}
+            subtitle={L('Seulement dans La Coupe : le Planning et le Suivi ne changent pas.', 'داخل القص فقط: التخطيط والمتابعة لا يتغيّران.', 'Cutting only: Planning and Follow-up do not change.')}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 space-y-3"
+        >
+            {liste.map((c, i) => (
+                <div key={c.id} className="rounded-xl border border-slate-200 dark:border-dk-border p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <input value={c.nom} onChange={e => maj(i, { nom: e.target.value })} placeholder={L('Nom', 'الاسم', 'Name')} className={`${champ} flex-1 min-w-0 font-semibold`} />
+                        <button type="button" onClick={() => setListe(l => l.filter((_, k) => k !== i))} title={L('Supprimer cette chaîne', 'حذف السلسلة', 'Delete line')} className="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px] gap-2">
+                        <label className="block min-w-0">
+                            <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">{L('Autres noms (séparés par une virgule)', 'أسماء أخرى (بفاصلة)', 'Other names (comma separated)')}</span>
+                            <input value={(c.alias || []).join(', ')} onChange={e => maj(i, { alias: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} placeholder="STAR1+2, CHAINE 1" className={`${champ} w-full`} />
+                        </label>
+                        <label className="block">
+                            <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">{L('Cadence pcs/j', 'الوتيرة ق/يوم', 'Rate pcs/d')}</span>
+                            <input type="number" min="0" value={c.cadence || ''} onChange={e => maj(i, { cadence: e.target.value === '' ? undefined : Math.max(0, Number(e.target.value)) })} placeholder={L('auto', 'تلقائي', 'auto')} className={`${champ} w-full tabular-nums`} />
+                        </label>
+                    </div>
+                    <div>
+                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{L('Modèles donnés à cette chaîne', 'موديلات معطاة لهذه السلسلة', 'Models given to this line')}</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {(c.modeles || []).map(id => (
+                                <span key={id} className="h-7 pl-2 pr-1 inline-flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-dk-elevated text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft">
+                                    {nomModele(id)}
+                                    <button type="button" onClick={() => maj(i, { modeles: (c.modeles || []).filter(x => x !== id) })} className="h-5 w-5 inline-flex items-center justify-center rounded text-slate-400 hover:text-rose-600"><X className="w-3 h-3" /></button>
+                                </span>
+                            ))}
+                            <select
+                                value=""
+                                onChange={e => { if (e.target.value) maj(i, { modeles: [...(c.modeles || []), e.target.value] }); }}
+                                className="h-7 px-2 rounded-lg border border-dashed border-slate-300 dark:border-dk-border bg-transparent text-[12px] text-slate-500 outline-none"
+                            >
+                                <option value="">+ {L('Ajouter un modèle', 'إضافة موديل', 'Add a model')}</option>
+                                {modeles.filter(m => !(c.modeles || []).includes(m.id)).map(m => <option key={m.id} value={m.id}>{nomModele(m.id)}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            ))}
+            <button type="button" onClick={ajouter} className="w-full h-10 inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 dark:border-dk-border text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Plus className="w-4 h-4" />{L('Ajouter une chaîne', 'إضافة سلسلة', 'Add a line')}</button>
+            <div className="flex items-center justify-between gap-2 pt-1">
+                {onRevenir ? <button type="button" onClick={onRevenir} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-dk-elevated">{L('Revenir aux chaînes du Planning', 'الرجوع لسلاسل التخطيط', 'Back to Planning lines')}</button> : <span />}
+                <div className="flex gap-2">
+                    <button type="button" onClick={onFermer} className="h-10 px-4 rounded-lg border border-slate-200 dark:border-dk-border text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft">{L('Annuler', 'إلغاء', 'Cancel')}</button>
+                    <button type="button" onClick={() => onEnregistrer(liste.filter(c => c.nom.trim()).map(c => ({ ...c, nom: c.nom.trim() })))} className="h-10 px-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[12px] font-bold"><Check className="w-4 h-4" />{L('Enregistrer', 'حفظ', 'Save')}</button>
+                </div>
+            </div>
+        </SheetModal>
     );
 }
 
