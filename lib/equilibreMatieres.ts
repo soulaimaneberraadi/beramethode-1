@@ -209,13 +209,13 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
             couleur: l.couleur, plis, pieces, parPli, total: somme(pieces), etat: etatMatelas(l), ligne: l,
         });
     }
-    // Ordre de coupe : le numero, puis l'ordre du tableau. Ce qui est deja coupe passe d'abord :
-    // en salle, n'importe quel matelas du meme placement fait l'affaire, et les pieces deja
-    // coupees servent les premiers vetements.
+    // Ordre de coupe : le numero, puis l'ordre du tableau, pour toutes les matieres. Jamais
+    // l'etat : confirmer un matelas ne le deplace pas d'un lot a l'autre (le 23 coupe reste au
+    // lot 3, avec sa doublure et son entretoile en face) ; couper hors de l'ordre se lit comme
+    // un retard du lot, pas comme un nouveau plan.
     const rangDe = new Map(lignes.map(x => [x.l.id, x.rang]));
     const parNumero = (a: MatelasEquilibre, b: MatelasEquilibre) => numeroTri(a.numero) - numeroTri(b.numero) || (rangDe.get(a.id) || 0) - (rangDe.get(b.id) || 0);
-    const RANG_ETAT: Record<EtatMatelas, number> = { coupe: 0, envoye: 1, a_faire: 2 };
-    for (const id of ids) parMat[id].sort((a, b) => (id === P ? (a.etat === 'coupe' ? 0 : 1) - (b.etat === 'coupe' ? 0 : 1) : RANG_ETAT[a.etat] - RANG_ETAT[b.etat]) || parNumero(a, b));
+    for (const id of ids) parMat[id].sort(parNumero);
 
     const total: Record<string, Vecteur> = {}, coupe: Record<string, Vecteur> = {};
     const parMatiere: Record<string, BilanMatiere> = {};
@@ -238,8 +238,8 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
 
     /* ---- Ordre de coupe des autres matieres ---- */
     // Pour chaque matelas de tissu, dans son ordre de coupe, chaque autre matiere prend les
-    // matelas qui couvrent le mieux ce qui manque : d'abord ceux deja coupes, puis les traces
-    // imprimes, puis le reste ; parmi eux, celui qui apporte le plus de pieces utiles (38-40 +
+    // matelas qui couvrent le mieux ce qui manque (sans regarder s'ils sont coupes : le plan ne
+    // bouge pas quand on confirme) ; celui qui apporte le plus de pieces utiles (38-40 +
     // 42×2 + 42-44 face a « 38-40-42×3-44 », pas quatre 42-44). Un matelas qui deborderait
     // surtout sur la suite attend qu'elle en ait besoin : quelques pieces qui manquent (100
     // plis de tissu, 99 de vlieseline) passent au matelas de tissu suivant au lieu d'appeler
@@ -249,7 +249,6 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
     const cumul: Vecteur[] = [];
     { const d: Vecteur = {}; for (const x of princ) { ajouter(d, x.pieces); cumul.push({ ...d }); } }
     const avantRangee = (j: number): Vecteur => (j > 0 ? cumul[j - 1] : {});
-    const RANGS: EtatMatelas[] = ['coupe', 'envoye', 'a_faire'];
     const sequence: Record<string, number[]> = {};
     for (const id of autres) {
         const liste = parMat[id];
@@ -264,20 +263,17 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
                 for (const k in cible) if (concerne(id, k) && cible[k] > (C[k] || 0)) D[k] = cible[k] - (C[k] || 0);
                 if (!Object.keys(D).length) break;
                 let choix = -1, meilleur = -Infinity;
-                for (const etat of RANGS) {
-                    liste.forEach((x, i) => {
-                        if (utilise[i] || x.etat !== etat) return;
-                        let utile = 0, deborde = 0;
-                        for (const k in x.pieces) {
-                            utile += Math.min(x.pieces[k], D[k] || 0);
-                            deborde += Math.max(0, x.pieces[k] - Math.max(0, (horizon[k] || 0) - (C[k] || 0)));
-                        }
-                        if (utile <= 0 || (!dernier && utile < deborde)) return;
-                        const note = dernier ? utile * 1e6 - deborde : utile - deborde;
-                        if (note > meilleur) { meilleur = note; choix = i; }
-                    });
-                    if (choix >= 0) break;
-                }
+                liste.forEach((x, i) => {
+                    if (utilise[i]) return;
+                    let utile = 0, deborde = 0;
+                    for (const k in x.pieces) {
+                        utile += Math.min(x.pieces[k], D[k] || 0);
+                        deborde += Math.max(0, x.pieces[k] - Math.max(0, (horizon[k] || 0) - (C[k] || 0)));
+                    }
+                    if (utile <= 0 || (!dernier && utile < deborde)) return;
+                    const note = dernier ? utile * 1e6 - deborde : utile - deborde;
+                    if (note > meilleur) { meilleur = note; choix = i; }
+                });
                 if (choix < 0) break;
                 utilise[choix] = true;
                 seq.push(choix);

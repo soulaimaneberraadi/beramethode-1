@@ -162,20 +162,21 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     assert.equal(eq2.lots[0].prets, 100 + 100 + 99 + 99, '38 et 40 complets, 99 en 42 et en 44');
 }
 
-// --- En salle, n'importe quel matelas du meme placement fait l'affaire : les coupes servent d'abord ---
+// --- Confirmer ne deplace rien : chaque matiere garde son ordre, le reste se lit en retard ---
 {
     const lignes = [
-        ligne('principal', '1', 10, { S: 1 }, { fait: true }), ligne('principal', '2', 10, { S: 1 }),
-        ligne('FO', '1', 10, { S: 1 }), ligne('FO', '2', 10, { S: 1 }, { fait: true }),
+        ligne('principal', '1', 10, { S: 1 }), ligne('principal', '2', 10, { M: 1 }), ligne('principal', '3', 10, { S: 1 }),
+        ligne('FO', '1', 10, { S: 1 }), ligne('FO', '2', 10, { M: 1 }), ligne('FO', '3', 10, { S: 1 }),
     ];
-    const eq = equilibrerOrdre(ordre(lignes), TAILLES);
-    assert.deepEqual(numeros(eq.lots[0].matelas.FO), ['2'], 'le foro 2, deja coupe, couvre le tissu 1');
-    assert.deepEqual(eq.lots[0].retard, []);
-    assert.equal(eq.lots[0].prets, 10);
-    // Tissu 2 coupe a son tour : il attend le foro 1 (son lot).
-    lignes[1].fait = true;
-    const eq2 = equilibrerOrdre(ordre(lignes), TAILLES);
-    assert.deepEqual(eq2.lots[1].attente, { FO: { numeros: ['1'], autres: [] } });
+    const avant = equilibrerOrdre(ordre(lignes), TAILLES);
+    const plan = (eq: typeof avant) => eq.lots.map(l => [numeros(l.matelas.principal), numeros(l.matelas.FO)]);
+    // Le tissu 3 est coupe avant les autres : il reste a sa place, avec le foro 3 en face.
+    lignes[2].fait = true;
+    const apres = equilibrerOrdre(ordre(lignes), TAILLES);
+    assert.deepEqual(plan(apres), plan(avant), 'le plan ne bouge pas quand on confirme');
+    const lot3 = apres.lots.find(l => numeros(l.matelas.principal).includes('3'))!;
+    assert.deepEqual(numeros(lot3.matelas.FO), ['3']);
+    assert.deepEqual(lot3.attente.FO.numeros, ['3'], 'son foro reste a couper');
 }
 
 // --- Ce que la chaine peut coudre, taille par taille ---
