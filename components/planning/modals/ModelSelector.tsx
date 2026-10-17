@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import type { ModelData, PlanningEvent, AppSettings } from '../../../types';
 import { getClientColor } from '../shared/clientColors';
-import { ChevronDown, Package, Zap, CheckCircle2, AlertCircle, AlertTriangle, Clock, Calendar, Search, X, ExternalLink } from 'lucide-react';
+import { ChevronDown, Package, CheckCircle2, AlertCircle, AlertTriangle, Clock, Calendar, Search, X, ExternalLink } from 'lucide-react';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
 import { addWorkingDaysFromLaunchIso, planningLocalDateKey, capaciteJournaliereChaine } from '../../../utils/planning';

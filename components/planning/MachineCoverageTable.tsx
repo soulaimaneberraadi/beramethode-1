@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import type { AppSettings, Machine, Operation } from '../../types';
 import { getChainMachineIds, machineCoverageRows } from '../../utils/machineMatch';

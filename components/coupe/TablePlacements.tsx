@@ -6,7 +6,7 @@
  * maximum pour ce placement. Deposer le PLT remplit seul les tailles, la
  * laize, la longueur et l'efficience ecrites par Optitex dans l'en-tete.
  */
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle, RotateCcw, Files } from 'lucide-react';
 import type { LaizeCoupe, MatelasFichier, PlacementCoupe } from '../../types';
 import type { PaireTaille } from '../../lib/correspondanceTailles';

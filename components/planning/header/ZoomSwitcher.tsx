@@ -1,4 +1,3 @@
-import React from 'react';
 import { ZoomOut, ZoomIn } from 'lucide-react';
 import { tx } from '../../../lib/i18n';
 import type { TxMap } from '../../../lib/i18n';

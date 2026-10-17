@@ -1,6 +1,4 @@
-import { randomUUID } from 'crypto';
 import db from '../server/db';
-import fs from 'fs';
 
 const OWNER_ID = 1; // Assuming default owner
 

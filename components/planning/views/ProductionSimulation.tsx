@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
-    Calendar, 
     Users, 
     Percent, 
     Clock, 
@@ -24,12 +23,10 @@ import DateTimePicker from '../../ui/DateTimePicker';
 import { 
     isPlanningWorkingDay, 
     parsePlanningDateAtNoon, 
-    planningLocalDateKey, 
     getWorkMinutesPerDay, 
     addWorkingDaysFromLaunchIso 
 } from '../../../utils/planning';
 import { getClientColor } from '../shared/clientColors';
-import Button from '../shared/Button';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
 

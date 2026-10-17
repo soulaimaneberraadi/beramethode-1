@@ -5,9 +5,9 @@ import { getWorkMinutesPerDay } from '../utils/planning';
 import { computeChainEfficiency } from '../utils/efficiency';
 import { deriveHourGrid } from './suivi/shared/hours';
 import {
-    Package, Truck, Search, CheckCircle2, Factory, PackageCheck, 
+    Package, Truck, Search, PackageCheck, 
     ChevronDown, ChevronUp, Layers, Calendar, Plus, Clock, 
-    ClipboardList, DollarSign, Check, AlertCircle, Trash2, X
+    ClipboardList, AlertCircle, 
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';

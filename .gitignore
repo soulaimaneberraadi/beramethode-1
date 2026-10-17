@@ -84,3 +84,7 @@ electron/preload.js
 # Certificats HTTPS locaux (regeneres automatiquement)
 .certs/
 sauvegardes/
+
+# Videos et sons generes a la racine (reels, voix) : jamais dans le depot
+/*.mp4
+/*.mp3

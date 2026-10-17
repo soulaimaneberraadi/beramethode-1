@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Package, ArrowRight, Layers, ChevronDown, Search, X, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Button from '../shared/Button';
-import { Select } from '../shared/Input';
 import type { ModelData } from '../../../types';
 import type { PlanningChain } from '../hooks/usePlanningChains';
 import { getClientColor } from '../shared/clientColors';

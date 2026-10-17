@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ArrowRight, AlertCircle, AlertTriangle } from 'lucide-react';
 import type { Issue } from '../hooks/usePlanningValidation';
 import type { ModelData, PlanningEvent } from '../../../types';

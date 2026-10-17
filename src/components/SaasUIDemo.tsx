@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -6,14 +6,12 @@ import {
   TrendingUp,
   Activity,
   Settings,
-  Search,
   Plus,
   Edit3,
   Trash2,
   Download,
   Filter,
   BarChart3,
-  Clock,
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';

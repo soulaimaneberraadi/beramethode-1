@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ArrowLeft, Scissors, Users, Layers, Search, Plus, Trash2, Edit3, Check, X,
-    RefreshCw, Trophy, Clock, Building2, ChevronRight, AlertTriangle, Factory, CalendarDays, Activity,
+    Trophy, Clock, Building2, ChevronRight, AlertTriangle, Factory, CalendarDays, Activity,
 } from 'lucide-react';
 import type { AppSettings, GroupeCoupe, ModelData, OuvrierCoupe, PlanningEvent, PointageCoupe, ReglageChaineCoupe, SuiviData } from '../../types';
 import SheetModal from '../shared/SheetModal';

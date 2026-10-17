@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { tx } from '../lib/i18n';
 import { LanguageContext } from '../src/context/LanguageContext';
+import { signalerPlantage } from '../src/lib/crashRelay';
 
 /**
  * Charge utile transmise au système de réclamations (futur) lorsqu'un
@@ -92,12 +93,11 @@ export class ErrorBoundary extends Component<Props, State> {
     // Le POST ci-dessus n'écrit que dans la base LOCALE de l'entreprise : le
     // propriétaire ne le voit jamais. On relaie donc aussi vers le cloud, via
     // une file qui survit à une coupure réseau et qui caviarde les données
-    // métier. Import tardif pour ne pas tirer le client cloud au démarrage.
-    import('../src/lib/crashRelay')
-      .then(({ signalerPlantage }) => {
-        signalerPlantage(this.buildReport(isConnectionError(error) ? 'connexion' : 'page', error, errorInfo));
-      })
-      .catch(() => {});
+    // métier. Import statique : App.tsx et index.tsx le chargent déjà au
+    // démarrage, un import() dynamique ne séparait rien.
+    try {
+      signalerPlantage(this.buildReport(isConnectionError(error) ? 'connexion' : 'page', error, errorInfo));
+    } catch { /* le relais ne doit jamais faire tomber l'écran d'erreur */ }
   }
 
   /**

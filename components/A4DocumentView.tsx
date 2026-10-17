@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import { Building2, CheckCircle, ChevronRight, PenTool } from 'lucide-react';
+import { Building2, CheckCircle, ChevronRight } from 'lucide-react';
 import { Material, PurchasingData, AppSettings } from '../types';
 import { fmt } from '../app/constants';
 import SensitiveValue from './ui/SensitiveValue';

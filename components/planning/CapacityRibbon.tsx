@@ -1,4 +1,3 @@
-import React from 'react';
 import type { AppSettings, PlanningEvent } from '../../types';
 import { planningLocalDateKey } from '../../utils/planning';
 import { dayLoadRatio, getChainDailyCapacity } from '../../utils/capacity';

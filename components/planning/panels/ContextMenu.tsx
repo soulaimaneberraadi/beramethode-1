@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Edit2, Split, Copy, Trash2, Eye, Pause, Play, Move, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useIsMobile } from '../shared/useIsMobile';

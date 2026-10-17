@@ -2,9 +2,9 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { Operation, ChronoData, Poste, Machine, CustomStation, HRWorker } from '../types';
 import {
     Activity, ClipboardList,
-    Timer, Play, Pause, RotateCcw,
-    Zap, BarChart3, Target, ChevronDown, ChevronUp, Settings, Flag, X, Hash, Columns3, Pin,
-    Plus, History, Trash2, TrendingUp, Pencil, Check, Eye
+    Timer, RotateCcw,
+    Zap, BarChart3, Target, ChevronDown, ChevronUp, Settings, X, Hash, Columns3, Pin,
+    Plus, Trash2, TrendingUp, 
 } from 'lucide-react';
 import SheetModal from './shared/SheetModal';
 import WorkerPicker, { type WorkersStatus } from './shared/WorkerPicker';

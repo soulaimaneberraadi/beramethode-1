@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Activity, Clock, Component, Layers, AlertTriangle, CheckCircle2,
-  Search, Wrench, XCircle, Database, Plus, LayoutDashboard, History, 
-  LogOut, Server, ArrowUpRight, ActivitySquare, AlertCircle, ArrowLeft, Users, Printer, ScanLine
+  Clock, Component, Layers, AlertTriangle, CheckCircle2,
+  Search, Wrench, Database, Plus, LogOut, ArrowUpRight, ActivitySquare, AlertCircle, ArrowLeft, Printer, ScanLine
 } from 'lucide-react';
 import { PlanningEvent, ModelData, AppSettings, Machine, MachineFleetHistoryEntry, MachineInstance } from '../types';
 import MachineExitModal, { type MachineExitPayload } from './MachineExitModal';

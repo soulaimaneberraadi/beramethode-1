@@ -4,7 +4,7 @@
 // تستدعي activate(keyCode) من LicenseContext ثم تعرض حالة النجاح/الخطأ.
 // ════════════════════════════════════════════════════════════════════════════
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { KeyRound, ShieldCheck, ShieldAlert, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { useLicense } from '../src/context/LicenseContext';
 import { pickT } from '../lib/i18n';

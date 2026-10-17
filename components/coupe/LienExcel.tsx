@@ -7,7 +7,7 @@
  * il reste le telechargement. Si le fichier est ouvert dans Excel, Windows le
  * verrouille : on le dit, on ne perd rien, la prochaine sauvegarde le reecrira.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FileSpreadsheet, FolderOpen, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';

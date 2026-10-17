@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { PlanningEvent, ModelData } from '../../types';
 import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { tx } from '../../lib/i18n';

@@ -1,7 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import type { PlanningEvent, ModelData } from '../../../../types';
-import { evClientName, evEndYmd, evModelName, evStartYmd } from '../../shared/eventAccessors';
-import { getClientColor } from '../../shared/clientColors';
+import { evEndYmd, evModelName, evStartYmd } from '../../shared/eventAccessors';
 import { getModelColor } from '../../shared/modelColors';
 import { parsePlanningDateAtNoon, planningLocalDateKey } from '../../../../utils/planning';
 import type { PlanningChain } from '../../hooks/usePlanningChains';

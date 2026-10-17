@@ -1,6 +1,5 @@
-import React from 'react';
-import { PlanningEvent, ModelData, AppSettings } from '../../types';
-import { AlertTriangle, Calendar, Check, Clock, Edit2, Layers, MoreVertical } from 'lucide-react';
+import { PlanningEvent, ModelData } from '../../types';
+import { AlertTriangle, Calendar, Clock, Layers } from 'lucide-react';
 import { useLang } from '../../src/context/LanguageContext';
 import { tx } from '../../lib/i18n';
 

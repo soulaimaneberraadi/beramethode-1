@@ -5,8 +5,8 @@ import { useIsDark } from '../../../../src/context/ThemeContext';
 import type { AppSettings, Machine, ModelData, PlanningEvent } from '../../../../types';
 import type { PlanningChain } from '../../hooks/usePlanningChains';
 import EventBar from './EventBar';
-import { evEndYmd, evStartYmd, evQty, evModelName, evProgressPct } from '../../shared/eventAccessors';
-import { parsePlanningDateAtNoon, planningLocalDateKey, calculateEndDate, calculateRollingEndDate, isPlanningWorkingDay } from '../../../../utils/planning';
+import { evEndYmd, evStartYmd, evModelName, evProgressPct } from '../../shared/eventAccessors';
+import { parsePlanningDateAtNoon, planningLocalDateKey, isPlanningWorkingDay } from '../../../../utils/planning';
 import { getModelColor } from '../../shared/modelColors';
 
 interface Props {

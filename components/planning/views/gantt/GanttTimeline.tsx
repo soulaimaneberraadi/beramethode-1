@@ -1,4 +1,3 @@
-import React from 'react';
 import { planningLocalDateKey, isPlanningWorkingDay } from '../../../../utils/planning';
 import type { AppSettings } from '../../../../types';
 import { tx } from '../../../../lib/i18n';

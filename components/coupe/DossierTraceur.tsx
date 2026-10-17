@@ -4,7 +4,7 @@
  * le trace numerote directement : sans serveur a redemarrer, et aussi depuis
  * la version en ligne. Sans dossier relie, on passe par le serveur local.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Printer, FolderOpen, RefreshCw } from 'lucide-react';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';

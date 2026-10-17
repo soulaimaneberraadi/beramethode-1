@@ -1,7 +1,7 @@
 import { estEnveloppeSuivis } from '../../lib/suiviSync';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient';
 import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
-import { pkey, lsGet, lsSet, isSyncKey, getCurrentEmail } from '../../lib/storageKeys';
+import { lsGet, lsSet, isSyncKey } from '../../lib/storageKeys';
 import {
   aPhotoEnClair,
   ecrireModelesAuMieux,

@@ -1,7 +1,7 @@
 import React from 'react';
 import type { PlanningEvent, ModelData, AppSettings } from '../../../../types';
 import { evClientName, evModelName, evProgressPct, evQty, evModelThumb } from '../../shared/eventAccessors';
-import { getClientColor, getClientColorSoft } from '../../shared/clientColors';
+import { getClientColor } from '../../shared/clientColors';
 import { getModelColor } from '../../shared/modelColors';
 import { toWorkStatus } from '../../shared/statusConfig';
 import { delayOf } from '../../hooks/useDelayIndicator';

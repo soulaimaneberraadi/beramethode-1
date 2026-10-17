@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown, Loader2 } from 'lucide-react';
+import { Settings, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown, Loader2 } from 'lucide-react';
 import { AppSettings, AppTask, Machine, DEFAULT_COMMERCIAL_SETTINGS } from '../types';
 import { useTheme } from '../src/context/ThemeContext';
-import { isMachineOperational } from '../utils/machineMatch';
 import AgendaModal from './AgendaModal';
 import { tx, pickT } from '../lib/i18n';
 import { TRANSLATIONS } from './configTranslations';

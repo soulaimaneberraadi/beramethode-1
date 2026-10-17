@@ -12,7 +12,7 @@
  * Disabled unless SUPABASE_OWNER_EMAIL + SUPABASE_OWNER_PASSWORD are set.
  */
 
-import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
+import { type RealtimeChannel } from '@supabase/supabase-js';
 import db from './db';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://utrojjhscyatppgcszrt.supabase.co';

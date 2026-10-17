@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { shouldUseHelmet, SECRET_KEY, isCookieSecure } from './server/jwtConfig';
+import { shouldUseHelmet, SECRET_KEY } from './server/jwtConfig';
 import express from 'express';
 import http from 'http';
 import https from 'https';
@@ -36,23 +36,12 @@ import {
   registerMouvement,
   updateMagasinMouvement,
   deleteMagasinMouvement,
-  getMagasinCommandes,
-  saveMagasinCommande,
   deleteMagasinCommande,
-  getMagasinDemandes,
-  saveMagasinDemande,
   deleteMagasinDemande,
-  getMagasinDechets,
-  saveMagasinDechet,
   deleteMagasinDechet,
   getMaterialReceipts,
   saveMaterialReceipt,
   deleteMaterialReceipt,
-  getInventoryMovements,
-  saveInventoryMovement,
-  saveMaterialInvoice,
-  getMaterialInvoices,
-  serveMaterialInvoice,
 } from './server/magasinController';
 import {
   getFinishedGoods,

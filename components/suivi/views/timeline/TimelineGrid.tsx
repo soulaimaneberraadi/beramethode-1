@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import type { AppSettings, ModelData, PlanningEvent, SuiviData } from '../../../../types';
 import { deriveHourGrid } from '../../shared/hours';
-import { useSuiviActiveContext, type ChainActiveContext } from '../../hooks/useSuiviActiveContext';
+import { useSuiviActiveContext } from '../../hooks/useSuiviActiveContext';
 import { useSuiviGrid } from '../../hooks/useSuiviGrid';
 import { TimelineHeader } from './TimelineHeader';
 import { TimelineRow } from './TimelineRow';

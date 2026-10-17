@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Modal from '../shared/Modal';
 import Button from '../shared/Button';
-import type { PlanningEvent, ModelData, Lot as TypeLot } from '../../../types';
+import type { PlanningEvent, ModelData } from '../../../types';
 import { evClientName, evModelName, evQty, evModelThumb } from '../shared/eventAccessors';
 import { getClientColor } from '../shared/clientColors';
 import { Package, Plus, Minus, Scissors, Grid3X3, ChevronDown, ChevronUp } from 'lucide-react';

@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Factory, Users, Package, TrendingUp, AlertTriangle,
-  CheckCircle2, Clock, Calendar, BarChart3, Activity,
+  Factory, Users, TrendingUp, Clock, Calendar, BarChart3, Activity,
   ChevronRight, ArrowUpRight, Layers, Target
 } from 'lucide-react';
 import { ModelData, PlanningEvent, AppSettings, MachineInstance, Machine } from '../types';

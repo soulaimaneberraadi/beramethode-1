@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import { Building2, Package, Scissors, Tag, ArrowDown, FileText } from 'lucide-react';
+import { Building2, Package, Scissors, Tag,  } from 'lucide-react';
 import { Material, PurchasingData, AppSettings } from '../types';
 import { fmt } from '../app/constants';
 import SensitiveValue from './ui/SensitiveValue';

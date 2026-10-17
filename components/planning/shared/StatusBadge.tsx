@@ -1,4 +1,3 @@
-import React from 'react';
 import { STATUS_META, type WorkStatus, toWorkStatus } from './statusConfig';
 import type { PlanningStatus } from '../../../types';
 import { useLang } from '../../../src/context/LanguageContext';

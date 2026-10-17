@@ -26,7 +26,7 @@ import SeuilForm, { StockSeuil, isModelLowStock, SeuilBell } from './soustraitan
 import MatieresSousTraitant from './soustraitance/MatieresSousTraitant';
 import CompteSousTraitant from './soustraitance/CompteSousTraitant';
 import PerformanceSousTraitants from './soustraitance/PerformanceSousTraitants';
-import { ean13FromDigits, renderEAN13, parseScanCode } from '../lib/barcode';
+import { ean13FromDigits, renderEAN13 } from '../lib/barcode';
 import { variantAxes, variantCode, resolveVariantByEAN as resolveVariantEAN } from '../lib/scanner';
 import ReferentielProduits from './ReferentielProduits';
 import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
@@ -37,10 +37,9 @@ import { lsGetMig, lsSet } from '../lib/storageKeys';
 import { useRouteSegment, useRouteParam } from '../lib/router';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
-  AlertCircle, Calendar, DollarSign, Package, 
-  ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
-  Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
-  Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
+  AlertCircle, Calendar, Package, 
+  ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Coins, Save,
+  Users, Building2, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
   Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload, TrendingUp, BellRing, ClipboardList, ArrowLeftRight
 } from 'lucide-react';

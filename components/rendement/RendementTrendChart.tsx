@@ -1,5 +1,4 @@
-import React from 'react';
-import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts';
 import { ResponsiveChart } from '../ui/ResponsiveChart';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsDark } from '../../src/context/ThemeContext';

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Package, Truck, Sparkles, ClipboardList, CheckCircle2, AlertCircle, AlertTriangle, Ban, RefreshCw, Trash2 } from 'lucide-react';
+import { Package, Truck, Sparkles, ClipboardList, CheckCircle2, AlertCircle, AlertTriangle, Ban, RefreshCw } from 'lucide-react';
 import type { AppSettings, ModelData, PlanningEvent, PlanningPurchaseDraft } from '../../types';
 import { aggregateMaterialNeeds, allocateFIFO, maxPiecesFromStock } from '../../utils/materialNeeds';
 import { computeMaterialArrivalPlan, materialReadyDate, type CatalogProductForEta } from '../../utils/supplierLeadtime';

@@ -1,5 +1,4 @@
-import React from 'react';
-import { Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Activity, AlertTriangle } from 'lucide-react';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
 

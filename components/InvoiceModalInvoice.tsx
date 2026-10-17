@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, Save, Receipt } from 'lucide-react';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 

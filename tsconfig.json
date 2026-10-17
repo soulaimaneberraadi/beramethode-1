@@ -27,5 +27,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["node_modules", "dist", "dist-server", "temp_skills", ".agent", ".claude", "%TEMP%", "supabase/functions", "electron", "tsup.config.ts"]
+  "exclude": ["node_modules", "dist", "dist-server", "scratch", "temp_skills", ".agent", ".claude", "%TEMP%", "supabase/functions", "electron", "tsup.config.ts"]
 }

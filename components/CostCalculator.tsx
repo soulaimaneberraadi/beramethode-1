@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Banknote, Receipt, LayoutTemplate, FileDown, Clock, FileText, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Receipt, FileDown, Clock, FileText, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
 import { translations, fmt } from '../app/constants';
 import { findMagasinItem } from '../lib/magasinMatch';
@@ -17,7 +17,6 @@ import MaterialAssignment from './MaterialAssignment';
 import SettingsPanel from './SettingsPanel';
 import PdfSettingsModal from './PdfSettingsModal';
 import TicketView from './TicketView';
-import A4DocumentView from './A4DocumentView';
 import A4ResponsiveFrame from './A4ResponsiveFrame';
 import CompactCostSheet from './CompactCostSheet';
 import ThreadCalculator from './ThreadCalculator';

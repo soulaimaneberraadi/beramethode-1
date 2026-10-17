@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect,  } from 'react';
 import {
     ImageIcon,
     Upload,
@@ -8,7 +8,6 @@ import {
     Activity,
     TrendingUp,
     Layers,
-    X,
     Maximize2,
     Loader2,
     ChevronDown,
@@ -20,16 +19,14 @@ import {
     Tag,
     User,
     Hash,
-    LayoutGrid,
-    Calendar
+    LayoutGrid
 } from 'lucide-react';
 import { FicheData, AppSettings, PlanningEvent, PlanningStatus } from '../types';
 import { TEXTILE_FABRICS } from '../data/textileData';
 import ExcelInput from './ExcelInput';
 import SheetModal from './shared/SheetModal';
 import RepartitionMatrix from './RepartitionMatrix';
-import { compressImage, uploadImageToStorage } from '../utils';
-import DateTimePicker from './ui/DateTimePicker';
+import { uploadImageToStorage } from '../utils';
 import { pickT, Lang, tx } from '../lib/i18n';
 
 const FICHE_LABELS = {

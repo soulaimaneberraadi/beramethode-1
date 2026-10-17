@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'framer-motion';
-import { Building2, User, Users, StopCircle, ChevronRight, ChevronLeft, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, ImagePlus, ScrollText, Sun, Moon, Monitor, SlidersHorizontal } from 'lucide-react';
+import { Building2, Users, StopCircle, ChevronRight, ChevronLeft, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, ImagePlus, ScrollText, Sun, Moon, Monitor, SlidersHorizontal } from 'lucide-react';
 import { AccountType } from '../app/accountTypes';
 import { useTheme, useIsDark } from '../src/context/ThemeContext';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
-import { lsGet, lsSet, pkey, lsGetMig } from '../lib/storageKeys';
+import { lsSet, pkey, lsGetMig } from '../lib/storageKeys';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useAuth } from '../src/context/AuthContext';

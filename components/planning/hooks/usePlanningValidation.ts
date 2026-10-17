@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { tx } from '../../../lib/i18n';
 import type { AppSettings, Machine, ModelData, PlanningEvent, MaterialReceipt } from '../../../types';
-import { getChainDailyCapacity, maxDayLoadRatioInSpan, getEffectiveCapacity } from '../../../utils/capacity';
+import { maxDayLoadRatioInSpan, getEffectiveCapacity } from '../../../utils/capacity';
 import { getChainMachineIds, validateMachineCoverage } from '../../../utils/machineMatch';
 import { evEndYmd, evQty, evStartYmd } from '../shared/eventAccessors';
 import { delayOf } from './useDelayIndicator';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, Variants } from 'framer-motion';
 import { ArrowRight, LayoutDashboard, CalendarClock, LineChart, Sparkles } from 'lucide-react';
 import { useLang } from '../src/context/LanguageContext';

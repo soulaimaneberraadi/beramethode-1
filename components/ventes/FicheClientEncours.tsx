@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X, Printer, FileText } from 'lucide-react';
+import { AlertTriangle, MapPin, RefreshCw, Trash2, Check, X, Printer, FileText } from 'lucide-react';
 import { grouperArticles, LigneModele } from './articles';
 import ApercuRecu from './ApercuRecu';
 import ContactClient from './ContactClient';

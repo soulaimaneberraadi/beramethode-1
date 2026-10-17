@@ -3,7 +3,6 @@
  * (ecriture, gras, penche). Le meme formulaire sert dans l'apercu d'un trace
  * et dans les reglages par defaut de l'entreprise.
  */
-import React from 'react';
 import type { ReglagesNumero } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';

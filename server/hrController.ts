@@ -5,7 +5,7 @@ import db from './db';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from './jwtConfig';
 import { ensurePersonLinkAfterWorkerUpsert } from './hrIdentityController';
-import { calculerHeures, type HeuresResult } from '../lib/calculerHeuresPointage';
+import { calculerHeures } from '../lib/calculerHeuresPointage';
 import { getSageTimesForHeuresCalc } from '../lib/sageTimeRules';
 import { getSageRulesForUser } from './sageConfig';
 import { monthYMBounds, sagePayRowForOwnerAndPointage, type SageMoisPointageRow } from './sageMonthPay';

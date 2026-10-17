@@ -4,7 +4,7 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { deriveHourGrid } from './shared/hours';
 import {
-    calculerPrimes, CONFIG_PRIME_SUGGEREE, type BulletinPrime, type ConfigPrime,
+    calculerPrimes, CONFIG_PRIME_SUGGEREE, type ConfigPrime,
     configPrimeEffective,
 } from '../../lib/primeEngine';
 import { Award, Settings2, Loader2, Trophy, Save, Check } from 'lucide-react';

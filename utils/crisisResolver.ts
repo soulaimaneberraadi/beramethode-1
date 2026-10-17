@@ -1,6 +1,5 @@
-import type { AppSettings, PlanningEvent, ModelData } from '../types';
-import { addWorkingDays, parsePlanningDateAtNoon, planningLocalDateKey } from './planning';
-import type { CRStatus } from './criticalRatio';
+import type { AppSettings,  } from '../types';
+import { parsePlanningDateAtNoon, planningLocalDateKey } from './planning';
 
 // ═══════════════════════════════════════════════════════════════════
 // 🛠️ بروتوكول الطوارئ (Crisis Resolver)

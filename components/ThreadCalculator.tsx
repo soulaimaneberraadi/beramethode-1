@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Scissors, Check, X, Calculator, Package, ChevronDown, ChevronUp, Maximize2, ArrowLeft, Printer, Plus, Copy, Pencil, Trash2 } from 'lucide-react';
+import { Scissors, Check, X, Calculator, Package, ChevronDown, ArrowLeft, Printer, Plus, Copy, Pencil, Trash2 } from 'lucide-react';
 import { Operation, Material } from '../types';
 import { STITCH_TYPES, MACHINE_THREAD_CONFIG, BOBBIN_SIZES, GARMENT_INDICES, findGarmentIndice, type StitchType, type GarmentIndice } from '../data/threadConsumption';
 import { suggestClasseFromFamilyInput } from '../lib/machineCategoryClasseLink';

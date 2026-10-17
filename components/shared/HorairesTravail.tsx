@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, MoreVertical, Clock, X, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, MoreVertical, Clock, AlertTriangle } from 'lucide-react';
 import type { AppSettings, Pause } from '../../types';
 import { creneauxDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';

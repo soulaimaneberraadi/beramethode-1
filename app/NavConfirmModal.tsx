@@ -1,4 +1,3 @@
-import React from 'react';
 import { Save, AlertTriangle } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';

@@ -1,12 +1,12 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import type { ModelData, PlanningEvent } from '../../../types';
-import { evClientName, evEndYmd, evModelName, evModelThumb, evProgressPct, evQty, evStartYmd } from '../shared/eventAccessors';
+import { evClientName, evModelName, evModelThumb, evProgressPct, evQty, evStartYmd } from '../shared/eventAccessors';
 import { getClientColor } from '../shared/clientColors';
 import { getModelColor } from '../shared/modelColors';
 import { STATUS_META, toWorkStatus, type WorkStatus } from '../shared/statusConfig';
 import { delayOf } from '../hooks/useDelayIndicator';
 import { DELAY_META } from '../shared/statusConfig';
-import { Package, Calendar, Clock, Layers } from 'lucide-react';
+import { Calendar, Clock, Layers } from 'lucide-react';
 import { fmtShort, daysBetween, todayYmd } from '../shared/dateFmt';
 import { evDeadlineYmd } from '../shared/eventAccessors';
 import { tx } from '../../../lib/i18n';

@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from 'react';
-import type { AppSettings, Lot, Machine, ModelData, PlanningEvent } from '../../../types';
+import { useCallback } from 'react';
+import type { AppSettings, Lot, ModelData, PlanningEvent } from '../../../types';
 import { calculateEndDate, rollPlanningEvents } from '../../../utils/planning';
 import { evaluateStockForPlanning, formatStockBlockedReason } from '../../../utils/materialNeeds';
 import type { MagasinStock } from './usePlanningStock';

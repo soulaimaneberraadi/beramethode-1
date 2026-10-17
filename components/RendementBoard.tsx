@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import type { ModelData, PlanningEvent, SuiviData, AppSettings } from '../types';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
-import { computeRendement, type RendementInputs, type RendementNode } from '../lib/rendementEngine';
+import { computeRendement, type RendementInputs } from '../lib/rendementEngine';
 import { useDonneesRH } from '../lib/useDonneesRH';
 import CompanyKpiRow from './rendement/CompanyKpiRow';
 import DrilldownTable from './rendement/DrilldownTable';

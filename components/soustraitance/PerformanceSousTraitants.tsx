@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Star, Users } from 'lucide-react';
 import { tx } from '../../lib/i18n';
 import { fmt } from '../../app/constants';

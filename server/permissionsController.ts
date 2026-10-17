@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import db from './db';
 import { logAudit, listAudit } from './auditLogger';
 import {
-  buildContext, can, PermissionContext, RolePermRow, OverrideRow, ResourceType, PermAction,
+  buildContext, can, PermissionContext, RolePermRow, OverrideRow, ResourceType,
 } from './permissions/resolver';
 import { ROLE_PRESETS, presetToPermissions, PROTECTED_PAGES, PROTECTED_FIELDS, RolePresetKey } from './permissions/presets';
 

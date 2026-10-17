@@ -5,7 +5,6 @@
  *
  * Elle change d'un client a l'autre : si l'un ecrit S = 38, on corrige la ligne.
  */
-import React from 'react';
 import { ArrowLeftRight, Plus, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';

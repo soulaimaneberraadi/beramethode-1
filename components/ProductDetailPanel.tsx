@@ -2,8 +2,8 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     X, Package, TrendingUp, TrendingDown, History, Building2, MapPin,
     Phone, Mail, Edit2, Save, ChevronRight, Layers, Factory, Calendar,
-    AlertTriangle, CheckCircle, Clock, ArrowUpCircle, ArrowDownCircle,
-    Droplets, DollarSign, BarChart3, Activity, ExternalLink, Truck,
+    AlertTriangle, Clock, ArrowUpCircle, ArrowDownCircle,
+    Droplets, DollarSign, BarChart3, Activity, Truck,
     FileText, Hash, Globe, CreditCard, Timer, ShoppingCart, StickyNote
 } from 'lucide-react';
 import { MouvementStock } from '../types';

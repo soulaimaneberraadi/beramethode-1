@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Info, Clock, CheckCircle2, XCircle, Zap, PartyPopper, Globe } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Info, Clock, CheckCircle2, XCircle, Zap,  } from 'lucide-react';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { AppSettings } from '../types';
 import { pickT, tx } from '../lib/i18n';

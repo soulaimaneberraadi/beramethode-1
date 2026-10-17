@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, AlertCircle, Wallet, ReceiptText, CircleDollarSign, PackageSearch } from 'lucide-react';
 import { tx } from '../../lib/i18n';
 import { fmt } from '../../app/constants';

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ModelData, PlanningEvent, MouvementStock, DemandeAppro, SuiviData, AppSettings } from '../types';
-import { Factory, Calendar, Package, CheckSquare, Plus, AlertCircle, Clock, ChevronRight, Search, FileText, Send, ArrowLeft, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ModelData, PlanningEvent, DemandeAppro, SuiviData, AppSettings } from '../types';
+import { Factory, Calendar, Package, CheckSquare, Plus, AlertCircle, Clock, FileText, Send, Trash2, CheckCircle2 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import InlineInvoiceList from './InlineInvoiceList';

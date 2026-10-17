@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-    Receipt, Search, FileText, ArrowRight, Tag, FileCheck2, DollarSign,
-    TrendingUp, Clock, AlertCircle, Eye, Filter, RefreshCw, ChevronRight,
-    ExternalLink, CreditCard
+    Receipt, Search, FileText, DollarSign,
+    TrendingUp, Clock, AlertCircle, RefreshCw, ChevronRight,
+    CreditCard
 } from 'lucide-react';
 import { Facture } from '../types';
 import VentesDashboard from './VentesDashboard';

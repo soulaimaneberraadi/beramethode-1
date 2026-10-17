@@ -25,7 +25,7 @@ import PlanningAnimations from './planning/shared/PlanningAnimations';
 import FocusBanner from './planning/shared/FocusBanner';
 import { evClientName as evClientNameUtil, evModelName as evModelNameUtil, evQty, evStartYmd } from './planning/shared/eventAccessors';
 import { useIsMobile } from './planning/shared/useIsMobile';
-import { Plus, Sparkles, Calendar as CalIcon, LayoutGrid, Rows, Printer as PrinterIcon, Filter as FilterIcon, Eye, X as XIcon, Flame, Minimize2, Maximize2, Zap, Check, AlertCircle, Layers } from 'lucide-react';
+import { Plus, Sparkles, Calendar as CalIcon, LayoutGrid, Rows, Printer as PrinterIcon, Filter as FilterIcon, Eye, X as XIcon, Flame, Minimize2, Maximize2, Check, AlertCircle, Layers } from 'lucide-react';
 
 import GanttView from './planning/views/gantt/GanttView';
 import CalendarView from './planning/views/CalendarView';

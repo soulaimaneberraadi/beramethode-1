@@ -1,4 +1,3 @@
-import React from 'react';
 import { Loader2, RefreshCw, AlertTriangle, UserCheck, Search } from 'lucide-react';
 import type { HRWorker } from '../../types';
 import { tx } from '../../lib/i18n';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Percent, Banknote, Clock, Package, TrendingUp, Info, AlertTriangle, Truck, Plus, PlusCircle, Search, X, ChevronDown, ChevronRight, Palette, CheckCircle } from 'lucide-react';
+import { ShoppingCart, Percent, Banknote, Clock, Package, TrendingUp, AlertTriangle, Truck, Plus, PlusCircle, Search, X, ChevronDown, ChevronRight, Palette, CheckCircle } from 'lucide-react';
 import { PurchasingData, Material, FicheData } from '../types';
 import { fmt } from '../app/constants';
 import MaterialDetailModal from './MaterialDetailModal';

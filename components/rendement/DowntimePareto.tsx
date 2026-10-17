@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { ResponsiveChart } from '../ui/ResponsiveChart';
 import { useLang } from '../../src/context/LanguageContext';

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SAM_PAR_DEFAUT_MIN } from '../utils/planning';
 import { saveSuivis } from '../lib/suiviSync';
-import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock, PlanningStatus } from '../types';
+import type { AppSettings, ModelData, PlanningEvent, SuiviData, MouvementStock, PlanningStatus } from '../types';
 import { deriveHourGrid, type HourBlock } from './suivi/shared/hours';
 import { horairesDuJour, dayNumberFromDate } from '../lib/horaires';
 
@@ -10,9 +10,7 @@ type GridBlock = HourBlock & { orphan?: boolean };
 import { getOFColor, hexToTints, OF_COLOR_CHOICES, type OFStyle } from './suivi/shared/ofColors';
 import { useIsMobile } from './planning/shared/useIsMobile';
 import { 
-    Activity, Clock, ChevronLeft, ChevronRight, Plus, 
-    User, Settings, ToggleLeft, ToggleRight, Info, AlertCircle, CheckCircle, Save,
-    ShieldAlert, Sparkles, Sliders, Layers, BarChart2, CheckSquare, Trash2,
+    Activity, ChevronLeft, ChevronRight, User, Info, AlertCircle, CheckCircle, ShieldAlert, Sliders, Layers, BarChart2, Trash2,
     Package, TrendingDown, AlertTriangle, X, Image as ImageIcon, CalendarDays, CalendarRange, MoreVertical
 } from 'lucide-react';
 import DateTimePicker from './ui/DateTimePicker';

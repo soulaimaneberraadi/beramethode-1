@@ -19,7 +19,6 @@ import {
     Database,
     Menu,
     X,
-    Target,
     Truck,
     ChevronDown,
     ChevronLeft,

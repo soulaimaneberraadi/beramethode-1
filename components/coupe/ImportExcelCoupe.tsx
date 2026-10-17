@@ -6,7 +6,7 @@
  * On lit, on montre ce qui a ete compris, et rien ne s'applique avant
  * « Importer ». Les lignes douteuses sont signalees, jamais devinees.
  */
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { FileSpreadsheet, Upload, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import SheetModal from '../shared/SheetModal';
 import { tx } from '../../lib/i18n';

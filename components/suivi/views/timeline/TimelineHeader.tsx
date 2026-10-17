@@ -1,4 +1,3 @@
-import React from 'react';
 import { useLang } from '../../../../src/context/LanguageContext';
 import { tx } from '../../../../lib/i18n';
 

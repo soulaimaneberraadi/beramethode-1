@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'react';
-import { preloadAllChunks } from './lib/preloader';
 import { lazyWithRetry } from './lib/lazyWithRetry';
-import { lsGet, lsSet, lsGetMig, getCurrentEmail } from './lib/storageKeys';
+import { lsSet, lsGetMig, getCurrentEmail } from './lib/storageKeys';
 import { ecrireModelesAuMieux } from './lib/stockageLocal';
 import { deshydraterModeles, nettoyerPhotosOrphelines, rehydraterModeles } from './lib/photosLocales';
 import './src/context/ThemeContext';
@@ -15,24 +14,10 @@ import { runBootSequence } from './lib/bootSequence';
 import { saveSuivis } from './lib/suiviSync';
 import {
     LogOut,
-    Save,
     AlertTriangle,
-    Factory,
-    FolderOpen,
-    Scissors,
-    Users,
-    Activity,
-    Package,
-    PackageCheck,
-    Settings as SettingsIcon,
-    Layers,
-    Target,
-    Shield,
     CheckCircle2,
     X,
-    Truck,
-    Share2,
-    Clock
+    
 } from 'lucide-react';
 import { useAuth } from './src/context/AuthContext';
 import { useLicense } from './src/context/LicenseContext';
@@ -49,7 +34,7 @@ import { fusionnerParId, relireSansPerdre, fusionnerModelesServeur } from './lib
 import { rollPlanningEvents, calculateEndDate } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
-import { navigate, getCurrentRoute, parseHash, onRouteChange, replaceRoute, useRouteParam, createRouteUrl } from './lib/router';
+import { navigate, getCurrentRoute, replaceRoute, useRouteParam, createRouteUrl } from './lib/router';
 import { memoriserIdentite } from './src/lib/crashRelay';
 import { IS_COUPE, NOM_PRODUIT, deviceLabel } from './lib/edition';
 
@@ -81,9 +66,9 @@ const VueGenerale = lazyWithRetry('VueGenerale', () => import('./components/VueG
 
 // ── Extracted modules ──
 import { tx } from './lib/i18n';
-import { TRANSLATIONS, Lang, DEFAULT_MACHINES, DEFAULT_GUIDES, AUTO_SAVE_KEY, LIBRARY_KEY, MANUAL_LINKS_BY_MODEL_KEY, MACHINES_STORAGE_KEY, MACHINE_INSTANCES_KEY, MACHINE_FLEET_HISTORY_KEY, MAX_MACHINE_FLEET_HISTORY, defaultNavOrder } from './app/constants';
+import { TRANSLATIONS, Lang, DEFAULT_MACHINES, DEFAULT_GUIDES, AUTO_SAVE_KEY, LIBRARY_KEY, MACHINES_STORAGE_KEY, MACHINE_INSTANCES_KEY, MACHINE_FLEET_HISTORY_KEY, MAX_MACHINE_FLEET_HISTORY } from './app/constants';
 import { useLang } from './src/context/LanguageContext';
-import { isLegacyBundledMachineFleet, looksLikeGeneratedDemoFleet, isDemoMachineName, mergeServerFleetWithPendingLocal, loadMachinesFromStorage, loadMachineFleetHistoryFromStorage, normalizeLoadedLayout, loadManualLinksByModel, saveManualLinksByModel, deleteManualLinksByModel } from './app/machineUtils';
+import { isLegacyBundledMachineFleet, looksLikeGeneratedDemoFleet, isDemoMachineName, mergeServerFleetWithPendingLocal, loadMachinesFromStorage, loadMachineFleetHistoryFromStorage,  } from './app/machineUtils';
 import AppHeader, { VIEW_DEFS } from './app/AppHeader';
 import NavConfirmModal from './app/NavConfirmModal';
 import EnvoiPlanningModal from './app/EnvoiPlanningModal';

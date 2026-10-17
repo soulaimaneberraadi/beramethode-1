@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { AppSettings, Machine, ModelData, PlanningEvent } from '../../../types';
-import { getChainDailyCapacity, maxDayLoadRatioInSpan } from '../../../utils/capacity';
+import { maxDayLoadRatioInSpan } from '../../../utils/capacity';
 import { getChainMachineIds, validateMachineCoverage } from '../../../utils/machineMatch';
 import { isPlanningWorkingDay, planningLocalDateKey, calculateEndDate } from '../../../utils/planning';
 import type { PlanningChain } from './usePlanningChains';

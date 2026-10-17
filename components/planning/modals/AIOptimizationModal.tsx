@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Brain, Loader2, CheckCircle2, AlertTriangle, ArrowRightCircle, Sparkles } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Button from '../shared/Button';

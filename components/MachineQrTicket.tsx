@@ -1,6 +1,6 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import { useMemo, useRef,  } from 'react';
 import QRCode from 'react-qr-code';
-import { Printer, CheckCircle, AlertTriangle, Wrench } from 'lucide-react';
+import { Printer,  } from 'lucide-react';
 import type { CompanyProfile, Machine } from '../types';
 import { buildMachineQrPayload } from '../lib/machineQrPayload';
 import { tx } from '../lib/i18n';

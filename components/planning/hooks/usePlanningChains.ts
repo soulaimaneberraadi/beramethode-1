@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { AppSettings, Machine, ModelData, PlanningEvent, SuiviData } from '../../../types';
+import type { AppSettings, ModelData, PlanningEvent, SuiviData } from '../../../types';
 import { computeChainEfficiency } from '../../../utils/efficiency';
 import { getChainDailyCapacity } from '../../../utils/capacity';
 

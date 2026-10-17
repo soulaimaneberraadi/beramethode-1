@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Package, Plus, Trash2, Info, Building2, Search, Palette, Ruler, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, Plus, Trash2, Search, Palette, Ruler, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Material, FicheData } from '../types';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';

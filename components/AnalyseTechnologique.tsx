@@ -1,18 +1,11 @@
 
 import React, { useState } from 'react';
 import { 
-  FileSpreadsheet,
-  Save,
   Printer,
-  Calendar,
   Activity,
   ArrowDownToLine,
-  Users,
-  Clock,
-  Briefcase,
   Zap,
-  Timer,
-  Percent
+  Timer
 } from 'lucide-react';
 import { Machine, Operation, ComplexityFactor, StandardTime, Poste } from '../types';
 import { tx } from '../lib/i18n';

@@ -31,7 +31,7 @@ import CostCalculator from './CostCalculator';
 import Pedido from './Pedido';
 import InlineInvoiceList from './InlineInvoiceList';
 
-import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent, CustomStation } from '../types';
+import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, ChronoData, AppSettings, ManualLink, PlanningEvent, CustomStation } from '../types';
 import { tx, pickT } from '../lib/i18n';
 import type { Lang } from '../app/constants';
 import { useRouteSegment } from '../lib/router';

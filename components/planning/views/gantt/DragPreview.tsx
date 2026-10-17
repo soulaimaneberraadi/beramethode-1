@@ -1,4 +1,3 @@
-import React from 'react';
 import { Calendar, AlertTriangle } from 'lucide-react';
 import { fmtShort } from '../../shared/dateFmt';
 import { tx } from '../../../../lib/i18n';

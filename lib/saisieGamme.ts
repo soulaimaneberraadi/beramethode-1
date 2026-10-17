@@ -73,7 +73,7 @@ export function construireCorpus(descriptions: string[], base: string[] = []): C
     const apprendre = (brut: string, poids: number, commePhrase: boolean) => {
         const texte = nettoyer(brut);
         if (texte.length < 2) return;
-        const mots = texte.match(MOTS_RE) || [];
+        const mots: string[] = texte.match(MOTS_RE) || [];
         if (mots.length === 0) return;
         if (commePhrase && mots.length >= 2) ajouter(corpus.phrases, sansAccents(texte), texte, poids);
         mots.forEach((mot, i) => {

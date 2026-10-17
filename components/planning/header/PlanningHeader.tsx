@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Sparkles, Printer, Search, ChevronLeft, ChevronRight, SlidersHorizontal, Brain, MoreHorizontal, X, Undo2, Redo2 } from 'lucide-react';
+import { Plus, Sparkles, Printer, Search, ChevronLeft, ChevronRight, SlidersHorizontal, MoreHorizontal, X, Undo2, Redo2 } from 'lucide-react';
 import { fmtMonthYear } from '../shared/dateFmt';
 import { useIsMobile } from '../shared/useIsMobile';
 import type { ViewKind } from './ViewSwitcher';

@@ -31,6 +31,7 @@
  */
 
 import type { ErrorReport } from '../../components/ErrorBoundary';
+import { creerTicketAutomatique } from './support';
 
 const FILE_KEY = 'bera_crash_queue';
 const IDENTITE_KEY = 'bera_crash_identite';
@@ -288,10 +289,6 @@ export const viderFile = async (): Promise<void> => {
 
   videnEnCours = true;
   try {
-    // Import tardif : ne pas tirer le client cloud au démarrage pour un module
-    // qui, la plupart du temps, n'aura rien à envoyer.
-    const { creerTicketAutomatique } = await import('./support');
-
     const restants: EnQueue[] = [];
     for (const entree of file) {
       // L'identité est relue si elle manquait au moment du plantage (plantage

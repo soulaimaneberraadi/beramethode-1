@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Plus, Minus, Package, Truck, Calendar, Grid3X3, Palette, Check, Layers } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Package, Truck, Grid3X3, Palette, Check, Layers } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Button from '../shared/Button';
 import { Input, Select } from '../shared/Input';

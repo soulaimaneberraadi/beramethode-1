@@ -1,4 +1,3 @@
-import React from 'react';
 import { X } from 'lucide-react';
 import type { WorkStatus } from '../shared/statusConfig';
 import { STATUS_META } from '../shared/statusConfig';

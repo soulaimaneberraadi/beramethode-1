@@ -1,5 +1,5 @@
 import type { AppSettings } from '../types';
-import { parsePlanningDateAtNoon, planningLocalDateKey, isPlanningWorkingDay } from './planning';
+import { parsePlanningDateAtNoon, isPlanningWorkingDay } from './planning';
 
 // ═══════════════════════════════════════════════════════════════════
 // 📈 Courbe d'apprentissage (Learning Curve) — Facteur Lc

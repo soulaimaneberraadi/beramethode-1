@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { AppSettings } from '../../types';
 import MonthGrid from './MonthGrid';
-import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 
 export interface DateRangePickerProps {

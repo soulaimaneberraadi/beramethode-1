@@ -6,11 +6,10 @@ import { tx } from '../../lib/i18n';
 import { configPrimeEffective, palierAtteint } from '../../lib/primeEngine';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
-import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon, Timer, TrendingUp, TrendingDown } from 'lucide-react';
+import { Clock, User, Play, Square, Save, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon, Timer, TrendingUp, TrendingDown } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
 import ChampOuvrier from './ChampOuvrier';
 import FicheOuvrier from './FicheOuvrier';
-import { signalerMesureTemps } from '../../lib/mesuresTemps';
 
 interface Props {
     models: ModelData[];

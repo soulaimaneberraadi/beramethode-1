@@ -3,7 +3,7 @@ import { Grid3X3, Plus, X, Trash2, Palette } from 'lucide-react';
 import { FicheData } from '../types';
 import { TEXTILE_COLORS } from '../data/textileData';
 import ExcelInput from './ExcelInput';
-import { tx, pickT } from '../lib/i18n';
+import { tx } from '../lib/i18n';
 import type { Lang } from '../app/constants';
 
 interface RepartitionMatrixProps {

@@ -3,18 +3,16 @@ import PrimesPage from './suivi/PrimesPage';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Clock, BarChart2, DollarSign, FileText,
-  Search, X, Check, AlertCircle, ChevronDown, ChevronLeft, Download,
-  Camera, Edit3, Trash2, Eye, EyeOff, Phone, Calendar,
-  Shield, Star, Plus, Save, RefreshCw, Filter,
-  TrendingUp,   Award, AlertTriangle, CheckCircle, Factory, PieChart, IdCard,
+  Search, X, Check, AlertCircle, ChevronLeft, Download,
+  Camera, Edit3, Trash2, Phone, Calendar,
+  Plus, Save, RefreshCw, Award, AlertTriangle, CheckCircle, Factory, PieChart, IdCard,
   Mail, Key, Copy, LayoutGrid, Table2, Truck, Navigation, Lock,
 } from 'lucide-react';
 import { HRWorkerProfilePanel } from './HRWorkerProfilePanel';
 import RhPointageSettings from './rh/RhPointageSettings';
 import SensitiveValue, { useFieldAccess } from './ui/SensitiveValue';
 import * as XLSX from 'xlsx';
-import { HRWorker, HRPointage, HRAvance, HRWorkerRole, HRContractType, HRPointageStatus, SuiviData, PlanningEvent, AppSettings, HRTransportLigne } from '../types';
-import { getSageTimesForHeuresCalc, sageCreneauWarning } from '../lib/sageTimeRules';
+import { HRWorker, HRWorkerRole, HRContractType, HRPointageStatus, SuiviData, PlanningEvent, AppSettings, HRTransportLigne } from '../types';
 import {
   getDefaultPointageTranches,
   parsePointageTranchesFromSettings,

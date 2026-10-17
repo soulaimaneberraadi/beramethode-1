@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import type { Lot, ModelData, AppSettings } from '../../types';
 import DateTimePicker from '../ui/DateTimePicker';
 import { newLotId, splitLotsFromModelGrid, totalLotsQty } from '../../utils/lots';

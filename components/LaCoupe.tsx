@@ -1,14 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe, PlacementCoupe, TissuCoupe, PlanningEvent, SuiviData } from '../types';
+import { ModelData, OrdreCoupe, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe, PlacementCoupe, TissuCoupe, PlanningEvent, SuiviData } from '../types';
 import {
     Scissors, FileText, CheckCircle2, Clock, Search, Layers, ChevronRight,
-    AlertCircle, Printer, PackageSearch, Plus, Trash2, Barcode,
-    Send, CheckCircle, XCircle, Truck, PlayCircle, Save,
+    AlertCircle, Printer, PackageSearch, Plus, Trash2, Send, CheckCircle, XCircle, Truck, PlayCircle, Save,
     Palette, X, Menu, ChevronLeft, LayoutGrid, List, Calendar, BarChart3,
-    Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, TrendingUp,
-    ArrowUpDown, RefreshCw, Zap, Target, Star, Hash, Upload, FolderOpen, Check,
-    PanelLeftClose, PanelLeftOpen, Library, ChevronDown, AlertTriangle, ArrowLeft, Building2, Tag, FileSpreadsheet, Tags, Receipt, PencilLine, ListChecks
+    Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, ArrowUpDown, Zap, Check,
+    PanelLeftClose, PanelLeftOpen, Library, AlertTriangle, ArrowLeft, Building2, Tag, FileSpreadsheet, Tags, Receipt, PencilLine, ListChecks
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useRouteSegment } from '../lib/router';

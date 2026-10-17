@@ -1,7 +1,6 @@
 import { configPrimeEffective } from '../../lib/primeEngine';
 import React, { useState, useEffect } from 'react';
 import { Coins, Plus, Trash2, Save, Loader2, Users, Shield, Building, CheckCircle } from 'lucide-react';
-import { AppSettings, Machine } from '../../types';
 import { tx, pickT } from '../../lib/i18n';
 import { TRANSLATIONS, CURRENCIES } from '../configTranslations';
 import HorairesTravail from '../shared/HorairesTravail';

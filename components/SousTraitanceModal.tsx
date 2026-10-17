@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Factory, Scissors, Package, Coins, Check } from 'lucide-react';
-import { fmt } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import SheetModal from './shared/SheetModal';

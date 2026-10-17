@@ -1,10 +1,9 @@
-import React from 'react';
 import Modal from '../shared/Modal';
 import Button from '../shared/Button';
 import type { PlanningEvent, ModelData } from '../../../types';
 import { evClientName, evModelName, evQty, evStartYmd, evEndYmd, evDeadlineYmd, evModelThumb } from '../shared/eventAccessors';
 import { getClientColor } from '../shared/clientColors';
-import { ArrowRight, CheckCircle2, Package, Calendar, Hash, Split } from 'lucide-react';
+import { CheckCircle2, Calendar, Hash, Split } from 'lucide-react';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
 

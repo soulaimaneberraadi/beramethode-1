@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Phone, MapPin, RefreshCw, Check, Search, ChevronDown } from 'lucide-react';
+import { AlertTriangle, MapPin, RefreshCw, Check, Search, ChevronDown } from 'lucide-react';
 import PanneauDetail from './PanneauDetail';
 import FicheClientEncours, { Article } from './FicheClientEncours';
 import { grouperArticles, LigneModele } from './articles';

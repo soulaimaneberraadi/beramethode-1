@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import type { ModelData, PlanningEvent, SuiviData } from '../../../types';
-import type { ChainActiveContext } from './useSuiviActiveContext';
+import type { PlanningEvent, SuiviData } from '../../../types';
 
 export interface CellEntry {
     chaineId: string;

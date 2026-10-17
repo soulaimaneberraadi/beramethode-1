@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CalendarPlus, LineChart } from 'lucide-react';
 import SheetModal from '../components/shared/SheetModal';
 import { tx } from '../lib/i18n';

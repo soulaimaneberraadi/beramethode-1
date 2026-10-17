@@ -1,4 +1,3 @@
-import React from 'react';
 
 interface Props {
     color: string; // hex or tailwind class via bg-*

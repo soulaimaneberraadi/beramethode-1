@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2, AlertCircle, AlertTriangle, Send, RotateCcw, Scissors, Package } from 'lucide-react';
 import { tx } from '../../lib/i18n';
 import { fmt } from '../../app/constants';

@@ -15,7 +15,7 @@ import { ModelData } from '../types';
 import { tx } from '../lib/i18n';
 import { fmt } from '../app/constants';
 import { resolveScan, attachScannerListener, variantAxes } from '../lib/scanner';
-import { sendToCustomerDisplay, autoConnectDisplay, connectDisplay, isWebSerialSupported, getDisplayConfig } from '../lib/customerDisplay';
+import { sendToCustomerDisplay, autoConnectDisplay, connectDisplay, isWebSerialSupported } from '../lib/customerDisplay';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
 import type { Emplacement } from '../lib/stockEmplacements';
 import {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { fmtMonthYear } from '../shared/dateFmt';
 import { tx } from '../../../lib/i18n';

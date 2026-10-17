@@ -8,7 +8,6 @@ import { grouperOperations, decouperPoste, type OpAGrouper } from '../lib/equili
 import SheetModal from './shared/SheetModal';
 import { 
   Users, 
-  Clock, 
   RefreshCw,
   MousePointer2,
   ArrowRightLeft,
@@ -22,7 +21,6 @@ import {
   BarChart3,
   Pin,
   PinOff,
-  Briefcase,
   Plus,
   Trash2,
   Eraser,
@@ -30,9 +28,7 @@ import {
   Scissors,
   Clipboard,
   CopyPlus,
-  Save,
   AlertCircle,
-  Percent,
   Link,
   PanelTop,
   Hand,

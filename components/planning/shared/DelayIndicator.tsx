@@ -1,4 +1,3 @@
-import React from 'react';
 import { DELAY_META, type DelayState } from './statusConfig';
 
 interface Props {

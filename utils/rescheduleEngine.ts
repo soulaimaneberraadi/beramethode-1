@@ -1,5 +1,5 @@
 import type { AppSettings, PlanningEvent, SuiviData } from '../types';
-import { parsePlanningDateAtNoon, planningLocalDateKey, isPlanningWorkingDay, getWorkMinutesPerDay, addWorkingDaysFromLaunchIso } from './planning';
+import { planningLocalDateKey, getWorkMinutesPerDay, addWorkingDaysFromLaunchIso } from './planning';
 import { computeCriticalRatio, countWorkingDaysBetween } from './criticalRatio';
 import type { CriticalRatioResult } from './criticalRatio';
 

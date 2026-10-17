@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shirt, Clock, Coins, Scissors, Package, CheckSquare, ImageIcon, X, Upload, Trash2, Camera, Check, TrendingUp, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Shirt, Clock, Coins, Scissors, Package, CheckSquare, Trash2, Camera, Loader2 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { fmt } from '../app/constants';
 import SensitiveValue from './ui/SensitiveValue';

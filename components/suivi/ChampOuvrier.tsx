@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { HRWorker } from '../../types';
 import { tx } from '../../lib/i18n';
 import { Plus, Loader2 } from 'lucide-react';

@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { ChevronDown, AlertTriangle, AlertCircle, Clock, Shuffle, ExternalLink, Check, Zap } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronDown, AlertTriangle, AlertCircle, Clock, Shuffle, ExternalLink, Zap } from 'lucide-react';
 import type { PlanningEventWithCR } from '../hooks/useCriticalRatio';
 import type { ModelData, AppSettings } from '../../../types';
 import { evClientName, evModelName } from '../shared/eventAccessors';

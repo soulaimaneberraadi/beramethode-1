@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     Package, Plus, Trash2, Search, Edit2, Save, X, ArrowDownCircle, ArrowUpCircle,
     AlertTriangle, Phone, Mail, Building2, LinkIcon, Layers, History, Barcode,
-    Download, Filter, Activity, TrendingUp, TrendingDown, AlignLeft, Scale, RefreshCw, CheckCircle, MapPin, Sparkles, Power, FileText, Send, Printer, Recycle, ArrowLeft, Paperclip, Settings, ChevronDown, Eye, EyeOff, Image, Briefcase, Hash, Type, Table, FileSignature, Stamp, LayoutGrid
+    Download, Activity, TrendingUp, TrendingDown, AlignLeft, Scale, RefreshCw, CheckCircle, MapPin, Sparkles, Power, FileText, Send, Printer, Recycle, ArrowLeft, Paperclip, Settings, ChevronDown, Eye, Image, Briefcase, Hash, Type, Table, FileSignature, Stamp, LayoutGrid
 } from 'lucide-react';
 import { ModelData, PlanningEvent, DemandeAppro, MouvementStock, AppSettings, MaterialReceipt } from '../types';
 import DateTimePicker from './ui/DateTimePicker';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import ProductDetailPanel from './ProductDetailPanel';
-import { tx, pickT } from '../lib/i18n';
+import { tx } from '../lib/i18n';
 import type { Lang } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { uploadImageToStorage } from '../utils';
