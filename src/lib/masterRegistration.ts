@@ -4,22 +4,22 @@
 // نوع الحساب) إلى منصّة BERA MASTER كـ tenant بحالة "pending" (بلا مفتاح بعد).
 // يظهر عندها المالك في قسم Users → يُصدر له مفتاح الترخيص.
 //
-// ⚠️ مشروع Supabase مختلف: BERAMETHODE يشتغل على مشروع الجسر
-// (utrojjhscyatppgcszrt) بينما جداول BERA MASTER (tenants…) على المشروع الأصلي
-// (jiscgwioxwsulaopsivc). لذلك ننادي Edge Function "register-tenant" مباشرةً على
-// مشروع BERA MASTER عبر fetch (وليس عبر الـ client المشترك). المفتاح anon عمومي
-// (آمن في المتصفّح) ويمكن تجاوزه بمتغيّرات البيئة.
+// مشروع Supabase: جداول BERA MASTER (tenants, licenses, plans…) صارت على نفس
+// مشروع BERAMETHODE (الجسر utrojjhscyatppgcszrt). المشروع الأصلي
+// jiscgwioxwsulaopsivc لم يعد موجوداً (النطاق لا يُحَلّ منذ أكتوبر 2026)، وكان
+// كل تسجيل يفشل بصمت. ننادي Edge Function "register-tenant" عبر fetch، ويمكن
+// توجيهها لمشروع آخر بـ VITE_MASTER_SUPABASE_URL / VITE_MASTER_SUPABASE_ANON_KEY.
 //
 // العملية best-effort: أي فشل لا يمنع إتمام التسجيل.
 // ════════════════════════════════════════════════════════════════════════════
 
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient';
+
 const MASTER_URL =
-  (import.meta.env.VITE_MASTER_SUPABASE_URL as string) ||
-  'https://jiscgwioxwsulaopsivc.supabase.co';
+  (import.meta.env.VITE_MASTER_SUPABASE_URL as string) || SUPABASE_URL;
 
 const MASTER_ANON =
-  (import.meta.env.VITE_MASTER_SUPABASE_ANON_KEY as string) ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppc2Nnd2lveHdzdWxhb3BzaXZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTcwNTgsImV4cCI6MjA5MTU3MzA1OH0.-jRI1RlbjxecLyN2b83xmjuJCKhs7ti_7_-RWXNCNgk';
+  (import.meta.env.VITE_MASTER_SUPABASE_ANON_KEY as string) || SUPABASE_ANON_KEY;
 
 export interface MasterRegistrationInput {
   /** اسم الشركة / الزبون / المستقل (= tenants.name) */
