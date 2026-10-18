@@ -118,6 +118,17 @@ export interface PlanJour {
     manque?: number;
     /** Statut `manque` : part du manque que l'ordre pourrait fournir mais que la pause d'un pedido retient (se coupe a la reprise) ; 0 sans pause. */
     attenteReprise?: number;
+    /**
+     * Statut `manque` : d'ou vient le manque. `serie` = la serie ne donne pas assez de paquets a cette chaine
+     * alors que l'ordre a encore des matelas a couper ; `ordre` = l'ordre lui-meme n'a plus de quoi tenir
+     * (le Planning prevoit plus que la grille) ; `pause` = un pedido en pause retient le reste.
+     */
+    raisonManque?: 'serie' | 'ordre' | 'pause';
+    /** Statut `manque` : pieces demandees par la chaine sur l'avance voulue, et ce qui lui reste a couper. */
+    voulu?: number;
+    resteChaine?: number;
+    /** Statut `manque` : pieces de tissu encore a couper sur tout l'ordre (toutes chaines). */
+    resteOrdre?: number;
 }
 
 /** Cadence de la chaine face a ce que la coupe sait couper par jour. */
@@ -569,7 +580,12 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
             minutes: choisis.length && sansLongueur === 0 ? minutesDe(matelasJour) : undefined,
             autres, couvreJusqua, sansLongueur,
             statut: enPause ? 'pause' : voulu === 0 ? 'rien' : besoin < voulu ? 'manque' : 'a_couper',
-            ...(!enPause && besoin < voulu ? { manque: voulu - besoin, attenteReprise: Math.max(0, Math.min(voulu, resteACouper) - besoin) } : {}),
+            ...(!enPause && besoin < voulu ? (() => {
+                const attenteReprise = Math.max(0, Math.min(voulu, resteACouper) - besoin);
+                const resteOrdre = r?.aCouper || 0;
+                const raisonManque: PlanJour['raisonManque'] = attenteReprise > 0 ? 'pause' : avecSerie && resteOrdre > resteACouper ? 'serie' : 'ordre';
+                return { manque: voulu - besoin, attenteReprise, raisonManque, voulu, resteChaine: resteACouper, resteOrdre };
+            })() : {}),
         };
 
         const debuts = siens.map(p => p.debut), fins = siens.map(p => p.fin);

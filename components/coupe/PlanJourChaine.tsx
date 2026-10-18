@@ -154,7 +154,17 @@ export function PlanDuJour({ x, objectif }: { x: ModeleSurChaine; objectif: numb
                                 {L(`Il manque ${fmtN(p.manque || 0)} pcs pour tenir ${fmtN(objectif, 1)} j`, `ينقص ${fmtN(p.manque || 0)} قطعة لتغطية ${fmtN(objectif, 1)} يوم`, `${fmtN(p.manque || 0)} pcs missing to hold ${fmtN(objectif, 1)} d`)}
                                 <span className="font-normal"> · {L(`dont ${fmtN(p.attenteReprise || 0)} attendent la reprise du pedido en pause`, `منها ${fmtN(p.attenteReprise || 0)} تنتظر استئناف الـ pedido الموقوف`, `${fmtN(p.attenteReprise || 0)} of them wait for the paused pedido to resume`)}</span>
                             </>
-                            : L(`Il manque ${fmtN(p.manque || 0)} pcs dans l’ordre pour tenir ${fmtN(objectif, 1)} j`, `ينقص ${fmtN(p.manque || 0)} قطعة في الأمر لتغطية ${fmtN(objectif, 1)} يوم`, `${fmtN(p.manque || 0)} pcs missing in the order to hold ${fmtN(objectif, 1)} d`)}
+                            : p.raisonManque === 'serie'
+                                ? <>
+                                    {L(`La série ne donne que ${fmtN(p.resteChaine || 0)} pcs à cette chaîne`, `السلسلة لم تُعطَ إلا ${fmtN(p.resteChaine || 0)} قطعة في السيري`, `The series gives this line only ${fmtN(p.resteChaine || 0)} pcs`)}
+                                    <span className="font-normal"> · {L(`l’ordre en a encore ${fmtN(p.resteOrdre || 0)} à couper : donnez-lui d’autres paquets pour tenir ${fmtN(objectif, 1)} j`, `والأمر ما زال فيه ${fmtN(p.resteOrdre || 0)} للقص: أعطها رزماً أخرى لتغطية ${fmtN(objectif, 1)} يوم`, `the order still has ${fmtN(p.resteOrdre || 0)} to cut: give it more bundles to hold ${fmtN(objectif, 1)} d`)}</span>
+                                </>
+                                : <>
+                                    {(p.resteChaine || 0) > 0
+                                        ? L(`L’ordre n’a plus que ${fmtN(p.resteChaine || 0)} pcs à couper pour cette chaîne`, `لم يبقَ في الأمر إلا ${fmtN(p.resteChaine || 0)} قطعة للقص لهذه السلسلة`, `The order has only ${fmtN(p.resteChaine || 0)} pcs left to cut for this line`)
+                                        : L('Tout est coupé pour cette chaîne', 'كل شيء مقصوص لهذه السلسلة', 'Everything is cut for this line')}
+                                    <span className="font-normal"> · {L(`la chaîne en demande ${fmtN(p.voulu || 0)} pour ${fmtN(objectif, 1)} j : prévoir le modèle suivant`, `والسلسلة تطلب ${fmtN(p.voulu || 0)} لـ ${fmtN(objectif, 1)} يوم: جهّز الموديل التالي`, `the line needs ${fmtN(p.voulu || 0)} for ${fmtN(objectif, 1)} d: plan the next model`)}</span>
+                                </>}
                     </span>
                 </p>
             )}
@@ -255,7 +265,10 @@ export function LignePlanChaine({ chaine, x }: { chaine: ChaineCoupe; x: ModeleS
     if (vue === 'a_couper') { cls = PANNEAU.orange; texte = coupe; icone = <Scissors className="w-3 h-3 shrink-0" />; }
     else if (vue === 'manque') {
         cls = PANNEAU.rose; icone = <AlertTriangle className="w-3 h-3 shrink-0" />;
-        texte = `${n > 0 ? `${coupe} · ` : ''}${L('manque', 'ينقص', 'short')} ${fmtN(p.manque || 0)} ${L('pcs', 'ق', 'pcs')}`;
+        texte = `${n > 0 ? `${coupe} · ` : ''}${p.raisonManque === 'serie'
+            ? L('série courte', 'السيري ناقصة', 'series short')
+            : p.raisonManque === 'pause' ? L('pedido en pause', 'pedido موقوف', 'pedido paused')
+            : L('ordre bientôt fini', 'الأمر قارب النهاية', 'order nearly done')} · ${L('manque', 'ينقص', 'short')} ${fmtN(p.manque || 0)} ${L('pcs', 'ق', 'pcs')}`;
     }
     else if (vue === 'rien') { cls = PANNEAU.emeraude; texte = L('rien aujourd’hui', 'لا شيء اليوم', 'nothing today'); icone = <Check className="w-3 h-3 shrink-0" />; }
     else if (vue === 'toutCoupe') { cls = PANNEAU.emeraude; texte = L('tout coupé', 'كل شيء مقصوص', 'all cut'); icone = <Check className="w-3 h-3 shrink-0" />; }
