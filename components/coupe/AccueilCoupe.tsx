@@ -25,6 +25,7 @@ import {
 } from '../../lib/coupeAtelier';
 import { equilibrerOrdre } from '../../lib/equilibreMatieres';
 import { chainesDeCoupe, type ChaineCoupe, type EtatChaine, type ModeleSurChaine } from '../../lib/coupeChaines';
+import ChoixModeleChaine from './ChoixModeleChaine';
 
 export type PageAccueil = 'ordres' | 'groupes' | 'tissu' | 'chaines';
 
@@ -604,9 +605,11 @@ function ACouper({ x, L, jour, large }: { x: ModeleSurChaine; L: (fr: string, ar
     );
 }
 
-export function PageChaines({ models, evenements, suivis, settings, joursAvance, setJoursAvance, reglages, setReglages, onBack, onOpen, onNavigate }: {
+export function PageChaines({ models, evenements, setEvenements, suivis, settings, joursAvance, setJoursAvance, reglages, setReglages, onBack, onOpen, onNavigate, onMessage }: {
     models: ModelData[];
     evenements: PlanningEvent[];
+    /** L'etat du Planning (App.tsx) : choisir un modele pour une chaine y ecrit chaine et dates. Absent : lecture seule. */
+    setEvenements?: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
     suivis: SuiviData[];
     settings?: AppSettings;
     joursAvance: number;
@@ -617,9 +620,13 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
     onBack: () => void;
     onOpen: (m: ModelData) => void;
     onNavigate?: (view: string) => void;
+    /** Confirmation affichee a l'ecran (toast de La Coupe). */
+    onMessage?: (texte: string) => void;
 }) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
+    /** Chaine (id) pour laquelle on choisit un modele ; null : feuille fermee. */
+    const [selecteur, setSelecteur] = useState<string | null>(null);
     /** Chaine choisie dans le bandeau (null : toutes celles qui ont un modele). */
     const [choix, setChoix] = useState<string | null>(null);
     /** Chaine dont on lit tout le detail. */
@@ -661,6 +668,22 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
             onFermer={() => setEditeur(false)}
             onEnregistrer={r => { setReglages(r); setEditeur(false); }}
             onRevenir={reglages.length ? () => { setReglages([]); setEditeur(false); setChoix(null); setOuverte(null); } : undefined}
+            onAjouterModele={id => setSelecteur(id)}
+        />
+    );
+    // Le choix d'un modele s'ouvre au-dessus de tout (y compris de l'editeur) : il ecrit au Planning, pas dans les reglages.
+    const selecteurModal = selecteur !== null && (
+        <ChoixModeleChaine
+            models={models}
+            evenements={evenements}
+            chaines={chaines}
+            reglages={reglages}
+            chaineDepart={selecteur}
+            settings={settings}
+            joursAvance={joursAvance}
+            setEvenements={setEvenements}
+            onFermer={() => setSelecteur(null)}
+            onFait={onMessage}
         />
     );
 
@@ -671,7 +694,12 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
                     titre={chaineOuverte.nom}
                     sousTitre={L('Tout ce que la coupe sait de cette chaîne', 'كل ما يعرفه القص عن هذه السلسلة', 'Everything cutting knows about this line')}
                     onBack={() => setOuverte(null)}
-                    actions={<button type="button" onClick={() => setEditeur(true)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Edit3 className="w-3.5 h-3.5" />{L('Régler', 'ضبط', 'Edit')}</button>}
+                    actions={(
+                        <div className="flex items-center gap-1.5">
+                            <button type="button" onClick={() => setSelecteur(chaineOuverte.id)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Plus className="w-3.5 h-3.5" />{L('Modèle', 'موديل', 'Model')}</button>
+                            <button type="button" onClick={() => setEditeur(true)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300"><Edit3 className="w-3.5 h-3.5" />{L('Régler', 'ضبط', 'Edit')}</button>
+                        </div>
+                    )}
                 />
                 <DetailChaine
                     chaine={chaineOuverte}
@@ -685,6 +713,7 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
                     onRetirer={modelId => retirerModele(chaineOuverte.id, modelId)}
                 />
                 {editeurModal}
+                {selecteurModal}
             </div>
         );
     }
@@ -833,6 +862,11 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
                                     );
                                 })}
                             </div>
+
+                            {/* Donner un modele a cette chaine : ecrit son pedido au Planning */}
+                            <button type="button" onClick={() => setSelecteur(c.id)} className="w-full h-10 inline-flex items-center justify-center gap-1.5 border-t border-slate-100 dark:border-dk-border text-[12px] font-semibold text-slate-500 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
+                                <Plus className="w-3.5 h-3.5" />{L('Modèle', 'موديل', 'Model')}
+                            </button>
                         </div>
                     );
                 })}
@@ -844,6 +878,7 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
                 </div>
             )}
             {editeurModal}
+            {selecteurModal}
         </div>
     );
 }
@@ -986,12 +1021,14 @@ function DetailChaine({ chaine, reglage, joursAvance, modeleDe, jour, L, onOpen,
 }
 
 /** Regler les chaines de la coupe : nom, autres noms, cadence, modeles. Le Planning ne bouge pas. */
-function EditeurChaines({ depart, modeles, onFermer, onEnregistrer, onRevenir }: {
+function EditeurChaines({ depart, modeles, onFermer, onEnregistrer, onRevenir, onAjouterModele }: {
     depart: ReglageChaineCoupe[];
     modeles: ModelData[];
     onFermer: () => void;
     onEnregistrer: (r: ReglageChaineCoupe[]) => void;
     onRevenir?: () => void;
+    /** Ouvre le choix d'un modele pour cette chaine (ecrit au Planning, pas dans les reglages). */
+    onAjouterModele?: (chaineId: string) => void;
 }) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
@@ -1022,7 +1059,7 @@ function EditeurChaines({ depart, modeles, onFermer, onEnregistrer, onRevenir }:
                     <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px] gap-2">
                         <label className="block min-w-0">
                             <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">{L('Autres noms (séparés par une virgule)', 'أسماء أخرى (بفاصلة)', 'Other names (comma separated)')}</span>
-                            <input value={(c.alias || []).join(', ')} onChange={e => maj(i, { alias: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} placeholder="STAR1+2, CHAINE 1" className={`${champ} w-full`} />
+                            <input value={(c.alias || []).join(', ')} onChange={e => maj(i, { alias: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} placeholder={L('ex. STAR1+2', 'مثال: STAR1+2', 'e.g. STAR1+2')} className={`${champ} w-full`} />
                         </label>
                         <label className="block">
                             <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">{L('Cadence pcs/j', 'الوتيرة ق/يوم', 'Rate pcs/d')}</span>
@@ -1038,14 +1075,18 @@ function EditeurChaines({ depart, modeles, onFermer, onEnregistrer, onRevenir }:
                                     <button type="button" onClick={() => maj(i, { modeles: (c.modeles || []).filter(x => x !== id) })} className="h-5 w-5 inline-flex items-center justify-center rounded text-slate-400 hover:text-rose-600"><X className="w-3 h-3" /></button>
                                 </span>
                             ))}
-                            <select
-                                value=""
-                                onChange={e => { if (e.target.value) maj(i, { modeles: [...(c.modeles || []), e.target.value] }); }}
-                                className="h-7 px-2 rounded-lg border border-dashed border-slate-300 dark:border-dk-border bg-transparent text-[12px] text-slate-500 outline-none"
-                            >
-                                <option value="">+ {L('Ajouter un modèle', 'إضافة موديل', 'Add a model')}</option>
-                                {modeles.filter(m => !(c.modeles || []).includes(m.id)).map(m => <option key={m.id} value={m.id}>{nomModele(m.id)}</option>)}
-                            </select>
+                            {/* Une chaine pas encore enregistree n'existe nulle part : le Planning ne saurait pas ou ecrire. */}
+                            {onAjouterModele && (
+                                <button
+                                    type="button"
+                                    disabled={!depart.some(d => d.id === c.id)}
+                                    onClick={() => onAjouterModele(c.id)}
+                                    title={depart.some(d => d.id === c.id) ? undefined : L('Enregistrez d’abord la chaîne', 'احفظ السلسلة أولاً', 'Save the line first')}
+                                    className="h-9 px-3 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 dark:border-dk-border bg-transparent text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />{L('Modèle', 'موديل', 'Model')}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

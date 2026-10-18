@@ -2248,6 +2248,7 @@ export default function App() {
                             settings={globalSettings}
                             setSettings={setGlobalSettings}
                             planningEvents={planningEvents}
+                            setPlanningEvents={setPlanningEvents}
                             suivis={suivis}
                         />
                     )}

@@ -88,6 +88,8 @@ interface LaCoupeProps {
     setSettings?: React.Dispatch<React.SetStateAction<AppSettings>>;
     /** OF du Planning : la chaine d'un modele est proposee pour ses paquets. */
     planningEvents?: PlanningEvent[];
+    /** L'etat du Planning (App.tsx) : la page Chaines y ecrit la chaine et les dates d'un pedido. Absent : lecture seule. */
+    setPlanningEvents?: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
     /** Saisies du Suivi de production : entrees et sorties de chaque chaine (page Chaines). */
     suivis?: SuiviData[];
 }
@@ -117,7 +119,7 @@ function useIsMobile(): boolean {
     return isMobile;
 }
 
-export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning, settings, setSettings, planningEvents, suivis }: LaCoupeProps) {
+export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning, settings, setSettings, planningEvents, setPlanningEvents, suivis }: LaCoupeProps) {
     const isMobile = useIsMobile();
     const { lang } = useLang();
     /* Préférence d'agrandissement partagée : celui qui agrandit la liste des
@@ -3772,9 +3774,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 page={pageAccueil}
                                 setPage={setPageAccueil}
                                 evenements={planningEvents || []}
+                                setEvenements={setPlanningEvents}
                                 suivis={suivis || []}
                                 settings={settings}
                                 onNavigate={onNavigate}
+                                onMessage={texte => showToast(texte, 'success')}
                             />
                         )
                     )}
@@ -4698,10 +4702,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 /* ─────── Empty Dashboard (when no model selected) ─────── */
 function EmptyDashboard({
     models, ordres, tousModeles, groupes, setGroupes, ouvriersCoupe, pointageCoupe, majReglages, statusMap, prepCount, activeCount, valCount, getProgress, onNew, onOpen,
-    onSuivre, page, setPage, evenements, suivis, settings, onNavigate,
+    onSuivre, page, setPage, evenements, setEvenements, suivis, settings, onNavigate, onMessage,
 }: {
     /** Planning et Suivi de production : la page Chaines en tire ce que chaque chaine attend de la coupe. */
     evenements: PlanningEvent[];
+    /** L'etat du Planning : choisir un modele pour une chaine y ecrit chaine et dates. */
+    setEvenements?: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
+    /** Confirmation affichee en toast. */
+    onMessage?: (texte: string) => void;
     suivis: SuiviData[];
     settings?: AppSettings;
     onNavigate?: (view: string) => void;
@@ -4754,6 +4762,7 @@ function EmptyDashboard({
                     <PageChaines
                         models={tousModeles}
                         evenements={evenements}
+                        setEvenements={setEvenements}
                         suivis={suivis}
                         settings={settings}
                         joursAvance={settings?.coupeJoursAvance ?? 2}
@@ -4763,6 +4772,7 @@ function EmptyDashboard({
                         onBack={() => setPage(null)}
                         onOpen={m => onSuivre(m)}
                         onNavigate={onNavigate}
+                        onMessage={onMessage}
                     />
                 )}
                 {page === 'groupes' && <PageGroupes models={tousModeles} groupes={groupes} setGroupes={setGroupes} rh={rh} onBack={() => setPage(null)} />}
