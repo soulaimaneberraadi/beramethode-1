@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import type { MatelasLine, OrdreCoupe } from '../types';
-import { corrigerPlisFiges, equilibrerOrdre, proposerAjustement, renumeroterSelonLots } from './equilibreMatieres';
+import { corrigerPlisFiges, equilibrerOrdre, matelasPourCouvrir, proposerAjustement, renumeroterSelonLots } from './equilibreMatieres';
 
 const TAILLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 let n = 0;
@@ -291,6 +291,29 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     const eq2 = equilibrerOrdre(ordre(avecNumeros), TAILLES);
     assert.deepEqual(eq2.lots.map(l => numeros(l.matelas.VL)), [['1', '2', '3'], ['4', '5', '6']], 'chaque lot : des numeros qui se suivent');
     assert.deepEqual(renumeroterSelonLots(eq2).changements, {}, 'une seconde fois ne change plus rien');
+}
+
+// --- Couvrir un plan : seulement les matelas des autres matieres utiles aux matelas de tissu choisis ---
+{
+    const lignes = [
+        ligne('principal', '1', 50, { S: 1 }), ligne('principal', '2', 50, { M: 1 }), ligne('principal', '3', 50, { L: 1 }),
+        ligne('VL', '1', 50, { S: 1, M: 1 }), ligne('VL', '2', 50, { L: 1 }),
+        ligne('FO', '1', 50, { S: 1, M: 1, L: 1 }),
+    ];
+    const id = (tissu: string, num: string) => lignes.find(l => l.tissu === tissu && l.numero === num)!.id;
+    const eq = equilibrerOrdre(ordre(lignes), TAILLES);
+    const code = (r: ReturnType<typeof matelasPourCouvrir>) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, numeros(v)]));
+    // Le tissu 1 (S) : la vlieseline 1 et le foro 1 couvrent S ; la vlieseline 2 (L) n'y sert pas.
+    assert.deepEqual(code(matelasPourCouvrir(eq, [id('principal', '1')])), { VL: ['1'], FO: ['1'] });
+    // Jusqu'au tissu 3 (S, M, L) : tout le lot.
+    assert.deepEqual(code(matelasPourCouvrir(eq, [id('principal', '3')])), { VL: ['1', '2'], FO: ['1'] });
+    assert.deepEqual(matelasPourCouvrir(eq, []), {}, 'rien de choisi, rien a couvrir');
+    // La vlieseline 1 et le foro 1 coupes : le tissu 2 (M) est deja couvert, le 3 appelle la vlieseline 2.
+    lignes.find(l => l.tissu === 'VL' && l.numero === '1')!.fait = true;
+    lignes.find(l => l.tissu === 'FO' && l.numero === '1')!.fait = true;
+    const eq2 = equilibrerOrdre(ordre(lignes), TAILLES);
+    assert.deepEqual(matelasPourCouvrir(eq2, [id('principal', '2')]), {});
+    assert.deepEqual(code(matelasPourCouvrir(eq2, [id('principal', '3')])), { VL: ['2'] });
 }
 
 console.log('equilibreMatieres : OK');

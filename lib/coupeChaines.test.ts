@@ -3,7 +3,8 @@
  */
 import assert from 'node:assert/strict';
 import type { AppSettings, MatelasLine, ModelData, PlanningEvent, SuiviData } from '../types';
-import { chainesDeCoupe } from './coupeChaines';
+import { chainesDeCoupe, rythmeCoupe } from './coupeChaines';
+import { equilibrerOrdre } from './equilibreMatieres';
 
 const reglages = { chainsCount: 2, chainNames: { 'CHAINE 1': 'STAR1+2' }, chainCapacityPerDay: { 'CHAINE 1': 800, 'CHAINE 2': 500 } } as unknown as AppSettings;
 
@@ -136,6 +137,238 @@ const suivi = (planningId: string, date: string, entrer: number, sorti: number):
     // Cadence de la chaine, sans cadence propre au modele.
     const [a2] = chainesDeCoupe({ models: [m], evenements: [], suivis: [], settings: { ...regl, chainesCoupe: [{ id: 'A', nom: 'A', alias: ['STAR1+2'], cadence: 300 }] } as unknown as AppSettings, joursAvance: 1, aujourdhui: '2026-10-05' });
     assert.equal(a2.modeles[0].cadence, 300);
+}
+
+/* ------------------------------------------------------------------ */
+/* Une ligne par modele et par chaine, pedidos, pause, plan du jour    */
+/* ------------------------------------------------------------------ */
+
+const avecCadence = (cadence: number) => ({
+    ...reglages,
+    chainesCoupe: [{ id: 'CHAINE 1', nom: 'C1', cadence }, { id: 'CHAINE 2', nom: 'C2' }],
+} as unknown as AppSettings);
+// 10 matelas de 100 plis x (S + M) = 200 pieces chacun ; les `faits` premiers sont coupes.
+const dixMatelas = (faits = 0, extra: (i: number) => Partial<MatelasLine> = () => ({})) =>
+    Array.from({ length: 10 }, (_, i) => ligne(String(i + 1), 100, { S: 1, M: 1 }, { fait: i < faits, ...extra(i) }));
+
+// --- Deux pedidos du meme modele sur la meme chaine : une seule ligne, comptee une fois ---
+{
+    const m = modele('H', dixMatelas(4), 2000);
+    const evA = evenement('evA', 'H', 'CHAINE 1', '2026-10-01', { modelName: 'H — L1', qteTotal: 1000 });
+    const evB = evenement('evB', 'H', 'CHAINE 1', '2026-10-10', { modelName: 'H — L2', qteTotal: 1000, strictDeadline_DDS: '2026-11-15' });
+    // Le Suivi de L1 un jour, celui de L2 un autre : 300 pieces entrees et sorties chaque jour.
+    const suivis = [suivi('evA', '2026-10-01', 300, 300), suivi('evB', '2026-10-02', 300, 300)];
+    const [c1] = chainesDeCoupe({ models: [m], evenements: [evB, evA], suivis, settings: reglages, joursAvance: 2, aujourdhui: '2026-10-05' });
+    assert.equal(c1.modeles.length, 1, 'un modele = une ligne par chaine');
+    const x = c1.modeles[0];
+    assert.equal(x.commande, 2000, 'les deux pedidos, une fois');
+    assert.equal(x.coupe, 800, 'le tissu coupe ne se double pas');
+    assert.equal(x.entre, 600, 'les entrees des deux pedidos s’additionnent');
+    assert.equal(x.sorti, 600);
+    assert.equal(x.cadence, 300, 'moyenne des jours produits, tous pedidos confondus');
+    assert.equal(x.jours.length, 2);
+    // Meme besoin qu'avec un seul pedido (voir la premiere serie de tests) : 400 pieces, 2 matelas — pas 800.
+    assert.equal(x.aCouperPieces, 400);
+    assert.deepEqual(x.matelas.map(l => l.numero), ['5', '6']);
+    assert.equal(c1.matelasACouper, 2);
+    assert.equal(c1.piecesACouper, 400);
+    assert.equal(x.nom, 'H', 'plusieurs pedidos : le nom de l’article, sans le lot');
+    // Les pedidos : du plus tot au plus tard, avec leur lot, quantite, lancement et livraison.
+    assert.deepEqual(x.pedidos.map(p => [p.eventId, p.code, p.quantite, p.debut, p.export, p.enPause, p.verrouille]), [
+        ['evA', 'L1', 1000, '2026-10-01', undefined, false, false],
+        ['evB', 'L2', 1000, '2026-10-10', '2026-11-15', false, false],
+    ]);
+    assert.equal(x.eventId, 'evA');
+    assert.equal(x.lancement, '2026-10-01');
+    assert.equal(x.dds, '2026-11-15', 'la livraison est la DDS saisie, pas la fin calculee (dateExport)');
+    assert.equal(x.enPause, false);
+}
+
+// --- Pause : un pedido en pause ne lance rien ; tous en pause, rien a couper ---
+{
+    const evActif = evenement('evL1', 'I', 'CHAINE 1', '2026-10-01', { modelName: 'I — L1', qteTotal: 500 });
+    const evPause = evenement('evL2', 'I', 'CHAINE 1', '2026-09-25', { modelName: 'I — L2', qteTotal: 1500, status: 'BLOCKED_STOCK', isLocked: true });
+    const entree = (m: ModelData, evenements: PlanningEvent[]) =>
+        chainesDeCoupe({ models: [m], evenements, suivis: [], settings: avecCadence(1000), joursAvance: 2, aujourdhui: '2026-10-05' })[0];
+
+    // Un actif (500) et un en pause (1500) : on ne coupe pas plus que les 500 de l'actif.
+    const lignes = dixMatelas();
+    const m = modele('I', lignes, 2000);
+    const c = entree(m, [evPause, evActif]);
+    const x = c.modeles[0];
+    assert.equal(x.enPause, false);
+    assert.equal(x.lancement, '2026-10-01', 'le lancement est celui du pedido actif, pas du pedido en pause plus ancien');
+    assert.equal(x.eventId, 'evL1');
+    assert.deepEqual(x.pedidos.map(p => [p.code, p.enPause, p.verrouille]), [['L2', true, true], ['L1', false, false]]);
+    assert.equal(x.aCouperPieces, 500, 'plafonne a la quantite du pedido actif');
+    assert.equal(x.matelas.length, 3, 'matelas entiers : 3 x 200 pour couvrir 500');
+    assert.equal(x.planJour.pieces, 600);
+    assert.equal(x.planJour.statut, 'manque', 'l’objectif (2000) n’est pas atteignable : seul le pedido actif est coupable');
+    assert.equal(c.etat, 'arret', 'rien de pret pour la chaine : elle va s’arreter, elle n’est pas en pause');
+
+    // Deja 400 coupes pour ce modele sur la chaine : il ne reste que 100 a couper pour le pedido actif.
+    lignes[0].fait = true; lignes[1].fait = true;
+    const x2 = entree(m, [evPause, evActif]).modeles[0];
+    assert.equal(x2.coupe, 400);
+    assert.equal(x2.aCouperPieces, 100);
+    assert.equal(x2.matelas.length, 1);
+    // Plus que ce que le pedido actif demande : jamais negatif, rien a couper.
+    lignes[2].fait = true;
+    const x3 = entree(m, [evPause, evActif]).modeles[0];
+    assert.equal(x3.aCouperPieces, 0);
+    assert.equal(x3.matelas.length, 0);
+    assert.equal(x3.planJour.statut, 'manque');
+
+    // Tous en pause : rien a proposer, la chaine est « en pause », pas « va s'arreter ».
+    const toutes = dixMatelas();
+    const c4 = entree(modele('I', toutes, 2000), [evPause, { ...evActif, status: 'BLOCKED_STOCK' } as PlanningEvent]);
+    const y = c4.modeles[0];
+    assert.equal(y.enPause, true);
+    assert.equal(y.aCouperPieces, 0);
+    assert.deepEqual(y.matelas, []);
+    assert.equal(y.planJour.statut, 'pause');
+    assert.equal(y.planJour.couvreJusqua, undefined);
+    assert.equal(y.lancement, '2026-09-25', 'tous en pause : le plus ancien lancement, faute de mieux');
+    assert.equal(c4.etat, 'pause');
+    assert.equal(c4.piecesACouper, 0);
+}
+
+// --- L'etat d'une chaine est celui du modele qu'elle coud, pas d'un modele en pause ---
+{
+    const pause = modele('P', dixMatelas(), 2000);
+    const actif = modele('Q', dixMatelas(4), 2000);
+    const evP = evenement('evP', 'P', 'CHAINE 1', '2026-09-20', { status: 'BLOCKED_STOCK' });
+    const evQ = evenement('evQ', 'Q', 'CHAINE 1', '2026-10-01');
+    const base = { suivis: [], settings: avecCadence(300), joursAvance: 2, aujourdhui: '2026-10-05' };
+    const [c] = chainesDeCoupe({ ...base, models: [pause, actif], evenements: [evP, evQ] });
+    assert.equal(c.modeles.length, 2);
+    assert.equal(c.etat, 'couverte', '800 pieces coupees / 300 par jour : 2,7 jours, objectif 2');
+    const [seul] = chainesDeCoupe({ ...base, models: [pause], evenements: [evP] });
+    assert.equal(seul.etat, 'pause');
+}
+
+// --- Plan du jour : des autres matieres, seulement les matelas utiles, pas tout le lot ---
+{
+    // Tissu : 2 matelas de 200 pieces. Doublure : un de 300 pieces (150 x 2) et un de 100.
+    // Elles tombent dans le meme lot que les deux matelas de tissu.
+    const f1 = ligne('1', 100, { S: 1, M: 1 }), f2 = ligne('2', 100, { S: 1, M: 1 });
+    const g1 = ligne('1', 150, { S: 1, M: 1 }, { tissu: 'FO' }), g2 = ligne('2', 50, { S: 1, M: 1 }, { tissu: 'FO' });
+    const m = modele('J', [f1, f2, g1, g2], 400);
+    (m.ordreCoupe as any).tissus = [{ id: 'principal', nom: 'Tissu' }, { id: 'FO', nom: 'Doublure (foro)', code: 'FO' }];
+    const eq = equilibrerOrdre(m.ordreCoupe, ['S', 'M']);
+    assert.ok(eq.lots.some(l => l.matelas.FO.length === 2), 'les deux doublures sont dans le meme lot');
+    const ev = evenement('evJ', 'J', 'CHAINE 1', '2026-10-01', { qteTotal: 400 });
+    // 200 pieces par jour, 1 jour d'avance : le matelas de tissu 1 seul (200 pieces).
+    const [c1] = chainesDeCoupe({ models: [m], evenements: [ev], suivis: [], settings: avecCadence(200), joursAvance: 1, aujourdhui: '2026-10-05' });
+    const x = c1.modeles[0];
+    assert.deepEqual(x.planJour.matelas.map(l => l.numero), ['1']);
+    assert.equal(x.planJour.pieces, 200);
+    assert.ok(Math.abs(x.planJour.metres - 103) < 1e-9, '100 plis x (1 m + 3 cm d’amorce)');
+    assert.equal(x.planJour.minutes, undefined, 'aucun matelas chronometre : pas de temps standard, donc pas de minutes');
+    assert.equal(x.planJour.sansLongueur, 0);
+    assert.equal(x.planJour.autres.length, 1);
+    assert.deepEqual([x.planJour.autres[0].code, x.planJour.autres[0].numeros], ['FO', ['1']], 'la doublure 1 (300 pieces) couvre le tissu 1 ; la 2 n’est pas utile aujourd’hui');
+    assert.equal(x.planJour.statut, 'a_couper');
+    assert.deepEqual(x.autres, x.planJour.autres, 'l’ancien champ `autres` suit le plan du jour');
+    assert.deepEqual(x.matelas, x.planJour.matelas);
+
+    // Le tissu 1 coupe et la doublure 1 aussi : au tissu 2, la doublure 2 (100 pieces) comble le reste.
+    f1.fait = true; g1.fait = true;
+    const [c2] = chainesDeCoupe({ models: [m], evenements: [ev], suivis: [], settings: avecCadence(200), joursAvance: 2, aujourdhui: '2026-10-05' });
+    const y = c2.modeles[0];
+    assert.deepEqual(y.planJour.matelas.map(l => l.numero), ['2']);
+    assert.deepEqual(y.planJour.autres.map(a => [a.code, a.numeros]), [['FO', ['2']]]);
+}
+
+// --- Jusqu'a quand la chaine est couverte : jours ouvres, dimanches sautes ---
+{
+    // 2026-10-03 est un samedi, 2026-10-04 un dimanche.
+    const m = modele('K', dixMatelas(), 2000);
+    const ev = evenement('evK', 'K', 'CHAINE 1', '2026-10-01');
+    const cherche = (aujourdhui: string, lancement: string, cadence = 200) =>
+        chainesDeCoupe({ models: [m], evenements: [{ ...ev, dateLancement: lancement }], suivis: [], settings: avecCadence(cadence), joursAvance: 2, aujourdhui })[0].modeles[0];
+    // 200/jour, 2 jours d'avance : 2 matelas (400 pieces) = 2 jours de couture ; samedi + 2 jours ouvres = mardi.
+    const x = cherche('2026-10-03', '2026-10-01');
+    assert.equal(x.planJour.pieces, 400);
+    assert.equal(x.planJour.couvreJusqua, '2026-10-06', 'samedi 3 -> lundi 5 -> mardi 6 (le dimanche 4 saute)');
+    assert.equal(cherche('2026-10-05', '2026-10-01').planJour.couvreJusqua, '2026-10-07', 'lundi + 2 jours ouvres = mercredi');
+    // Un lancement lointain : rien a couper, le compte part du lancement (20/10), pas d'aujourd'hui.
+    const loin = cherche('2026-10-05', '2026-10-20');
+    assert.equal(loin.plusTard, true);
+    assert.equal(loin.planJour.matelas.length, 0);
+    assert.equal(loin.planJour.statut, 'rien');
+    assert.equal(loin.planJour.couvreJusqua, '2026-10-20');
+    // Sans cadence (ni reglage, ni Suivi, ni capacite du Planning) : pas de date.
+    const [c0] = chainesDeCoupe({ models: [m], evenements: [ev], suivis: [], joursAvance: 2, aujourdhui: '2026-10-05' });
+    assert.equal(c0.modeles[0].cadence, 0);
+    assert.equal(c0.modeles[0].planJour.couvreJusqua, undefined);
+    assert.equal(c0.modeles[0].planJour.statut, 'rien');
+}
+
+// --- Plan du jour : l'avance couvre l'objectif ; l'ordre ne suffit pas ; minutes prevues ---
+{
+    // 4 matelas coupes, chronometres (60 min chacun) : le temps standard de la salle existe.
+    const m = modele('L', dixMatelas(4, i => (i < 4 ? { groupe: 'g1', debut: `2026-09-2${i + 1}T08:00:00`, fin: `2026-09-2${i + 1}T09:00:00` } : {})), 2000);
+    const ev = evenement('evL', 'L', 'CHAINE 1', '2026-10-01');
+    const base = { models: [m], evenements: [ev], suivis: [], joursAvance: 2, aujourdhui: '2026-10-05' };
+    // 600/jour : 800 prets, 1200 voulus, 400 a couper = 2 matelas ; chacun 103 m = 60 min.
+    const x = chainesDeCoupe({ ...base, settings: avecCadence(600) })[0].modeles[0];
+    assert.equal(x.planJour.statut, 'a_couper');
+    assert.equal(x.planJour.matelas.length, 2);
+    assert.ok(Math.abs(x.planJour.metres - 206) < 1e-9);
+    assert.ok(Math.abs((x.planJour.minutes || 0) - 120) < 1e-6, 'deux matelas de 60 min');
+    assert.equal(x.planJour.couvreJusqua, '2026-10-07', '(800 + 400) / 600 = 2 jours : lundi + 2 jours ouvres');
+    // 300/jour : 800 prets = 2,7 jours, objectif 2 : rien a couper.
+    const y = chainesDeCoupe({ ...base, settings: avecCadence(300) })[0].modeles[0];
+    assert.equal(y.planJour.statut, 'rien');
+    assert.deepEqual(y.planJour.matelas, []);
+    assert.equal(y.planJour.minutes, undefined);
+    // 2000/jour : il faudrait 4000 pieces, il n'en reste que 1200 a couper : l'ordre ne suffit pas.
+    const z = chainesDeCoupe({ ...base, settings: avecCadence(2000) })[0].modeles[0];
+    assert.equal(z.planJour.statut, 'manque');
+    assert.equal(z.planJour.matelas.length, 6, 'tout ce qui reste');
+    // Longueur de trace inconnue : les metres ne sont pas comptes, les minutes non plus.
+    for (const l of m.ordreCoupe!.matelasLines.filter(x => !x.fait).slice(0, 2)) l.longTracee = 0;
+    const w = chainesDeCoupe({ ...base, settings: avecCadence(600) })[0].modeles[0];
+    assert.equal(w.planJour.sansLongueur, 2);
+    assert.equal(w.planJour.metres, 0);
+    assert.equal(w.planJour.minutes, undefined);
+}
+
+// --- Rythme : ce que la salle coupe par jour, face a ce que la chaine coud ---
+{
+    // Matelas de 200 pieces coupes, un jour donne (date de fin) ; ceux dont la date est dans le futur sont ignores.
+    const coupes = (jour: string, n: number) => Array.from({ length: n }, () => ligne('x', 100, { S: 1, M: 1 }, { fait: true, fin: `${jour}T10:00:00` }));
+    const lignes = [
+        ...coupes('2026-09-28', 5), // le plus ancien des 6 jours actifs : hors des 5 derniers
+        ...coupes('2026-09-29', 1), ...coupes('2026-09-30', 3), ...coupes('2026-10-01', 1), ...coupes('2026-10-02', 2), ...coupes('2026-10-03', 1),
+        ...coupes('2026-10-09', 4), // dans le futur
+        ligne('y', 100, { S: 1, M: 1 }),
+    ];
+    const m = modele('R', lignes, 4000);
+    const autre = modele('Z', Array.from({ length: 5 }, () => ligne('x', 100, { S: 1, M: 1 }, { fait: true, fin: '2026-10-03T10:00:00' })), 2000);
+    const evR = evenement('evR', 'R', 'CHAINE 1', '2026-10-01');
+    const evZ = evenement('evZ', 'Z', 'CHAINE 2', '2026-10-01');
+    const sans = { models: [m, autre], suivis: [], joursAvance: 2, aujourdhui: '2026-10-05' };
+    const [c1, c2] = chainesDeCoupe({ ...sans, evenements: [evR, evZ], settings: avecCadence(300) });
+    // 5 derniers jours actifs : 03/10 (200), 02/10 (400), 01/10 (200), 30/09 (600), 29/09 (200) = 1600 / 5.
+    assert.equal(c1.rythme.coupeParJour, 320, 'moyenne par jour actif sur les 5 derniers jours ; le futur et le 28/09 ne comptent pas');
+    assert.equal(c1.rythme.chaineParJour, 300);
+    assert.equal(c1.rythme.source, 'manuel');
+    assert.equal(c1.rythme.ecartJours, c1.modeles[0].joursAvance);
+    // La chaine 2 ne compte que ses modeles : 1000 pieces le 03/10, un seul jour actif.
+    assert.equal(c2.rythme.coupeParJour, 1000);
+    // Une chaine sans modele : rien a comparer.
+    const [, libre] = chainesDeCoupe({ ...sans, evenements: [evR], settings: avecCadence(300) });
+    assert.deepEqual(libre.rythme, { coupeParJour: undefined, chaineParJour: 0, source: 'planning', ecartJours: null });
+
+    // Pour toute la salle.
+    const salle = rythmeCoupe([m, autre], 5, '2026-10-05')!;
+    assert.deepEqual([salle.jours, salle.pieces, salle.matelas], [5, 2600, 13]);
+    assert.equal(salle.parJour, 520);
+    assert.equal(rythmeCoupe([m], 7, '2026-10-05')!.jours, 6, 'moins de jours que demande : ceux qui existent');
+    assert.equal(rythmeCoupe([m], 5, '2026-09-26'), null, 'aucune coupe avant cette date');
+    assert.equal(rythmeCoupe([], 5, '2026-10-05'), null);
 }
 
 console.log('coupeChaines : OK');

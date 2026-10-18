@@ -15,6 +15,11 @@
  *    serie, c'est-a-dire dans l'ordre ou la chaine les coudra, et les matelas
  *    des autres matieres qui leur font face.
  *
+ * Un modele n'a qu'UNE ligne par chaine, meme quand le Planning y met plusieurs
+ * pedidos (L1, L2...) : ses pieces, sa coupe et ses paquets ne se comptent qu'une
+ * fois ; les pedidos restent listes dans `pedidos`. Un pedido « En pause » (stock
+ * bloque) ne demande rien a la coupe.
+ *
  * Sans sortie au Suivi, la cadence est la capacite du Planning
  * (`capaciteJournaliereChaine`, meme performance que la barre du Gantt) : la
  * coupe et le Planning disent alors le meme nombre.
@@ -22,16 +27,103 @@
  * Aucune dependance a React : ce calcul se verifie par un test.
  * Lancer : node --import tsx lib/coupeChaines.test.ts
  */
-import type { AppSettings, ModelData, PlanningEvent, ReglageChaineCoupe, SuiviData } from '../types';
+import type { AppSettings, MatelasLine, ModelData, PlanningEvent, ReglageChaineCoupe, SuiviData } from '../types';
+import { evDeadlineYmd, evProduced, evQty, evStartYmd } from '../components/planning/shared/eventAccessors';
 import { capaciteJournaliereChaine } from '../utils/planning';
-import { estOuvert, lignesUtiles, piecesLigne, resumerOrdre } from './coupeAtelier';
-import { equilibrerOrdre, type EquilibreOrdre } from './equilibreMatieres';
+import {
+    aujourdhui as jourLocal, estOuvert, lignesUtiles, longueurManquante, matelasExecutes, metresLigne, minutesPrevues,
+    piecesLigne, resumerOrdre, tempsStandard, type TempsStandard,
+} from './coupeAtelier';
+import { journalCoupe } from './coupeVues';
+import { equilibrerOrdre, matelasPourCouvrir, type EquilibreOrdre } from './equilibreMatieres';
 import { paquetsSerie, saisieDe, type PaquetSerie } from './serieEtiquetage';
 
-/** `horsCoupe` : le modele en chaine n'a pas d'ordre ouvert dans La Coupe, on ne sait pas ce qui l'attend. */
-export type EtatChaine = 'arret' | 'juste' | 'couverte' | 'horsCoupe' | 'libre';
+/**
+ * `horsCoupe` : le modele en chaine n'a pas d'ordre ouvert dans La Coupe, on ne sait pas ce qui l'attend.
+ * `pause` : tous les modeles de la chaine sont en pause au Planning (stock bloque) : rien a lui couper.
+ */
+export type EtatChaine = 'arret' | 'juste' | 'couverte' | 'horsCoupe' | 'libre' | 'pause';
+
+/** Un pedido (OF du Planning) d'un modele sur une chaine : « Article — L1 », son lot, ses dates. */
+export interface PedidoSurChaine {
+    eventId: string;
+    /** Code du lot, lu apres « — » dans le nom de l'OF (« L1 ») ; vide sans code. */
+    code: string;
+    quantite: number;
+    /** AAAA-MM-JJ du lancement (vide si le Planning n'en a pas). */
+    debut: string;
+    /** Date de livraison du client (DDS saisie). Jamais la fin calculee du Planning. */
+    export?: string;
+    statut: string;
+    /** Stock bloque (BLOCKED_STOCK) : le Planning dit « En pause ». */
+    enPause: boolean;
+    /** Verrouille au Planning : le recalcul ne le deplace pas. */
+    verrouille: boolean;
+}
+
+/** Un matelas, tel que le plan du jour le montre. */
+export interface MatelasRef {
+    id: string;
+    numero: string;
+    /** Pieces de ce matelas pour cette chaine (la part de la chaine quand la serie le partage). */
+    pieces: number;
+    /** Tissu etale, matelas entier (0 si la longueur du trace n'est pas connue). */
+    metres: number;
+}
+
+/** Ce qu'une autre matiere (doublure, entretoile...) doit couper pour que le tissu du jour puisse partir. */
+export interface MatiereJour {
+    id: string;
+    code: string;
+    nom: string;
+    numeros: string[];
+    matelas: MatelasRef[];
+    metres: number;
+    /** Minutes prevues pour ces matelas ; absent sans temps standard ou si un trace n'a pas de longueur. */
+    minutes?: number;
+}
+
+/**
+ * `rien` : l'avance couvre deja l'objectif ; `a_couper` : des matelas a couper aujourd'hui ;
+ * `manque` : ce qui reste a couper (ou a le droit de l'etre) ne suffit pas a atteindre l'objectif ;
+ * `pause` : modele en pause au Planning.
+ */
+export type StatutPlanJour = 'rien' | 'a_couper' | 'manque' | 'pause';
+
+/**
+ * Le plan de coupe du jour pour un modele sur une chaine. `pieces`, `metres` et `minutes`
+ * parlent du tissu principal (`matelas`) ; chaque matiere de `autres` porte les siens.
+ */
+export interface PlanJour {
+    /** Matelas de tissu a couper aujourd'hui, dans l'ordre de la serie. */
+    matelas: MatelasRef[];
+    /** Pieces de ces matelas (matelas entiers : peut depasser `aCouperPieces`, le besoin). */
+    pieces: number;
+    metres: number;
+    /** Minutes prevues (temps standard de la salle de coupe) ; absent sans standard ou si un trace n'a pas de longueur. */
+    minutes?: number;
+    /** Seulement les matelas des autres matieres utiles a ces matelas de tissu, pas tout leur lot. */
+    autres: MatiereJour[];
+    /** Jour ou la chaine n'aura plus de pieces coupees si ce plan est coupe (dimanches sautes) ; absent sans cadence ou en pause. */
+    couvreJusqua?: string;
+    statut: StatutPlanJour;
+    /** Matelas du plan dont la longueur du trace manque : leurs metres ne sont pas comptes. */
+    sansLongueur: number;
+}
+
+/** Cadence de la chaine face a ce que la coupe sait couper par jour. */
+export interface RythmeChaine {
+    /** Pieces de tissu coupees par jour actif (5 derniers jours) pour les modeles de la chaine ; absent sans historique. */
+    coupeParJour?: number;
+    /** Pieces/jour de la chaine pour son modele en cours. */
+    chaineParJour: number;
+    source: 'manuel' | 'suivi' | 'planning';
+    /** Jours d'avance du modele en cours (pret et pas encore entre / cadence). */
+    ecartJours: number | null;
+}
 
 export interface ModeleSurChaine {
+    /** Premier pedido actif de la ligne ; a defaut `chaine-modele`. */
     eventId: string;
     modelId: string;
     nom: string;
@@ -39,17 +131,23 @@ export interface ModeleSurChaine {
     image?: string;
     /** Le modele a un ordre de coupe ouvert dans La Coupe. */
     aUnOrdre: boolean;
+    /** Les pedidos du modele sur cette chaine, du plus tot au plus tard (lancement, puis livraison). */
+    pedidos: PedidoSurChaine[];
+    /** Tous les pedidos de la ligne sont en pause : on ne propose rien a couper. */
+    enPause: boolean;
+    /** Lancement le plus proche parmi les pedidos actifs (a defaut, tous). */
     lancement: string | null;
+    /** Livraison la plus proche parmi les pedidos retenus ; null si le Planning n'a saisi aucune DDS. */
     dds: string | null;
     /** Jours avant le lancement (negatif ou 0 : lance). */
     joursAvantLancement: number | null;
-    /** Pieces de cette chaine : ses paquets de serie ; a defaut, la quantite du Planning. */
+    /** Pieces de cette chaine : ses paquets de serie ; a defaut, la quantite de ses pedidos. */
     commande: number;
     /** Tissu principal coupe, pour cette chaine. */
     coupe: number;
     /** Vetements dont toutes les matieres sont coupees : ce qui peut entrer en chaine. */
     prets: number;
-    /** Entre en chaine (Suivi, colonne Entree). */
+    /** Entre en chaine (Suivi, colonne Entree), tous les pedidos ensemble. */
     entre: number;
     /** Sorti de chaine (Suivi, sorties heure par heure ; a defaut, la quantite produite du Planning). */
     sorti: number;
@@ -66,12 +164,14 @@ export interface ModeleSurChaine {
     enAttente: number;
     /** Jours de couture que l'attente represente. */
     joursAvance: number | null;
-    /** Pieces a couper pour remonter a l'avance voulue (jamais plus que ce qui reste a couper). */
+    /** Pieces a couper pour remonter a l'avance voulue (jamais plus que ce qui reste a couper, rien en pause). Les matelas choisis sont entiers : `planJour.pieces` peut etre plus grand. */
     aCouperPieces: number;
-    /** Matelas de tissu a couper pour ca, dans l'ordre de la serie. */
-    matelas: { id: string; numero: string; pieces: number }[];
-    /** Matelas des autres matieres en face de ceux-la, pas encore coupes : un lot ne part pas sans eux. */
-    autres: { code: string; nom: string; numeros: string[] }[];
+    /** Le plan de coupe du jour pour ce modele sur cette chaine. */
+    planJour: PlanJour;
+    /** Matelas de tissu a couper pour ca, dans l'ordre de la serie (= `planJour.matelas`). */
+    matelas: MatelasRef[];
+    /** Matelas des autres matieres utiles a ceux-la, pas encore coupes : un lot ne part pas sans eux (= `planJour.autres`). */
+    autres: MatiereJour[];
     /** Tissu encore a couper pour cette chaine. */
     resteACouper: number;
     /** La serie de cette chaine : de tel numero a tel numero, paquets entres et sortis (feuille SERIE). */
@@ -97,6 +197,7 @@ export interface ChaineCoupe {
     modeles: ModeleSurChaine[];
     matelasACouper: number;
     piecesACouper: number;
+    rythme: RythmeChaine;
 }
 
 export interface EntreeChaines {
@@ -121,8 +222,33 @@ const ajouterJours = (a: string, n: number) => new Date(Date.parse(`${a}T12:00:0
 const sortiesDuJour = (s: SuiviData) => Object.values(s.sorties || {}).reduce<number>((acc, v) => acc + (Number(v) || 0), 0);
 const numeroTri = (n?: string) => { const x = parseInt(String(n ?? ''), 10); return Number.isFinite(x) ? x : Number.MAX_SAFE_INTEGER; };
 
+/**
+ * `n` jours ouvres apres `depart` : les dimanches ne comptent pas (calcul en UTC, sans heure d'ete).
+ * n = 0 rend `depart` tel quel.
+ */
+const ajouterJoursOuvres = (depart: string, n: number): string => {
+    const [a, m, j] = depart.split('-').map(Number);
+    const d = new Date(Date.UTC(a, m - 1, j));
+    for (let i = 0; i < n; i++) {
+        d.setUTCDate(d.getUTCDate() + 1);
+        if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return d.toISOString().slice(0, 10);
+};
+
 /** Jours produits retenus pour la cadence : assez pour lisser, assez peu pour suivre la chaine. */
 const JOURS_CADENCE = 5;
+
+/** Le nom d'un OF du Planning s'ecrit « Article — L1 » : l'article, et le code du lot. */
+const SEP_LOT = ' — ';
+const codeLot = (nom: string | undefined): string => {
+    const s = String(nom ?? ''), i = s.lastIndexOf(SEP_LOT);
+    return i < 0 ? '' : s.slice(i + SEP_LOT.length).trim();
+};
+const articleDe = (nom: string | undefined): string => {
+    const s = String(nom ?? ''), i = s.lastIndexOf(SEP_LOT);
+    return (i < 0 ? s : s.slice(0, i)).trim();
+};
 
 /**
  * Performance du Planning pour un modele, comme la barre du Gantt (EventBar) :
@@ -132,7 +258,43 @@ const JOURS_CADENCE = 5;
 const performancePlanning = (m: ModelData | undefined) =>
     ((m?.ficheData?.targetEfficiency ?? 85) * (m?.ficheData?.facteurPlanning ?? 60)) / 10000;
 
-const debutEvenement = (ev: PlanningEvent) => jourDe(ev.dateLancement || ev.startDate);
+const debutEvenement = (ev: PlanningEvent) => jourDe(evStartYmd(ev));
+
+/* ------------------------------------------------------------------ */
+/* Rythme de la coupe                                                   */
+/* ------------------------------------------------------------------ */
+
+export interface RythmeCoupe {
+    /** Jours actifs retenus (au moins un matelas de tissu coupe ce jour-la), au plus `jours`. */
+    jours: number;
+    pieces: number;
+    metres: number;
+    matelas: number;
+    /** Moyennes par jour actif, sans arrondi. */
+    parJour: number;
+    metresParJour: number;
+    matelasParJour: number;
+}
+
+/**
+ * Ce que la salle coupe vraiment : la moyenne par jour actif, sur les `jours` derniers jours ou
+ * un matelas de tissu principal a ete coupe (date de fin), jusqu'a `aujourdhui` compris. Un
+ * jour sans coupe ne compte pas. null sans aucun jour de coupe.
+ * Pour les chaines : passer les modeles de la chaine ; pour la salle entiere : tous les modeles.
+ */
+export function rythmeCoupe(models: ModelData[], jours = JOURS_CADENCE, aujourdhui: string = jourLocal()): RythmeCoupe | null {
+    if (!(jours >= 1)) return null;
+    const retenus = [...journalCoupe(models).values()]
+        .filter(j => j.jour <= aujourdhui && j.pieces > 0)
+        .sort((a, b) => b.jour.localeCompare(a.jour))
+        .slice(0, Math.floor(jours));
+    if (!retenus.length) return null;
+    const pieces = retenus.reduce((s, j) => s + j.pieces, 0);
+    const metres = retenus.reduce((s, j) => s + j.metres, 0);
+    const matelas = retenus.reduce((s, j) => s + j.matelas, 0);
+    const n = retenus.length;
+    return { jours: n, pieces, metres, matelas, parJour: pieces / n, metresParJour: metres / n, matelasParJour: matelas / n };
+}
 
 /** Un modele regarde une fois : ses paquets de serie et ses lots, tires de l'ordre ouvert. */
 interface VueModele {
@@ -161,6 +323,14 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
 
     const suivisPar = new Map<string, SuiviData[]>();
     for (const s of e.suivis) (suivisPar.get(s.planningId) || suivisPar.set(s.planningId, []).get(s.planningId)!).push(s);
+
+    // Temps standard d'un matelas, appris de la salle entiere : cherche une fois, au premier besoin.
+    let standard: TempsStandard | null | undefined;
+    const standardSalle = (): TempsStandard | null => (standard === undefined ? (standard = tempsStandard(matelasExecutes(e.models))) : standard);
+    const minutesDe = (liste: { metres: number }[]): number | undefined => {
+        const std = standardSalle();
+        return std && liste.length ? liste.reduce((s, x) => s + minutesPrevues(std, x.metres), 0) : undefined;
+    };
 
     // Evenements en cours, du plus tot au plus tard : le premier d'un modele donne sa chaine par defaut.
     const evs = e.evenements.filter(ev => ev.status !== 'DONE')
@@ -194,15 +364,52 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
     for (const ev of evs) ajouterId(versId(ev.chaineId));
     for (const m of e.models) if (m.ordreCoupe && estOuvert(m)) for (const p of vueDe(m).paquets) ajouterId(chaineDuPaquet(m, p));
 
+    const pedidoDe = (ev: PlanningEvent): PedidoSurChaine => ({
+        eventId: ev.id,
+        code: codeLot(ev.modelName),
+        quantite: evQty(ev) || 0,
+        debut: evStartYmd(ev),
+        export: evDeadlineYmd(ev) || undefined,
+        statut: String(ev.status),
+        enPause: ev.status === 'BLOCKED_STOCK',
+        verrouille: !!ev.isLocked,
+    });
+    const parDebut = (a: PedidoSurChaine, b: PedidoSurChaine) =>
+        (a.debut || '9999').localeCompare(b.debut || '9999') || (a.export || '9999').localeCompare(b.export || '9999');
+
     /**
-     * `ev` : l'OF du Planning sur CETTE chaine (son Suivi lui appartient) ; `evDates` :
-     * n'importe quel OF du modele, pour les dates quand la serie le met sur une autre chaine.
+     * `evsLigne` : les OF du Planning de CE modele sur CETTE chaine (leur Suivi leur appartient) ;
+     * `evDates` : un OF du modele sur une autre chaine, pour les dates quand la serie met le modele
+     * sur une chaine ou il n'a pas d'OF.
      */
-    const ligneModele = (id: string, m: ModelData | undefined, ev: PlanningEvent | undefined, evDates: PlanningEvent | undefined = ev): ModeleSurChaine | null => {
-        const suivis = ev ? suivisPar.get(ev.id) || [] : [];
-        const entre = suivis.reduce((s, x) => s + (Number(x.entrer) || 0), 0);
-        const sortiSuivi = suivis.reduce((s, x) => s + sortiesDuJour(x), 0);
-        const sorti = sortiSuivi > 0 ? sortiSuivi : Number(ev?.producedQuantity ?? ev?.qteProduite ?? 0) || 0;
+    const ligneModele = (id: string, m: ModelData | undefined, evsLigne: PlanningEvent[], evDates?: PlanningEvent): ModeleSurChaine | null => {
+        // Les pedidos de la ligne : un seul modele, un seul calcul, quel que soit leur nombre.
+        const lot = evsLigne.map(ev => ({ ev, p: pedidoDe(ev) })).sort((a, b) => parDebut(a.p, b.p));
+        const pedidos = lot.map(x => x.p);
+        const actifs = pedidos.filter(p => !p.enPause);
+        const enPause = pedidos.length > 0 && actifs.length === 0;
+        const retenus = actifs.length ? actifs : pedidos;
+        const qtePedidos = pedidos.reduce((s, p) => s + p.quantite, 0);
+        const qteActifs = actifs.reduce((s, p) => s + p.quantite, 0);
+        const premier = lot.find(x => !x.p.enPause) || lot[0];
+
+        // Suivi de tous les pedidos ensemble. Sorti : le Suivi de chaque OF, a defaut sa quantite produite au Planning.
+        let entre = 0, sorti = 0;
+        const parDate = new Map<string, { entre: number; sorti: number }>();
+        for (const { ev } of lot) {
+            const suivis = suivisPar.get(ev.id) || [];
+            let sortiSuivi = 0;
+            for (const s of suivis) {
+                const en = Number(s.entrer) || 0, so = sortiesDuJour(s);
+                entre += en; sortiSuivi += so;
+                const j = parDate.get(s.date) || { entre: 0, sorti: 0 };
+                j.entre += en; j.sorti += so;
+                parDate.set(s.date, j);
+            }
+            sorti += sortiSuivi > 0 ? sortiSuivi : Number(evProduced(ev)) || 0;
+        }
+        const joursSuivi = [...parDate].map(([date, v]) => ({ date, ...v })).sort((a, b) => b.date.localeCompare(a.date));
+
         const aUnOrdre = !!(m?.ordreCoupe && estOuvert(m));
         const r = m && aUnOrdre ? resumerOrdre(m) : null;
         const vue = m && aUnOrdre ? vueDe(m) : null;
@@ -213,8 +420,8 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         const avecSerie = siens.length > 0;
         const piecesChaine = siens.reduce((s, p) => s + piecesPaquet(p), 0);
         const coupeChaine = siens.filter(p => p.fait).reduce((s, p) => s + piecesPaquet(p), 0);
-        const commande = avecSerie ? piecesChaine : Number(ev?.qteTotal) || r?.qte || 0;
-        const commandePlanning = Number(ev?.qteTotal) || commande;
+        const commande = avecSerie ? piecesChaine : qtePedidos || r?.qte || 0;
+        const commandePlanning = qtePedidos || commande;
         if (commandePlanning > 0 && sorti >= commandePlanning) return null; // OF termine : plus rien a lui couper
 
         const coupe = avecSerie ? coupeChaine : r?.coupees || 0;
@@ -222,20 +429,26 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         let prets = coupe;
         if (vue?.eq && vue.eq.matieres.filter(x => vue.eq!.parMatiere[x.id]?.nbMatelas > 0).length > 1) prets = Math.min(coupe, vue.eq.prets);
 
-        // Cadence : les derniers jours ou la chaine a sorti ce modele.
-        const produits = suivis.map(s => ({ date: s.date, n: sortiesDuJour(s) })).filter(x => x.n > 0).sort((a, b) => b.date.localeCompare(a.date)).slice(0, JOURS_CADENCE);
+        // Cadence : les derniers jours ou la chaine a sorti ce modele (tous pedidos confondus).
+        const produits = joursSuivi.filter(x => x.sorti > 0).slice(0, JOURS_CADENCE);
         let cadence = 0, sourceCadence: ModeleSurChaine['sourceCadence'] = 'planning';
         const main = reglageDe(id);
         const cadenceMain = Number(m && main?.cadences?.[m.id]) || Number(main?.cadence) || 0;
         if (cadenceMain > 0) { cadence = cadenceMain; sourceCadence = 'manuel'; }
-        else if (produits.length) { cadence = produits.reduce((s, x) => s + x.n, 0) / produits.length; sourceCadence = 'suivi'; }
+        else if (produits.length) { cadence = produits.reduce((s, x) => s + x.sorti, 0) / produits.length; sourceCadence = 'suivi'; }
         else if (e.settings) cadence = capaciteJournaliereChaine(e.settings, id, Math.max(0.1, Number(m?.meta_data?.total_temps) || 15), performancePlanning(m));
 
         const consomme = Math.max(entre, sorti);
         const enAttente = Math.max(0, prets - consomme);
         const joursAvance = cadence > 0 ? enAttente / cadence : null;
 
-        const lancement = evDates ? debutEvenement(evDates) : null;
+        // Dates : celles des pedidos actifs (le pedido en pause ne lance rien) ; a defaut, tous, puis l'OF d'une autre chaine.
+        const lancement = retenus.length
+            ? retenus.map(p => jourDe(p.debut)).filter((x): x is string => !!x).sort()[0] || null
+            : evDates ? debutEvenement(evDates) : null;
+        const dds = retenus.length
+            ? retenus.map(p => jourDe(p.export)).filter((x): x is string => !!x).sort()[0] || null
+            : evDates ? jourDe(evDeadlineYmd(evDates)) : null;
         const joursAvantLancement = lancement ? joursEntre(e.aujourdhui, lancement) : null;
         // Avant le lancement, la coupe commence « avance » jours plus tot ; avant, rien ne presse.
         const plusTard = joursAvantLancement !== null && joursAvantLancement > Math.ceil(objectif);
@@ -243,14 +456,14 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
 
         // Les matelas a couper : ceux des paquets de la chaine, dans l'ordre de la serie ; sans serie, tout l'ordre par numero.
         type Cible = { id: string; numero: string; pieces: number; debut: number; fin: number };
+        const lignesParId = new Map<string, MatelasLine>(m && aUnOrdre ? lignesUtiles(m).map(l => [l.id, l] as [string, MatelasLine]) : []);
         let restants: Cible[] = [];
         if (m && aUnOrdre) {
             const parLigne = new Map<string, Cible>();
-            const lignes = new Map(lignesUtiles(m).map(l => [l.id, l]));
             if (avecSerie) {
                 for (const p of siens) {
                     if (p.fait) continue;
-                    const l = lignes.get(p.matelasId);
+                    const l = lignesParId.get(p.matelasId);
                     const c = parLigne.get(p.matelasId) || { id: p.matelasId, numero: (l?.numero || p.paquet || '').trim(), pieces: 0, debut: Infinity, fin: -Infinity };
                     c.pieces += piecesPaquet(p); c.debut = Math.min(c.debut, p.debut); c.fin = Math.max(c.fin, p.fin);
                     parLigne.set(p.matelasId, c);
@@ -264,7 +477,14 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
             }
         }
         const resteACouper = aUnOrdre ? (avecSerie ? restants.reduce((s, c) => s + c.pieces, 0) : r?.aCouper || 0) : 0;
-        const besoin = plusTard || !aUnOrdre ? 0 : Math.max(0, Math.min(Math.ceil(cadence * objectif - enAttente), resteACouper));
+
+        // Ce que la chaine demande : de quoi remonter a l'avance voulue.
+        const voulu = plusTard || !aUnOrdre || enPause ? 0 : Math.max(0, Math.ceil(cadence * objectif - enAttente));
+        // Pause : tous les pedidos en pause = rien a couper. Une partie seulement : on ne coupe pas plus
+        // que ce que les pedidos actifs demandent, soit leur quantite moins le tissu deja coupe pour ce
+        // modele sur cette chaine (jamais negatif). Prudent : le tissu deja coupe n'est pas attribue a un pedido.
+        const plafondPause = pedidos.length > actifs.length ? Math.max(0, qteActifs - coupe) : Infinity;
+        const besoin = voulu === 0 ? 0 : Math.max(0, Math.min(voulu, resteACouper, plafondPause));
         const choisis: Cible[] = [];
         let cumul = 0;
         for (const c of restants) {
@@ -273,25 +493,44 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
             cumul += c.pieces;
         }
 
-        // Face a face : les matelas des autres matieres des lots de ces matelas, pas encore coupes.
-        const autres: ModeleSurChaine['autres'] = [];
+        // Plan du jour : les matelas de tissu choisis, et des autres matieres seulement ceux qui les couvrent.
+        const refTissu = (c: Cible): MatelasRef => {
+            const l = lignesParId.get(c.id);
+            return { id: c.id, numero: c.numero, pieces: c.pieces, metres: l ? metresLigne(l) : 0 };
+        };
+        const matelasJour = choisis.map(refTissu);
+        const sansLongueur = choisis.filter(c => { const l = lignesParId.get(c.id); return !!l && longueurManquante(l); }).length;
+        const metresJour = matelasJour.reduce((s, x) => s + x.metres, 0);
+        const piecesJour = matelasJour.reduce((s, x) => s + x.pieces, 0);
+        const autres: MatiereJour[] = [];
         if (vue?.eq && choisis.length) {
             const eq = vue.eq;
-            const voulus = new Set(choisis.map(c => c.id));
-            const parMat = new Map<string, Set<string>>();
-            for (const lot of eq.lots) {
-                const principal = eq.matieres.find(x => x.principal);
-                if (!principal || !(lot.matelas[principal.id] || []).some(x => voulus.has(x.id))) continue;
-                for (const mat of eq.matieres) {
-                    if (mat.principal) continue;
-                    for (const x of lot.matelas[mat.id] || []) if (x.etat !== 'coupe') (parMat.get(mat.id) || parMat.set(mat.id, new Set()).get(mat.id)!).add(x.numero);
-                }
-            }
-            for (const [matId, nums] of parMat) {
-                const mat = eq.matieres.find(x => x.id === matId)!;
-                autres.push({ code: mat.code, nom: mat.nom, numeros: [...nums].sort((a, b) => numeroTri(a) - numeroTri(b)) });
+            const couv = matelasPourCouvrir(eq, choisis.map(c => c.id));
+            for (const mat of eq.matieres) {
+                const liste = (couv[mat.id] || []).slice().sort((a, b) => numeroTri(a.numero) - numeroTri(b.numero));
+                if (mat.principal || !liste.length) continue;
+                const refs: MatelasRef[] = liste.map(x => ({ id: x.id, numero: x.numero, pieces: x.total, metres: metresLigne(x.ligne) }));
+                autres.push({
+                    id: mat.id, code: mat.code, nom: mat.nom, numeros: refs.map(x => x.numero), matelas: refs,
+                    metres: refs.reduce((s, x) => s + x.metres, 0),
+                    minutes: liste.some(x => longueurManquante(x.ligne)) ? undefined : minutesDe(refs),
+                });
             }
         }
+
+        // Jusqu'a quand la chaine a des pieces coupees si ce plan est coupe. Un modele pas encore lance
+        // ne consomme rien avant son lancement : le compte part de la.
+        let couvreJusqua: string | undefined;
+        if (!enPause && cadence > 0) {
+            const depart = lancement && joursAvantLancement !== null && joursAvantLancement > 0 ? lancement : e.aujourdhui;
+            couvreJusqua = ajouterJoursOuvres(depart, Math.floor((enAttente + piecesJour) / cadence + 1e-9));
+        }
+        const planJour: PlanJour = {
+            matelas: matelasJour, pieces: piecesJour, metres: metresJour,
+            minutes: choisis.length && sansLongueur === 0 ? minutesDe(matelasJour) : undefined,
+            autres, couvreJusqua, sansLongueur,
+            statut: enPause ? 'pause' : voulu === 0 ? 'rien' : besoin < voulu ? 'manque' : 'a_couper',
+        };
 
         const debuts = siens.map(p => p.debut), fins = siens.map(p => p.fin);
         const dejaChoisis = new Set(choisis.map(c => c.id));
@@ -302,18 +541,20 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
             parTaille.set(p.taille, t);
         }
         const serieChoisie = choisis.filter(c => Number.isFinite(c.debut));
+        const evRef = premier?.ev || evDates;
         return {
-            eventId: ev?.id || `${id}-${m?.id || ''}`, modelId: m?.id || evDates?.modelId || '',
-            nom: evDates?.modelName || m?.ordreCoupe?.refModele || m?.meta_data?.nom_modele || evDates?.modelId || '',
-            client: ((m?.ficheData as any)?.client || evDates?.clientName || '').trim(),
+            eventId: premier?.ev.id || `${id}-${m?.id || ''}`, modelId: m?.id || evRef?.modelId || '',
+            // Plusieurs pedidos : le nom de l'article, sans le lot (« Article — L1 » ne vaut que pour un).
+            nom: (pedidos.length > 1 ? articleDe(evRef?.modelName) : evRef?.modelName) || m?.ordreCoupe?.refModele || m?.meta_data?.nom_modele || evRef?.modelId || '',
+            client: ((m?.ficheData as any)?.client || evRef?.clientName || '').trim(),
             image: m?.image || m?.images?.front || undefined,
-            aUnOrdre, lancement, dds: evDates ? jourDe(evDates.dateExport || evDates.strictDeadline_DDS) : null, joursAvantLancement,
-            jours: suivis.map(s => ({ date: s.date, entre: Number(s.entrer) || 0, sorti: sortiesDuJour(s) })).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7),
+            aUnOrdre, pedidos, enPause, lancement, dds, joursAvantLancement,
+            jours: joursSuivi.slice(0, 7),
             parTaille: [...parTaille.values()],
             aCouperTous: restants.map(c => ({ id: c.id, numero: c.numero, pieces: c.pieces, debut: Number.isFinite(c.debut) ? c.debut : null, fin: Number.isFinite(c.fin) ? c.fin : null, choisi: dejaChoisis.has(c.id) })),
             commande, coupe, prets, entre, sorti,
             cadence: Math.round(cadence), sourceCadence, enAttente, joursAvance,
-            aCouperPieces: besoin, matelas: choisis.map(c => ({ id: c.id, numero: c.numero, pieces: c.pieces })), autres, resteACouper,
+            aCouperPieces: besoin, planJour, matelas: planJour.matelas, autres: planJour.autres, resteACouper,
             serie: avecSerie ? {
                 debut: Math.min(...debuts), fin: Math.max(...fins), paquets: siens.length,
                 entres: siens.filter(p => !!saisieDe(m?.ordreCoupe?.serie, p.cle).entree).length,
@@ -330,37 +571,46 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         // Les modeles de la chaine : ceux que le Planning y met, et ceux dont la serie lui donne des paquets.
         const lignes: ModeleSurChaine[] = [];
         const vus = new Set<string>();
-        for (const ev of evs.filter(x => versId(x.chaineId) === id)) {
-            const l = ligneModele(id, modeles.get(ev.modelId), ev);
-            vus.add(ev.modelId); // OF termine (rien a couper) : la serie ne le ramene pas
+        // Une ligne par modele : ses pedidos sur cette chaine (L1, L2...) sont reunis.
+        const parModele = new Map<string, PlanningEvent[]>();
+        for (const ev of evs.filter(x => versId(x.chaineId) === id)) (parModele.get(ev.modelId) || parModele.set(ev.modelId, []).get(ev.modelId)!).push(ev);
+        for (const [modelId, groupe] of parModele) {
+            const l = ligneModele(id, modeles.get(modelId), groupe);
+            vus.add(modelId); // OF termine (rien a couper) : la serie ne le ramene pas
             if (l) lignes.push(l);
         }
         for (const m of e.models) {
             if (vus.has(m.id) || !m.ordreCoupe || !estOuvert(m)) continue;
             if (!vueDe(m).paquets.some(p => chaineDuPaquet(m, p) === id)) continue;
-            const l = ligneModele(id, m, undefined, (evParModele.get(m.id) || [])[0]);
+            const l = ligneModele(id, m, [], (evParModele.get(m.id) || [])[0]);
             if (l) { lignes.push(l); vus.add(m.id); }
         }
         // Modeles donnes a la main a cette chaine, meme sans paquet ni OF au Planning.
         for (const mid of reglageDe(id)?.modeles || []) {
             const m = modeles.get(mid);
             if (!m || vus.has(mid) || !m.ordreCoupe || !estOuvert(m)) continue;
-            const l = ligneModele(id, m, undefined, (evParModele.get(mid) || [])[0]);
+            const l = ligneModele(id, m, [], (evParModele.get(mid) || [])[0]);
             if (l) { lignes.push(l); vus.add(mid); }
         }
         lignes.sort((a, b) => (a.lancement || '9999').localeCompare(b.lancement || '9999') || b.aCouperPieces - a.aCouperPieces);
 
-        // L'etat de la chaine : celui du modele qu'elle coud (le premier lance), sinon du prochain.
-        const courant = lignes.find(x => x.joursAvantLancement === null || x.joursAvantLancement <= 0) || lignes[0];
+        // L'etat de la chaine : celui du modele qu'elle coud (le premier lance, pas en pause), sinon du prochain.
+        const lance = (x: ModeleSurChaine) => x.joursAvantLancement === null || x.joursAvantLancement <= 0;
+        const cousables = lignes.filter(x => !x.enPause);
+        const courant = cousables.find(lance) || cousables[0] || lignes[0];
         let etat: EtatChaine = 'libre';
         if (courant) {
             const j = courant.joursAvance;
-            etat = !courant.aUnOrdre ? 'horsCoupe'
-                : courant.plusTard ? 'couverte'
-                    : j === null ? 'juste'
-                        : j < 1 ? 'arret'
-                            : j < objectif ? 'juste' : 'couverte';
+            etat = courant.enPause ? 'pause'
+                : !courant.aUnOrdre ? 'horsCoupe'
+                    : courant.plusTard ? 'couverte'
+                        : j === null ? 'juste'
+                            : j < 1 ? 'arret'
+                                : j < objectif ? 'juste' : 'couverte';
         }
+        // Rythme : ce que la salle coupe par jour pour les modeles de cette chaine, face a ce que la chaine coud.
+        const modelesChaine = [...new Set(lignes.map(x => x.modelId))].map(mid => modeles.get(mid)).filter((m): m is ModelData => !!m);
+        const coupeParJour = rythmeCoupe(modelesChaine, JOURS_CADENCE, e.aujourdhui)?.parJour;
         return {
             id,
             nom: reglageDe(id)?.nom || e.settings?.chainNames?.[id] || id,
@@ -369,6 +619,12 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
             modeles: lignes,
             matelasACouper: lignes.reduce((s, x) => s + x.matelas.length, 0),
             piecesACouper: lignes.reduce((s, x) => s + x.aCouperPieces, 0),
+            rythme: {
+                coupeParJour: coupeParJour === undefined ? undefined : Math.round(coupeParJour),
+                chaineParJour: courant?.cadence ?? 0,
+                source: courant?.sourceCadence ?? 'planning',
+                ecartJours: courant?.joursAvance ?? null,
+            },
         };
     });
 }

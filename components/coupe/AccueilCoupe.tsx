@@ -564,6 +564,7 @@ const ETATS_CHAINE: Record<EtatChaine, { fr: string; ar: string; en: string; cls
     arret: { fr: 'Va s’arrêter', ar: 'ستتوقف', en: 'Will stop', cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/25 dark:text-rose-300 dark:border-rose-800', barre: 'bg-rose-500' },
     juste: { fr: 'Juste', ar: 'على الحدّ', en: 'Tight', cls: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/25 dark:text-amber-300 dark:border-amber-800', barre: 'bg-amber-500' },
     couverte: { fr: 'Couverte', ar: 'مغطّاة', en: 'Covered', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-300 dark:border-emerald-800', barre: 'bg-emerald-500' },
+    pause: { fr: 'En pause', ar: 'إيقاف مؤقت', en: 'Paused', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-dk-elevated dark:text-dk-text-soft dark:border-dk-border', barre: 'bg-slate-400' },
     horsCoupe: { fr: 'Sans ordre de coupe', ar: 'بلا أمر قص', en: 'No cutting order', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-dk-elevated dark:text-dk-text-soft dark:border-dk-border', barre: 'bg-slate-400' },
     libre: { fr: 'Sans modèle', ar: 'بلا موديل', en: 'No model', cls: 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border', barre: 'bg-slate-300' },
 };
@@ -629,7 +630,7 @@ export function PageChaines({ models, evenements, suivis, settings, joursAvance,
         () => chainesDeCoupe({ models, evenements, suivis, settings: settings ? { ...settings, chainesCoupe: reglages } : ({ chainesCoupe: reglages } as AppSettings), joursAvance, aujourdhui: aujourdhui() }),
         [models, evenements, suivis, settings, reglages, joursAvance],
     );
-    const ordre: Record<EtatChaine, number> = { arret: 0, juste: 1, couverte: 2, horsCoupe: 3, libre: 4 };
+    const ordre: Record<EtatChaine, number> = { arret: 0, juste: 1, couverte: 2, pause: 3, horsCoupe: 4, libre: 5 };
     const triees = [...chaines].sort((a, b) => ordre[a.etat] - ordre[b.etat] || a.id.localeCompare(b.id, undefined, { numeric: true }));
     const visibles = choix ? triees.filter(c => c.id === choix) : triees.filter(c => c.etat !== 'libre');
     const matelas = chaines.reduce((s, c) => s + c.matelasACouper, 0);

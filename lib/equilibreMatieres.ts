@@ -162,6 +162,12 @@ export interface EquilibreOrdre {
      * numeros pour qu'en salle, couper « par numero » serve la chaine.
      */
     ordreConseille: Record<string, MatelasEquilibre[]>;
+    /**
+     * Ordre dans lequel une matiere couvre le tissu : les matelas pris pour combler ce que le
+     * tissu a deja coupe (c'est l'ordre de `attente` d'un lot), puis ceux qu'aucun tissu n'appelle.
+     * Le tissu principal garde l'ordre de ses numeros.
+     */
+    ordreCouverture: Record<string, MatelasEquilibre[]>;
 }
 
 const SEP = '\u001f';
@@ -484,6 +490,12 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
             .map(({ x }) => x);
     }
 
+    const ordreCouverture: Record<string, MatelasEquilibre[]> = { [P]: [...princ] };
+    for (const id of autres) {
+        const dansSequence = new Set(sequence[id]);
+        ordreCouverture[id] = [...sequence[id], ...parMat[id].map((_, i) => i).filter(i => !dansSequence.has(i))].map(i => parMat[id][i]);
+    }
+
     const enPlus: Record<string, MatelasEquilibre[]> = {};
     for (const id of autres) {
         const reste = parMat[id].filter((_, i) => rangee[id][i] < 0);
@@ -527,7 +539,50 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
         parMatiere,
         ecartsPlan,
         ordreConseille,
+        ordreCouverture,
     };
+}
+
+/**
+ * Les matelas des autres matieres a couper pour que des matelas de tissu choisis
+ * (`tissuIds`) puissent partir en chaine : meme calcul que `attente` d'un lot, mais
+ * pour un plan precis. On additionne le tissu jusqu'au dernier matelas choisi (dans
+ * l'ordre des numeros), on retire ce que la matiere a deja coupe, puis on prend ses
+ * matelas pas encore coupes dans son ordre de couverture jusqu'a combler le reste.
+ * Un matelas de la matiere qui ne sert pas a ce plan n'est pas pris, meme s'il est
+ * dans le meme lot. Par matiere (id) ; une matiere deja couverte n'y figure pas.
+ */
+export function matelasPourCouvrir(eq: EquilibreOrdre, tissuIds: string[]): Record<string, MatelasEquilibre[]> {
+    const out: Record<string, MatelasEquilibre[]> = {};
+    const princ = eq.ordreConseille[TISSU_PRINCIPAL] || [];
+    const voulus = new Set(tissuIds);
+    let dernier = -1;
+    princ.forEach((x, j) => { if (voulus.has(x.id)) dernier = j; });
+    if (dernier < 0) return out;
+    const cumul: Vecteur = {};
+    for (let j = 0; j <= dernier; j++) ajouter(cumul, princ[j].pieces);
+    for (const mat of eq.matieres) {
+        if (mat.principal) continue;
+        const liste = eq.ordreCouverture[mat.id] || [];
+        // Une matiere ne compte que pour les pieces qu'elle coupe quelque part dans l'ordre.
+        const total: Vecteur = {}, coupe: Vecteur = {};
+        for (const x of liste) { ajouter(total, x.pieces); if (x.etat === 'coupe') ajouter(coupe, x.pieces); }
+        const reste: Vecteur = {};
+        for (const k in cumul) {
+            if (!((total[k] || 0) > 0)) continue;
+            const d = cumul[k] - (coupe[k] || 0);
+            if (d > 0) reste[k] = d;
+        }
+        const prises: MatelasEquilibre[] = [];
+        for (const x of liste) {
+            if (!Object.keys(reste).length) break;
+            if (x.etat === 'coupe' || !Object.keys(reste).some(k => (x.pieces[k] || 0) > 0)) continue;
+            for (const k in x.pieces) if (reste[k] !== undefined) { reste[k] -= x.pieces[k]; if (reste[k] <= 0) delete reste[k]; }
+            prises.push(x);
+        }
+        if (prises.length) out[mat.id] = prises;
+    }
+    return out;
 }
 
 /* ------------------------------------------------------------------ */
