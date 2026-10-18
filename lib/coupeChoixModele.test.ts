@@ -33,6 +33,10 @@ const evenement = (id: string, modelId: string, extra: Partial<PlanningEvent> = 
     assert.deepEqual(chaineDuPlanning({ id: 'COUPE 2', nom: 'Salle C', alias: ['CHAINE 3'] }, settings, reglAlias), { id: 'CHAINE 3', connue: true });
     // Chaine propre a la coupe : son nom, inconnu du Planning.
     assert.deepEqual(chaineDuPlanning({ id: 'COUPE 3', nom: ' Chaîne 9 ' }, settings), { id: 'Chaîne 9', connue: false });
+    // Les accents ne comptent pas : « Chaîne 3 » (chaine ajoutee dans La Coupe) est « CHAINE 3 » du Planning.
+    const reglAjout: ReglageChaineCoupe[] = [{ id: 'COUPE 5', nom: 'Chaîne 3' }];
+    assert.deepEqual(chaineDuPlanning({ id: 'COUPE 5', nom: 'Chaîne 3' }, settings, reglAjout), { id: 'CHAINE 3', connue: true });
+    assert.equal(trouverChaine('CHAINE 3', reglAjout)?.id, 'COUPE 5', 'la coupe relit le « CHAINE 3 » ecrit sur sa chaine');
     // Hors des chaines du Planning (chainsCount = 3) : inconnue.
     assert.equal(chaineDuPlanning({ id: 'CHAINE 7', nom: 'CHAINE 7' }, settings).connue, false);
     // Sans reglages du tout : 4 chaines par defaut, comme le reste de l'application.
@@ -99,6 +103,9 @@ const evenement = (id: string, modelId: string, extra: Partial<PlanningEvent> = 
     assert.equal(erreurAffectation({ ...ok, quantite: 0 }, true), 'quantite');
     assert.equal(erreurAffectation({ ...ok, quantite: 12.5 }, true), 'quantite', 'des pieces entieres');
     assert.equal(erreurAffectation({ ...ok, quantite: 500 }, true), null);
+    // Une chaine inconnue du Planning : l'OF n'aurait pas de ligne au Gantt, on refuse.
+    assert.equal(erreurAffectation({ ...ok, chaineConnue: false }, false), 'chaine');
+    assert.equal(erreurAffectation({ ...ok, chaineConnue: true }, false), null);
 }
 
 // --- Affecter un pedido existant : chaine, dates, date figee ; le reste ne bouge pas ---
@@ -117,6 +124,8 @@ const evenement = (id: string, modelId: string, extra: Partial<PlanningEvent> = 
     assert.equal(r.producedQuantity, 200);
     assert.deepEqual(r.sizeColorDistribution, ev.sizeColorDistribution, 'la repartition couleur x taille reste');
     assert.equal(r.id, 'a');
+    assert.ok(Number.isFinite(Date.parse(String(r.updatedAt))), 'la modification est horodatee (la synchronisation garde la plus recente)');
+    assert.equal(affecterPedido(ev, { chaineId: 'CHAINE 2', debut: '2026-10-12' }, m, settings, 1760000000000).updatedAt, new Date(1760000000000).toISOString());
     // La fin calculee suit le nouveau debut (1000 pcs a 500/j environ : pas avant le debut).
     assert.ok(String(r.dateExport) > '2026-10-12', 'fin calculee apres le debut');
     assert.equal(r.estimatedEndDate, r.dateExport);
@@ -143,6 +152,7 @@ const evenement = (id: string, modelId: string, extra: Partial<PlanningEvent> = 
     assert.equal(ev.producedQuantity, 0);
     assert.equal(ev.status, 'READY');
     assert.equal(ev.isLocked, true);
+    assert.equal(ev.updatedAt, new Date(1760000000000).toISOString());
     assert.equal(ev.clientName, 'Zara');
     assert.equal(ev.typeMarche, 'Local');
     assert.equal(ev.facteurPlanning, 60);
@@ -162,6 +172,27 @@ const evenement = (id: string, modelId: string, extra: Partial<PlanningEvent> = 
     assert.equal(basculerPause(basculerPause(evenement('b', 'A', { status: 'IN_PROGRESS', producedQuantity: 50 }))).status, 'IN_PROGRESS', 'repris : en cours, il a deja produit');
     const fini = evenement('c', 'A', { status: 'DONE' });
     assert.equal(basculerPause(fini), fini, 'un OF termine ne bouge pas');
+    assert.ok(Number.isFinite(Date.parse(String(enPause.updatedAt))), 'la pause est horodatee');
+
+    // La reprise rend le statut d'avant la pause.
+    for (const statut of ['EXTERNAL_PROCESS', 'ON_TRACK', 'AT_RISK', 'OFF_TRACK', 'IN_PROGRESS', 'READY'] as const) {
+        const e = evenement('s', 'A', { status: statut });
+        const p = basculerPause(e);
+        assert.equal(p.status, 'BLOCKED_STOCK');
+        assert.equal(p.pausedFrom, statut);
+        const r = basculerPause(p);
+        assert.equal(r.status, statut, `${statut} : repris tel quel`);
+        assert.equal('pausedFrom' in r, false, 'plus de marque de pause une fois repris');
+    }
+    // Un vrai blocage de stock (pas de pausedFrom) : repris, sans sa raison ni ses manques de matiere.
+    const bloque = evenement('d', 'A', {
+        status: 'BLOCKED_STOCK', blockedReason: 'Stock insuffisant : fil',
+        materialShortages: [{ name: 'fil', required: 10, available: 2, missing: 8 }],
+    });
+    const repris = basculerPause(bloque);
+    assert.equal(repris.status, 'READY');
+    assert.equal(repris.blockedReason, undefined);
+    assert.equal(repris.materialShortages, undefined);
 }
 
 // --- Aller-retour avec la page Chaines : le pedido affecte apparait sur la chaine choisie ---

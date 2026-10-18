@@ -165,13 +165,17 @@ export interface JourCoupe {
     ordres: { id: string; nom: string; pieces: number; matelas: number }[];
 }
 
-/** Matelas coupes (date de fin) regroupes par jour local. */
-export const journalCoupe = (models: ModelData[]): Map<string, JourCoupe> => {
+/**
+ * Matelas coupes (date de fin) regroupes par jour local.
+ * `garder` : ne retient que certains matelas (ceux d'une chaine, par exemple) ; sans lui, tous.
+ */
+export const journalCoupe = (models: ModelData[], garder?: (m: ModelData, l: MatelasLine) => boolean): Map<string, JourCoupe> => {
     const out = new Map<string, JourCoupe>();
     for (const m of models) {
         const nom = m.meta_data?.nom_modele || m.ordreCoupe?.refModele || '';
         for (const l of lignesPieces(m)) {
             if (!l.fait) continue;
+            if (garder && !garder(m, l)) continue;
             const jour = jourDe(l.fin);
             if (!jour) continue;
             let j = out.get(jour);

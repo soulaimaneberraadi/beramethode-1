@@ -68,10 +68,14 @@ const instantDe = (x: any): number | null => {
  * est plus recent ; a defaut d'heure lisible, le cloud garde la main, et le
  * comportement ne change pas.
  */
-const gagnant = (local: any, cloud: any): any => {
+const gagnant = (local: any, cloud: any, cle?: string): any => {
   const tl = instantDe(local);
   const tc = instantDe(cloud);
   if (tl != null && tc != null) return tl > tc ? local : cloud;
+  /* Planning : La Coupe horodate ses ecritures (affecter, pause), la page Planning pas encore. Une copie
+     horodatee ici face a une copie du cloud sans heure est la plus recente que l'on puisse prouver : sinon
+     la premiere reprise du cloud defaisait l'affectation, et c'est cette version d'avant qu'on renvoyait. */
+  if (cle === 'beramethode_planning' && tl != null && tc == null) return local;
   return cloud;
 };
 
@@ -807,7 +811,7 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
                 const cle = cleElement(k, it);
                 const ici = parCle.get(cle);
                 // Le cloud ne l'emporte plus d'office : voir `gagnant`.
-                parCle.set(cle, ici === undefined ? it : gagnant(ici, it));
+                parCle.set(cle, ici === undefined ? it : gagnant(ici, it, k));
               }
               // L'union garde tout des deux côtés — y compris ce que
               // l'utilisateur avait supprimé, tant que la copie du cloud n'a

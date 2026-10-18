@@ -267,11 +267,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 
     /** Temps standard d'un matelas, appris de tous les matelas chronometres de l'atelier. */
     const tempsStd = useMemo(() => tempsStandard(matelasExecutes(models || [])), [models]);
-    const coupeModels = (models || []).filter(m =>
+    // Memoises : leurs enfants (ordres en cours, chaines) ne recalculent que si les modeles changent, pas a chaque toast.
+    const coupeModels = useMemo(() => (models || []).filter(m =>
         m && m.meta_data && (m.workflowStatus === 'COUPE' || m.isPublishedToLibrary === false || !m.workflowStatus)
-    );
+    ), [models]);
     /** Pour la consommation de « n'importe quel modele » : y compris ceux deja partis au Planning. */
-    const modelesAvecCoupe = (models || []).filter(m => m && m.meta_data && m.ordreCoupe);
+    const modelesAvecCoupe = useMemo(() => (models || []).filter(m => m && m.meta_data && m.ordreCoupe), [models]);
 
     const groupesCoupe = useMemo(() => settings?.groupesCoupe || [], [settings?.groupesCoupe]);
     /** Correspondance lettres <-> nombres de l'usine (la table d'usage tant qu'elle n'est pas reglee). */
@@ -4602,13 +4603,13 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             {/* TOAST */}
             {toastMessage && (
                 <div
-                    className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-4 py-2.5 rounded-lg shadow-lg dark:shadow-dk-lg border bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border"
+                    className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[130] w-max max-w-[calc(100vw-2rem)] flex items-start gap-2.5 px-4 py-2.5 rounded-lg shadow-lg dark:shadow-dk-lg border bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border"
                     style={{ animation: 'coupe-toast-in 200ms ease-out' }}
                 >
-                    <div className={`p-0.5 rounded-full ${toastMessage.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : toastMessage.type === 'error' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                    <div className={`p-0.5 shrink-0 rounded-full ${toastMessage.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : toastMessage.type === 'error' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
                         {toastMessage.type === 'success' ? <CheckCircle className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
                     </div>
-                    <span className="text-[12px] font-semibold text-slate-800 dark:text-dk-text">{toastMessage.text}</span>
+                    <span className="text-[12px] leading-snug font-semibold text-slate-800 dark:text-dk-text">{toastMessage.text}</span>
                 </div>
             )}
 

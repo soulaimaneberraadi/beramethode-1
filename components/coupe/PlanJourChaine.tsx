@@ -16,8 +16,8 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import type { ChaineCoupe, MatiereJour, ModeleSurChaine, PedidoSurChaine } from '../../lib/coupeChaines';
 import { heuresParJour, modeleEnCours, numerosVisibles, verdictAvance, vuePlan } from '../../lib/coupeChainesVue';
+import { fmtN, jjmm, localeDe } from '../../lib/coupeFormat';
 
-const fmtN = (n: number, dec = 0) => n.toLocaleString(undefined, { maximumFractionDigits: dec, minimumFractionDigits: 0 });
 const fmtM = (n: number) => `${fmtN(n, n < 100 ? 1 : 0)} m`;
 
 const PANNEAU = {
@@ -31,15 +31,12 @@ const PANNEAU = {
 function useTextes() {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
-    const locale = lang === 'ar' ? 'ar-MA' : lang === 'en' ? 'en-GB' : lang === 'es' ? 'es-ES' : 'fr-FR';
+    const locale = localeDe(lang);
     /** « mer. 22/10 » : le jour de la semaine aide a se repérer. */
     const jourSemaine = (iso?: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' }) : '');
     const jourCourt = (iso?: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { day: '2-digit', month: 'short' }) : '');
     return { L, jourSemaine, jourCourt };
 }
-
-/** « 24/10 » depuis AAAA-MM-JJ, sans passer par un fuseau. */
-const jjmm = (iso?: string) => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '');
 
 /* ------------------------------------------------------------------ */
 /* Pedidos                                                              */

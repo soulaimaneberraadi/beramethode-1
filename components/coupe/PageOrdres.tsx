@@ -8,9 +8,11 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Building2, ChevronDown, Clock, Factory, Pause, Scissors, Search, X } from 'lucide-react';
 import type { ModelData, PlanningEvent } from '../../types';
+import type { EcartPlan } from '../../lib/coupeVues';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import type { ChaineCoupe } from '../../lib/coupeChaines';
+import { fmtN, jjmm } from '../../lib/coupeFormat';
 import {
     FILTRES_ORDRE, JOURS_ANCIEN, compterFiltres, filtrerOrdres, kpisOrdres, lignesOrdres, trierOrdres,
     type FiltreOrdre, type LigneOrdre, type StatutOrdre, type TriOrdre,
@@ -18,9 +20,6 @@ import {
 import { EnTetePage, Onglets } from './AccueilCoupe';
 import { LignePlanChaine } from './PlanJourChaine';
 
-const fmtN = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-/** « 24/10 » depuis AAAA-MM-JJ, sans passer par un fuseau. */
-const jjmm = (iso?: string | null) => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '');
 
 type Traduire = (fr: string, ar: string, en: string) => string;
 function useL(): Traduire {
@@ -106,6 +105,7 @@ function Kpi({ label, valeur, ton }: { label: string; valeur: string; ton: strin
 /** « L1 · export 24/10 · CHAINE 3 » : le prochain pedido, et ce qui presse (export proche ou depasse, ordre sans coupe depuis longtemps). */
 function LignePedido({ l }: { l: LigneOrdre }) {
     const L = useL();
+    const [liste, setListe] = useState(false);
     const p = l.prochain || l.pedidos[0] || null;
     const inactif = l.ancien && !l.exportDepasse && l.joursInactif !== null;
     if (!p && !inactif) return null;
@@ -117,24 +117,47 @@ function LignePedido({ l }: { l: LigneOrdre }) {
     if (date) parts.push(<span key="date">{date.mot} <b className="text-slate-800 dark:text-dk-text">{jjmm(date.jour)}</b></span>);
     if (p?.chaine) parts.push(<span key="chaine" className="inline-flex items-center gap-1"><Factory className="w-3 h-3 opacity-60" />{p.chaine}</span>);
     return (
-        <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-500 dark:text-dk-muted tabular-nums">
-            {parts.map((x, i) => <React.Fragment key={i}>{i > 0 && <span className="text-slate-300 dark:text-dk-border">·</span>}{x}</React.Fragment>)}
-            {p && p === l.prochain && j !== null && j < 0 && (
-                <span className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border text-[10px] font-bold ${ROSE}`}><AlertTriangle className="w-3 h-3" />{L(`dépassé de ${-j} j`, `تأخر ${-j} يوم`, `${-j} d overdue`)}</span>
+        <div className="mt-2">
+            <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-500 dark:text-dk-muted tabular-nums">
+                {parts.map((x, i) => <React.Fragment key={i}>{i > 0 && <span className="text-slate-300 dark:text-dk-border">·</span>}{x}</React.Fragment>)}
+                {p && p === l.prochain && j !== null && j < 0 && (
+                    <span className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border text-[10px] font-bold ${ROSE}`}><AlertTriangle className="w-3 h-3" />{L(`dépassé de ${-j} j`, `تأخر ${-j} يوم`, `${-j} d overdue`)}</span>
+                )}
+                {p && p === l.prochain && j !== null && j >= 0 && j <= 3 && (
+                    <span className={`px-1.5 h-5 inline-flex items-center rounded border text-[10px] font-bold ${AMBRE}`}>{j === 0 ? L('aujourd’hui', 'اليوم', 'today') : L(`dans ${j} j`, `بعد ${j} يوم`, `in ${j} d`)}</span>
+                )}
+                {p?.enPause && (
+                    <span className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border text-[10px] font-bold ${ARDOISE}`}><Pause className="w-3 h-3" />{L('en pause', 'متوقف', 'paused')}</span>
+                )}
+                {reste > 0 && (
+                    <button
+                        type="button"
+                        aria-expanded={liste}
+                        aria-label={L('Voir tous les pedidos', 'عرض كل الـ pedidos', 'Show all pedidos')}
+                        onClick={e => { e.stopPropagation(); setListe(v => !v); }}
+                        className="px-2 h-10 min-w-[40px] inline-flex items-center justify-center gap-0.5 rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[10px] font-bold text-slate-600 dark:text-dk-text-soft"
+                    >
+                        +{reste}<ChevronDown className={`w-3 h-3 transition-transform ${liste ? 'rotate-180' : ''}`} />
+                    </button>
+                )}
+                {inactif && (
+                    <span className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border text-[10px] font-bold ${AMBRE}`}><Clock className="w-3 h-3" />{L(`sans coupe depuis ${l.joursInactif} j`, `بلا قص منذ ${l.joursInactif} يوم`, `no cutting for ${l.joursInactif} d`)}</span>
+                )}
+            </p>
+            {liste && (
+                <ul className="mt-1 space-y-0.5 text-[11px] text-slate-600 dark:text-dk-text-soft tabular-nums">
+                    {l.pedidos.map(x => (
+                        <li key={x.eventId} className="flex flex-wrap items-center gap-x-1.5">
+                            <b className="text-slate-800 dark:text-dk-text">{x.code || '—'}</b>
+                            <span>{fmtN(x.quantite)} {L('pcs', 'قطعة', 'pcs')}</span>
+                            {x.export ? <span>{L('export', 'تصدير', 'export')} <b>{jjmm(x.export)}</b></span> : x.debut ? <span>{L('lancement', 'انطلاق', 'start')} <b>{jjmm(x.debut)}</b></span> : null}
+                            {x.chaine && <span className="inline-flex items-center gap-1"><Factory className="w-3 h-3 opacity-60" />{x.chaine}</span>}
+                            {x.enPause && <span className="inline-flex items-center gap-1"><Pause className="w-3 h-3" />{L('en pause', 'متوقف', 'paused')}</span>}
+                        </li>
+                    ))}
+                </ul>
             )}
-            {p && p === l.prochain && j !== null && j >= 0 && j <= 3 && (
-                <span className={`px-1.5 h-5 inline-flex items-center rounded border text-[10px] font-bold ${AMBRE}`}>{j === 0 ? L('aujourd’hui', 'اليوم', 'today') : L(`dans ${j} j`, `بعد ${j} يوم`, `in ${j} d`)}</span>
-            )}
-            {p?.enPause && (
-                <span className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border text-[10px] font-bold ${ARDOISE}`}><Pause className="w-3 h-3" />{L('en pause', 'متوقف', 'paused')}</span>
-            )}
-            {reste > 0 && (
-                <span title={l.pedidos.map(x => `${x.code || '—'} ${jjmm(x.export || x.debut)}`).join(' · ')} className="px-1.5 h-5 inline-flex items-center rounded border border-slate-200 dark:border-dk-border text-[10px] font-bold">+{reste}</span>
-            )}
-            {inactif && (
-                <span className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border text-[10px] font-bold ${AMBRE}`}><Clock className="w-3 h-3" />{L(`sans coupe depuis ${l.joursInactif} j`, `بلا قص منذ ${l.joursInactif} يوم`, `no cutting for ${l.joursInactif} d`)}</span>
-            )}
-        </p>
+        </div>
     );
 }
 
@@ -142,7 +165,15 @@ function LignePedido({ l }: { l: LigneOrdre }) {
 function EcartsPlan({ l }: { l: LigneOrdre }) {
     const L = useL();
     const [tout, setTout] = useState(false);
+    const [detail, setDetail] = useState(false);
     const MAX = 6;
+    /** La phrase d'un ecart, chiffres de la commande et du plan compris. */
+    const phrase = (e: EcartPlan): string => {
+        const qui = `${e.taille}${e.couleur ? ` ${e.couleur}` : ''}`;
+        return e.ecart > 0
+            ? L(`${fmtN(e.ecart)} pcs ${qui} planifiées en trop (commande ${fmtN(e.commande)}, plan ${fmtN(e.planifie)})`, `${fmtN(e.ecart)} قطعة ${qui} زيادة في المخطط (طلبية ${fmtN(e.commande)}، مخطط ${fmtN(e.planifie)})`, `${fmtN(e.ecart)} pcs ${qui} planned too many (order ${fmtN(e.commande)}, plan ${fmtN(e.planifie)})`)
+            : L(`${fmtN(-e.ecart)} pcs ${qui} sans matelas (commande ${fmtN(e.commande)}, plan ${fmtN(e.planifie)})`, `${fmtN(-e.ecart)} قطعة ${qui} بدون مفرشة (طلبية ${fmtN(e.commande)}، مخطط ${fmtN(e.planifie)})`, `${fmtN(-e.ecart)} pcs ${qui} without a lay (order ${fmtN(e.commande)}, plan ${fmtN(e.planifie)})`);
+    };
     if (l.ecarts.length === 0) {
         if (l.b.nbMatelas > 0 || l.b.commande <= 0) return null;
         return (
@@ -153,35 +184,52 @@ function EcartsPlan({ l }: { l: LigneOrdre }) {
     }
     const liste = tout ? l.ecarts : l.ecarts.slice(0, MAX);
     return (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mr-0.5">{L('Écart plan', 'فرق المخطط', 'Plan gap')}</span>
-            {liste.map(e => {
-                const plus = e.ecart > 0;
-                const couleur = l.nbCouleurs > 1 ? e.couleur : '';
-                return (
-                    <span
-                        key={`${e.couleur}|${e.taille}`}
-                        title={plus
-                            ? L(`${fmtN(e.ecart)} pcs ${e.taille}${e.couleur ? ` ${e.couleur}` : ''} planifiées en trop (commande ${fmtN(e.commande)}, plan ${fmtN(e.planifie)})`, `${fmtN(e.ecart)} قطعة ${e.taille}${e.couleur ? ` ${e.couleur}` : ''} زيادة في المخطط (طلبية ${fmtN(e.commande)}، مخطط ${fmtN(e.planifie)})`, `${fmtN(e.ecart)} pcs ${e.taille}${e.couleur ? ` ${e.couleur}` : ''} planned too many (order ${fmtN(e.commande)}, plan ${fmtN(e.planifie)})`)
-                            : L(`${fmtN(-e.ecart)} pcs ${e.taille}${e.couleur ? ` ${e.couleur}` : ''} sans matelas (commande ${fmtN(e.commande)}, plan ${fmtN(e.planifie)})`, `${fmtN(-e.ecart)} قطعة ${e.taille}${e.couleur ? ` ${e.couleur}` : ''} بدون مفرشة (طلبية ${fmtN(e.commande)}، مخطط ${fmtN(e.planifie)})`, `${fmtN(-e.ecart)} pcs ${e.taille}${e.couleur ? ` ${e.couleur}` : ''} without a lay (order ${fmtN(e.commande)}, plan ${fmtN(e.planifie)})`)}
-                        className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border text-[10px] font-bold tabular-nums ${plus ? AMBRE : ROSE}`}
+        <>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mr-0.5">{L('Écart plan', 'فرق المخطط', 'Plan gap')}</span>
+                {liste.map(e => {
+                    const plus = e.ecart > 0;
+                    const couleur = l.nbCouleurs > 1 ? e.couleur : '';
+                    return (
+                        <span
+                            key={`${e.couleur}|${e.taille}`}
+                            title={phrase(e)}
+                            className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border text-[10px] font-bold tabular-nums ${plus ? AMBRE : ROSE}`}
+                        >
+                            {plus ? '+' : '−'}{fmtN(Math.abs(e.ecart))} {e.taille}
+                            {couleur && <span className="font-medium opacity-80 max-w-[72px] truncate">{couleur}</span>}
+                        </span>
+                    );
+                })}
+                {l.ecarts.length > MAX && (
+                    <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setTout(v => !v); }}
+                        aria-expanded={tout}
+                        className="px-2 h-10 min-w-[40px] inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[11px] font-bold text-slate-600 dark:text-dk-text-soft"
                     >
-                        {plus ? '+' : '−'}{fmtN(Math.abs(e.ecart))} {e.taille}
-                        {couleur && <span className="font-medium opacity-80 max-w-[72px] truncate">{couleur}</span>}
-                    </span>
-                );
-            })}
-            {l.ecarts.length > MAX && (
+                        {tout ? '−' : `+${l.ecarts.length - MAX}`}
+                    </button>
+                )}
                 <button
                     type="button"
-                    onClick={e => { e.stopPropagation(); setTout(v => !v); }}
-                    aria-expanded={tout}
-                    className="px-2 h-7 min-w-[32px] inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[11px] font-bold text-slate-600 dark:text-dk-text-soft"
+                    onClick={e => { e.stopPropagation(); setDetail(v => !v); }}
+                    aria-expanded={detail}
+                    className="px-2 h-10 inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[10px] font-bold text-slate-600 dark:text-dk-text-soft"
                 >
-                    {tout ? '−' : `+${l.ecarts.length - MAX}`}
+                    {L('Détail', 'التفاصيل', 'Details')}
+                    <ChevronDown className={`w-3 h-3 transition-transform ${detail ? 'rotate-180' : ''}`} />
                 </button>
+            </div>
+            <p className="text-[10px] text-slate-400 dark:text-dk-muted">{L('+ planifié en trop · − pièces sans matelas', '+ زيادة في المخطط · − قطع بلا مفرشة', '+ planned too many · − pieces without a lay')}</p>
+            {detail && (
+                <ul className="mt-1 space-y-0.5 text-[11px] text-slate-600 dark:text-dk-text-soft tabular-nums">
+                    {l.ecarts.map(e => (
+                        <li key={`${e.couleur}|${e.taille}`} className={e.ecart > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'}>{phrase(e)}</li>
+                    ))}
+                </ul>
             )}
-        </div>
+        </>
     );
 }
 
@@ -209,7 +257,7 @@ function LigneMatieres({ l }: { l: LigneOrdre }) {
                         type="button"
                         onClick={e => { e.stopPropagation(); setTailles(v => !v); }}
                         aria-expanded={tailles}
-                        className="h-7 px-2 inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft"
+                        className="h-10 px-2 inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft"
                     >
                         {L('Par taille', 'حسب المقاس', 'By size')}
                         <ChevronDown className={`w-3 h-3 transition-transform ${tailles ? 'rotate-180' : ''}`} />
@@ -244,14 +292,17 @@ function CarteOrdre({ l, onOpen }: { l: LigneOrdre; onOpen: (m: ModelData) => vo
     const st = STATUTS[b.statut] || STATUTS.EN_PREPARATION;
     const base = b.commande > 0 ? b.commande : b.planifie;
     return (
+        // Toute la carte ouvre l'ordre au toucher ; le bouton du haut en est l'equivalent clavier et lecteur d'ecran.
+        // La carte n'est pas elle-meme un bouton : elle porte d'autres boutons (pedidos, ecarts, tailles).
         <div
-            role="button"
-            tabIndex={0}
             onClick={() => onOpen(m)}
-            onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(m); } }}
-            className="w-full text-left px-3 sm:px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:outline-none focus-visible:bg-slate-50 dark:focus-visible:bg-dk-elevated/60 transition-colors"
+            className="w-full text-left px-3 sm:px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus-within:bg-slate-50 dark:focus-within:bg-dk-elevated/60 transition-colors"
         >
-            <div className="flex items-center gap-3">
+            <button
+                type="button"
+                onClick={e => { e.stopPropagation(); onOpen(m); }}
+                className="w-full flex items-center gap-3 text-left focus:outline-none"
+            >
                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center">
                     {b.image ? <img src={b.image} alt="" className="w-full h-full object-cover" /> : <Scissors className="w-4 h-4 text-slate-300" />}
                 </div>
@@ -269,7 +320,7 @@ function CarteOrdre({ l, onOpen }: { l: LigneOrdre; onOpen: (m: ModelData) => vo
                     <p className={`text-[16px] font-bold tabular-nums ${b.reste > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{fmtN(b.reste)}</p>
                     <p className="text-[9px] text-slate-400 uppercase font-bold">{L('à couper', 'للقص', 'to cut')}</p>
                 </div>
-            </div>
+            </button>
 
             <LignePedido l={l} />
 
@@ -358,6 +409,9 @@ export function PageOrdres({ models, evenements, onBack, onOpen, chaines }: {
                         </Puce>
                     ))}
                 </RangeePuces>
+                {filtre !== 'tous' && (
+                    <p className="text-[11px] text-slate-500 dark:text-dk-muted"><b className="text-slate-700 dark:text-dk-text-soft">{nomFiltre(filtre, L)}</b> : {aideFiltre(filtre, L)}</p>
+                )}
                 <RangeePuces>
                     {(['EN_PREPARATION', 'SOUS_TRAITANCE'] as const).map(s => (
                         <Puce key={s} actif={statut === s} onClick={() => setStatut(v => (v === s ? null : s))}>{L(STATUTS[s].fr, STATUTS[s].ar, STATUTS[s].en)}</Puce>

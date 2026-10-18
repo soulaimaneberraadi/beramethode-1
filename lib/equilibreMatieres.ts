@@ -546,11 +546,13 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
 /**
  * Les matelas des autres matieres a couper pour que des matelas de tissu choisis
  * (`tissuIds`) puissent partir en chaine : meme calcul que `attente` d'un lot, mais
- * pour un plan precis. On additionne le tissu jusqu'au dernier matelas choisi (dans
- * l'ordre des numeros), on retire ce que la matiere a deja coupe, puis on prend ses
- * matelas pas encore coupes dans son ordre de couverture jusqu'a combler le reste.
- * Un matelas de la matiere qui ne sert pas a ce plan n'est pas pris, meme s'il est
- * dans le meme lot. Par matiere (id) ; une matiere deja couverte n'y figure pas.
+ * pour un plan precis. On additionne les pieces du tissu choisi et du tissu deja coupe
+ * (jusqu'au dernier matelas choisi, dans l'ordre des numeros) ; un matelas de tissu ni
+ * choisi ni coupe — celui d'une autre chaine, par exemple — n'appelle rien. On retire
+ * ce que la matiere a deja coupe, puis on prend ses matelas pas encore coupes dans son
+ * ordre de couverture jusqu'a combler le reste. Un matelas de la matiere qui ne sert pas
+ * a ce plan n'est pas pris, meme s'il est dans le meme lot. Par matiere (id) ; une
+ * matiere deja couverte n'y figure pas.
  */
 export function matelasPourCouvrir(eq: EquilibreOrdre, tissuIds: string[]): Record<string, MatelasEquilibre[]> {
     const out: Record<string, MatelasEquilibre[]> = {};
@@ -560,7 +562,7 @@ export function matelasPourCouvrir(eq: EquilibreOrdre, tissuIds: string[]): Reco
     princ.forEach((x, j) => { if (voulus.has(x.id)) dernier = j; });
     if (dernier < 0) return out;
     const cumul: Vecteur = {};
-    for (let j = 0; j <= dernier; j++) ajouter(cumul, princ[j].pieces);
+    for (let j = 0; j <= dernier; j++) if (voulus.has(princ[j].id) || princ[j].etat === 'coupe') ajouter(cumul, princ[j].pieces);
     for (const mat of eq.matieres) {
         if (mat.principal) continue;
         const liste = eq.ordreCouverture[mat.id] || [];

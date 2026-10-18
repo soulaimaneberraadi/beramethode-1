@@ -24,7 +24,8 @@ import {
     statsGroupes, tempsStandard, minutesPrevues, texteDuree, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
 } from '../../lib/coupeAtelier';
 import { bilanOrdre } from '../../lib/coupeVues';
-import { chainesDeCoupe, type ChaineCoupe, type EtatChaine } from '../../lib/coupeChaines';
+import { chainesDeCoupe, totauxPlanJour, type ChaineCoupe, type EtatChaine } from '../../lib/coupeChaines';
+import { fmtN, localeDe } from '../../lib/coupeFormat';
 import ChoixModeleChaine from './ChoixModeleChaine';
 import { PedidosChips, PlanDuJour, RythmeBloc } from './PlanJourChaine';
 
@@ -34,7 +35,6 @@ export type PageAccueil = 'ordres' | 'groupes' | 'tissu' | 'chaines';
 /* Formats                                                              */
 /* ------------------------------------------------------------------ */
 
-const fmtN = (n: number, dec = 0) => n.toLocaleString(undefined, { maximumFractionDigits: dec, minimumFractionDigits: 0 });
 const fmtM = (n: number) => `${fmtN(n, n < 100 ? 1 : 0)} m`;
 const heureDe = (iso: string | null | undefined) => {
     if (!iso) return '';
@@ -326,7 +326,7 @@ export function CartesAccueil({ models, groupes, presence, etatRh, onOuvrir, cha
 
     const actives = (chaines || []).filter(c => c.etat !== 'libre');
     const enRisque = actives.filter(c => c.etat === 'arret').length;
-    const matelasChaines = actives.reduce((s, c) => s + c.matelasACouper, 0);
+    const matelasChaines = totauxPlanJour(actives).matelas;
 
     return (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -418,11 +418,11 @@ export function PageChaines({ models, evenements, setEvenements, suivis, setting
     const ordre: Record<EtatChaine, number> = { arret: 0, juste: 1, couverte: 2, pause: 3, horsCoupe: 4, libre: 5 };
     const triees = [...chaines].sort((a, b) => ordre[a.etat] - ordre[b.etat] || a.id.localeCompare(b.id, undefined, { numeric: true }));
     const visibles = choix ? triees.filter(c => c.id === choix) : triees.filter(c => c.etat !== 'libre');
-    const matelas = chaines.reduce((s, c) => s + c.matelasACouper, 0);
-    const pieces = chaines.reduce((s, c) => s + c.piecesACouper, 0);
+    // Matelas distincts (un matelas dont les paquets vont a deux chaines compte une fois) et pieces des plans du jour.
+    const { matelas, pieces } = totauxPlanJour(chaines);
     const enRisque = chaines.filter(c => c.etat === 'arret').length;
     const modeleDe = (id: string) => models.find(m => m.id === id);
-    const locale = lang === 'ar' ? 'ar-MA' : lang === 'en' ? 'en-GB' : lang === 'es' ? 'es-ES' : 'fr-FR';
+    const locale = localeDe(lang);
     const jour = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { day: '2-digit', month: 'short' }) : '—');
 
     /** Les reglages a modifier : si rien n'est regle, on part des chaines affichees (aucune ne disparait). */

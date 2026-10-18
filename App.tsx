@@ -97,7 +97,7 @@ export default function App() {
     // Licence BERA MASTER : modules masqués selon le forfait (vide si non appliqué).
     const { hiddenModules: licenseHiddenModules, locked: licenceVerrouillee } = useLicense();
     // Permissions hiérarchiques (Epic 2) : pages masquées selon le rôle (vide si super/solo).
-    const { hiddenPages: permHiddenPages, accountType } = usePermissions();
+    const { hiddenPages: permHiddenPages, accountType, canPage } = usePermissions();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
     const [isGuest, setIsGuest] = useState(false);
     // Écran de bienvenue : affiché UNE SEULE FOIS après la création d'un compte.
@@ -700,7 +700,17 @@ export default function App() {
         // Tant que le GET initial n'a pas répondu, on ne POST pas (état encore à []).
         if (!planningHydratedRef.current) return;
         const timer = setTimeout(() => {
-            fetch('/api/planning', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ events: planningEvents }) }).catch(() => { });
+            fetch('/api/planning', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ events: planningEvents }) })
+                .then(r => {
+                    // Un refus (droit d'edition du Planning absent, session perdue...) ne doit pas passer pour un succes.
+                    if (r.ok) return;
+                    showToast(tx(lang, {
+                        fr: r.status === 403 ? 'Planning non enregistré : vous n’avez pas le droit de le modifier.' : 'Planning non enregistré : le serveur a refusé la modification.',
+                        ar: r.status === 403 ? 'لم يُحفظ التخطيط: ليس لديك صلاحية تعديله.' : 'لم يُحفظ التخطيط: رفض الخادم التعديل.',
+                        en: r.status === 403 ? 'Planning not saved: you are not allowed to edit it.' : 'Planning not saved: the server refused the change.',
+                    }), 'error');
+                })
+                .catch(() => { });
         }, 1200);
         return () => clearTimeout(timer);
     }, [planningEvents, user]);
@@ -1387,6 +1397,24 @@ export default function App() {
             return rolled;
         });
     }, [suivis, models, globalSettings, user]);
+
+    /**
+     * Ecriture au Planning depuis une autre page (La Coupe) : comme celles de la page Planning, elle passe par
+     * l'enchainement des OF (`rollPlanningEvents`). Sans lui, un OF fige place avant d'autres sur une chaine
+     * les laisserait se chevaucher jusqu'a la prochaine modification faite au Planning.
+     */
+    const setPlanningEventsEnchaines = useCallback((action: React.SetStateAction<import('./types').PlanningEvent[]>) => {
+        setPlanningEvents(prev => {
+            const suite = typeof action === 'function' ? (action as (p: import('./types').PlanningEvent[]) => import('./types').PlanningEvent[])(prev) : action;
+            const efficacites: Record<string, number> = {};
+            const nbChaines = globalSettings.chainsCount || 4;
+            for (let i = 1; i <= nbChaines; i++) {
+                const idChaine = `CHAINE ${i}`;
+                efficacites[idChaine] = computeChainEfficiency(suivis, suite, models, idChaine, globalSettings).eff;
+            }
+            return rollPlanningEvents(suite, models, globalSettings, efficacites);
+        });
+    }, [suivis, models, globalSettings]);
 
     // Les écouteurs montés une seule fois (relecture après fusion cloud, export)
     // lisent `models`/`user` via ces refs : ils restent à jour sans se réabonner
@@ -2248,7 +2276,7 @@ export default function App() {
                             settings={globalSettings}
                             setSettings={setGlobalSettings}
                             planningEvents={planningEvents}
-                            setPlanningEvents={setPlanningEvents}
+                            setPlanningEvents={canPage('planning', 'edit') ? setPlanningEventsEnchaines : undefined}
                             suivis={suivis}
                         />
                     )}

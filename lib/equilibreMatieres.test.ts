@@ -305,8 +305,13 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     const code = (r: ReturnType<typeof matelasPourCouvrir>) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, numeros(v)]));
     // Le tissu 1 (S) : la vlieseline 1 et le foro 1 couvrent S ; la vlieseline 2 (L) n'y sert pas.
     assert.deepEqual(code(matelasPourCouvrir(eq, [id('principal', '1')])), { VL: ['1'], FO: ['1'] });
-    // Jusqu'au tissu 3 (S, M, L) : tout le lot.
-    assert.deepEqual(code(matelasPourCouvrir(eq, [id('principal', '3')])), { VL: ['1', '2'], FO: ['1'] });
+    // Le tissu 3 (L) seul : la vlieseline 2 (L) et le foro 1 ; les tissus 1 et 2, ni choisis ni coupes (ceux d'une
+    // autre chaine, par exemple), n'appellent pas la vlieseline 1 (S, M).
+    assert.deepEqual(code(matelasPourCouvrir(eq, [id('principal', '3')])), { VL: ['2'], FO: ['1'] });
+    // Les tissus 1 et 3 (S, L) : les deux vlieselines, un seul foro.
+    assert.deepEqual(code(matelasPourCouvrir(eq, [id('principal', '1'), id('principal', '3')])), { VL: ['1', '2'], FO: ['1'] });
+    // Tout le tissu choisi : tout le lot.
+    assert.deepEqual(code(matelasPourCouvrir(eq, [id('principal', '1'), id('principal', '2'), id('principal', '3')])), { VL: ['1', '2'], FO: ['1'] });
     assert.deepEqual(matelasPourCouvrir(eq, []), {}, 'rien de choisi, rien a couvrir');
     // La vlieseline 1 et le foro 1 coupes : le tissu 2 (M) est deja couvert, le 3 appelle la vlieseline 2.
     lignes.find(l => l.tissu === 'VL' && l.numero === '1')!.fait = true;
@@ -314,6 +319,12 @@ const numeros = (xs: { numero: string }[]) => xs.map(x => x.numero);
     const eq2 = equilibrerOrdre(ordre(lignes), TAILLES);
     assert.deepEqual(matelasPourCouvrir(eq2, [id('principal', '2')]), {});
     assert.deepEqual(code(matelasPourCouvrir(eq2, [id('principal', '3')])), { VL: ['2'] });
+    // Un tissu deja coupe mais pas encore couvert compte, meme s'il n'est pas dans le plan : le tissu 1 coupe,
+    // la vlieseline 1 pas coupee (on la remet a faire) -> choisir le tissu 3 appelle aussi la vlieseline 1.
+    lignes.find(l => l.tissu === 'VL' && l.numero === '1')!.fait = false;
+    lignes.find(l => l.tissu === 'principal' && l.numero === '1')!.fait = true;
+    const eq3 = equilibrerOrdre(ordre(lignes), TAILLES);
+    assert.deepEqual(code(matelasPourCouvrir(eq3, [id('principal', '3')])), { VL: ['1', '2'] });
 }
 
 console.log('equilibreMatieres : OK');

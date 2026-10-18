@@ -17,8 +17,10 @@ import type { AppSettings, ModelData, PlanningEvent, ReglageChaineCoupe } from '
 import { evDeadlineYmd, evProduced, evQty, evStartYmd } from '../components/planning/shared/eventAccessors';
 import { calculateEndDate } from '../utils/planning';
 import { commandeDe } from './coupeAtelier';
+import { codeLot } from './coupeChaines';
+import { normNom } from './coupeFormat';
 
-const norm = (s: unknown) => String(s ?? '').trim().toLowerCase();
+const norm = normNom;
 const ymd = (iso: string | null | undefined): string => {
     const s = String(iso ?? '').slice(0, 10);
     return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
@@ -40,10 +42,12 @@ export interface IdentiteChaine {
  *
  * Le Planning connait ses chaines par `CHAINE 1..n` (`settings.chainsCount`), avec un nom
  * d'usage dans `chainNames`. Une chaine de la coupe est celle du Planning quand son id, son
- * nom ou un de ses alias porte l'un de ces deux textes : on ecrit alors `CHAINE n`, que le
- * Planning (Gantt, enchainement des OF) comprend. Sinon, on ecrit son nom : la coupe le
- * rattache a la bonne chaine par `versId` (nom ou alias), le Planning le tient pour une chaine
- * a lui inconnue (`connue: false`).
+ * nom ou un de ses alias porte l'un de ces deux textes (sans tenir compte de la casse ni des
+ * accents : « Chaîne 3 » est « CHAINE 3 ») : on ecrit alors `CHAINE n`, que le Planning (Gantt,
+ * enchainement des OF) comprend. Sinon, on ecrit son nom (`connue: false`) : la coupe le
+ * rattache a la bonne chaine par `versId`, mais le Gantt n'a pas de ligne pour lui, l'OF y
+ * disparaitrait. L'ecran refuse donc d'affecter vers une chaine `connue: false` (voir
+ * `erreurAffectation` et `SaisieAffectation.chaineConnue`).
  *
  * Garde-fou : l'identifiant ecrit doit ramener a la MEME chaine de la coupe une fois relu
  * (meme regle que `versId` de `chainesDeCoupe`). Sinon le modele s'afficherait sur une autre
@@ -115,12 +119,13 @@ export interface PedidoPlanning {
 }
 
 const SEP_LOT = ' — ';
-export const codeLotDe = (nom: string | undefined): string => {
-    const s = String(nom ?? ''), i = s.lastIndexOf(SEP_LOT);
-    return i < 0 ? '' : s.slice(i + SEP_LOT.length).trim();
-};
+/** Le code de lot d'un nom d'OF (« Article — L1 » -> « L1 ») : le meme que celui de la page Chaines. */
+export const codeLotDe = codeLot;
 
-/** Les pedidos du modele, du plus tot au plus tard (lancement, puis livraison). */
+/**
+ * Les pedidos du modele, du plus tot au plus tard (lancement, puis livraison). Les OF termines y figurent
+ * (la feuille les montre « Terminé »), contrairement aux pedidos des Ordres en cours et des Chaines.
+ */
 export function pedidosDuModele(events: PlanningEvent[], modelId: string): PedidoPlanning[] {
     return events
         .filter(e => e.modelId === modelId)
@@ -187,13 +192,15 @@ export interface SaisieAffectation {
     export?: string;
     /** Pieces de la commande : seulement pour une nouvelle commande. */
     quantite?: number | '';
+    /** `false` : la chaine n'existe pas au Planning (`chaineDuPlanning`) ; l'OF n'y apparaitrait pas, on refuse. */
+    chaineConnue?: boolean;
 }
 
 export type ErreurAffectation = 'chaine' | 'debut' | 'export' | 'quantite';
 
 /** Premiere erreur de la saisie, ou null si on peut ecrire. */
 export function erreurAffectation(s: SaisieAffectation, nouvelle: boolean): ErreurAffectation | null {
-    if (!s.chaineId.trim()) return 'chaine';
+    if (!s.chaineId.trim() || s.chaineConnue === false) return 'chaine';
     if (!ymd(s.debut)) return 'debut';
     if (s.export && (!ymd(s.export) || s.export < s.debut)) return 'export';
     if (nouvelle) {
@@ -221,7 +228,7 @@ function finCalculee(m: ModelData | undefined, settings: AppSettings | undefined
  * Un pedido existant mis sur une chaine : sa chaine, son lancement, sa livraison, et la date
  * FIGEE. Sans nouvelle date d'export, celle du Planning reste.
  */
-export function affecterPedido(ev: PlanningEvent, s: SaisieAffectation, m: ModelData | undefined, settings?: AppSettings): PlanningEvent {
+export function affecterPedido(ev: PlanningEvent, s: SaisieAffectation, m: ModelData | undefined, settings?: AppSettings, maintenant: number = Date.now()): PlanningEvent {
     const fin = finCalculee(m, settings, s.chaineId, s.debut, evQty(ev));
     return {
         ...ev,
@@ -231,6 +238,8 @@ export function affecterPedido(ev: PlanningEvent, s: SaisieAffectation, m: Model
         ...(fin ? { dateExport: fin, estimatedEndDate: fin } : {}),
         strictDeadline_DDS: s.export || ev.strictDeadline_DDS,
         isLocked: true,
+        // Horodatage : sans lui, la synchronisation cloud rend la copie d'avant (voir `gagnant` de cloudSync).
+        updatedAt: new Date(maintenant).toISOString(),
     };
 }
 
@@ -238,6 +247,8 @@ export function affecterPedido(ev: PlanningEvent, s: SaisieAffectation, m: Model
  * Une nouvelle commande du modele, creee comme le fait la fenetre « Envoyer au Planning » de
  * App.tsx (memes champs), avec le code de lot suivant et la date figee.
  * `maintenant` (ms) fait l'identifiant : il se passe en parametre pour rester pur.
+ * Pas de controle du stock magasin ici (La Coupe ne le charge pas) : comme l'envoi depuis la Bibliotheque,
+ * l'OF part « Pret » et le Planning le bloque au besoin a sa prochaine modification.
  */
 export function creerPedido(
     m: ModelData,
@@ -272,16 +283,29 @@ export function creerPedido(
         facteurPlanning,
         bufferLancement,
         isLocked: true,
+        updatedAt: new Date(maintenant).toISOString(),
     };
 }
 
 /**
- * Pause <-> reprise d'un pedido, comme le bouton du Planning (statut seul). A la reprise :
- * « En cours » si des pieces sont deja produites (c'est ce qu'il etait), sinon « Pret ».
+ * Pause <-> reprise d'un pedido. La pause garde le statut d'avant (`pausedFrom`) et la reprise le rend
+ * tel quel (un OF « Externe » redevient « Externe »). Un blocage de stock reel n'a pas de `pausedFrom` :
+ * a la reprise, « En cours » si des pieces sont deja produites, sinon « Pret ». La reprise efface la raison
+ * du blocage et les manques de matiere (le Planning les recalcule a sa prochaine modification).
  * Un OF termine ne change pas.
  */
-export function basculerPause(ev: PlanningEvent): PlanningEvent {
+export function basculerPause(ev: PlanningEvent, maintenant: number = Date.now()): PlanningEvent {
     if (ev.status === 'DONE') return ev;
-    if (ev.status === 'BLOCKED_STOCK') return { ...ev, status: evProduced(ev) > 0 ? 'IN_PROGRESS' : 'READY' };
-    return { ...ev, status: 'BLOCKED_STOCK' };
+    const horodate = new Date(maintenant).toISOString();
+    if (ev.status === 'BLOCKED_STOCK') {
+        const { pausedFrom, ...reste } = ev;
+        return {
+            ...reste,
+            status: pausedFrom && pausedFrom !== 'BLOCKED_STOCK' && pausedFrom !== 'DONE' ? pausedFrom : evProduced(ev) > 0 ? 'IN_PROGRESS' : 'READY',
+            blockedReason: undefined,
+            materialShortages: undefined,
+            updatedAt: horodate,
+        };
+    }
+    return { ...ev, status: 'BLOCKED_STOCK', pausedFrom: ev.status, updatedAt: horodate };
 }

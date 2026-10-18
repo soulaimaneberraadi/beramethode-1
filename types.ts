@@ -924,6 +924,10 @@ export type PlanningEvent = {
   qteTotal: number;         // الكمية الإجمالية
   qteProduite?: number;     // شحال تخدم من بياسة (كتجي من Suivi)
   status: PlanningStatus | 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK';
+  /** Statut d'avant une pause manuelle (La Coupe) : la reprise le rend tel quel. Absent = blocage de stock reel. */
+  pausedFrom?: PlanningStatus | 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK';
+  /** Derniere modification faite depuis La Coupe (ISO) : la synchronisation cloud garde la copie la plus recente. */
+  updatedAt?: string;
   blockedReason?: string;   // إيلا كان حابس، شنو السبب؟ (مثلا: ناقص الخيط)
   dateFin?: string;         // Phase 6 Atelier
   superviseur?: string;

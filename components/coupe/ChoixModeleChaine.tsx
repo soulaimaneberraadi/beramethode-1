@@ -20,8 +20,9 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { aujourdhui, estOuvert, resumerOrdre } from '../../lib/coupeAtelier';
 import type { ChaineCoupe } from '../../lib/coupeChaines';
+import { fmtN, localeDe } from '../../lib/coupeFormat';
 import {
-    affecterPedido, basculerPause, chaineDuPlanning, commencerCoupeLe, creerPedido, erreurAffectation, pedidosDuModele,
+    affecterPedido, basculerPause, chaineDuPlanning, codeLotDe, commencerCoupeLe, creerPedido, erreurAffectation, pedidosDuModele,
     quantitePlanifiee, resteAPlanifier, trouverChaine, type CategorieStatut, type IdentiteChaine, type PedidoPlanning,
 } from '../../lib/coupeChoixModele';
 
@@ -45,8 +46,6 @@ interface Props {
     onFait?: (message: string) => void;
 }
 
-const fmtN = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-
 const BADGE_STATUT: Record<CategorieStatut, { fr: string; ar: string; en: string; cls: string }> = {
     pause: { fr: 'En pause', ar: 'إيقاف مؤقت', en: 'Paused', cls: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/25 dark:text-amber-300 dark:border-amber-800' },
     termine: { fr: 'Terminé', ar: 'منتهي', en: 'Done', cls: 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border' },
@@ -65,7 +64,7 @@ interface Cible { modelId: string; eventId: string | null }
 export default function ChoixModeleChaine({ models, evenements, chaines, reglages, chaineDepart, settings, joursAvance, setEvenements, onFermer, onFait }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
-    const locale = lang === 'ar' ? 'ar-MA' : lang === 'en' ? 'en-GB' : lang === 'es' ? 'es-ES' : lang === 'pt' ? 'pt-PT' : lang === 'tr' ? 'tr-TR' : 'fr-FR';
+    const locale = localeDe(lang);
     const jour = (iso: string) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(locale, { day: '2-digit', month: 'short' }) : '—');
 
     const [q, setQ] = useState('');
@@ -128,7 +127,8 @@ export default function ChoixModeleChaine({ models, evenements, chaines, reglage
 
     const chaineForm = identites.find(c => c.id === chaineChoisie);
     const ecriture = chaineForm ? chaineDuPlanning(chaineForm, settings, reglages) : null;
-    const saisie = { chaineId: ecriture?.id || '', debut, export: exportLe, quantite };
+    // Une chaine que le Planning ne connait pas n'a pas de ligne au Gantt : l'OF y disparaitrait, on refuse.
+    const saisie = { chaineId: ecriture?.id || '', debut, export: exportLe, quantite, chaineConnue: ecriture?.connue };
     const erreur = cible ? erreurAffectation(saisie, nouvelle) : null;
     const conseil = commencerCoupeLe(debut, joursAvance);
     const quantiteNum = quantite === '' ? 0 : quantite;
@@ -136,17 +136,26 @@ export default function ChoixModeleChaine({ models, evenements, chaines, reglage
     const enregistrer = () => {
         if (!setEvenements || !cible || !ligneCible || !chaineForm || !ecriture || erreur) return;
         const { m } = ligneCible;
+        const maintenant = Date.now();
         let code = '';
         if (nouvelle) {
-            const ev = creerPedido(m, { ...saisie, quantite: quantiteNum }, pedidosDuModele(evenements, m.id), settings, Date.now());
-            code = ev.modelName?.split(' — ').pop() || '';
-            setEvenements(prev => (prev.some(e => e.id === ev.id) ? prev : [...prev, ev]));
+            // Code de lot et identifiant se decident sur le Planning tel qu'il est au moment de l'ecriture
+            // (un autre poste ou une fusion cloud a pu ajouter un lot entre l'affichage et le clic) ;
+            // un identifiant deja pris avance d'une milliseconde plutot que de perdre la commande.
+            const construire = (prev: PlanningEvent[]): PlanningEvent => {
+                let t = maintenant;
+                let ev = creerPedido(m, { ...saisie, quantite: quantiteNum }, pedidosDuModele(prev, m.id), settings, t);
+                while (prev.some(e => e.id === ev.id)) ev = creerPedido(m, { ...saisie, quantite: quantiteNum }, pedidosDuModele(prev, m.id), settings, ++t);
+                return ev;
+            };
+            code = codeLotDe(construire(evenements).modelName);
+            setEvenements(prev => [...prev, construire(prev)]);
         } else {
             const id = cible.eventId;
             // Le pedido a pu disparaitre du Planning pendant que la feuille etait ouverte.
             if (!id || !evenements.some(e => e.id === id)) { setAbsent(true); return; }
             code = pedidoCible?.code || '';
-            setEvenements(prev => prev.map(e => (e.id === id ? affecterPedido(e, saisie, m, settings) : e)));
+            setEvenements(prev => prev.map(e => (e.id === id ? affecterPedido(e, saisie, m, settings, maintenant) : e)));
         }
         const quoi = [ligneCible.r.nom, code].filter(Boolean).join(' ');
         const dates = `${L('début', 'البداية', 'start')} ${jour(debut)}${exportLe ? `, export ${jour(exportLe)}` : ''}`;
@@ -156,7 +165,7 @@ export default function ChoixModeleChaine({ models, evenements, chaines, reglage
         onFermer();
     };
 
-    const basculer = (m: ModelData, nomModele: string, p: PedidoPlanning) => {
+    const basculer = (nomModele: string, p: PedidoPlanning) => {
         if (!setEvenements) return;
         const enPause = p.statut === 'pause';
         setEvenements(prev => prev.map(e => (e.id === p.eventId ? basculerPause(e) : e)));
@@ -226,10 +235,17 @@ export default function ChoixModeleChaine({ models, evenements, chaines, reglage
                         ))}
                     </div>
                     {ecriture && !ecriture.connue && chaineForm && (
-                        <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+                        <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-rose-600 dark:text-rose-400">
                             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
-                            {L(`Cette chaîne n’existe pas au Planning : le pedido y portera le nom « ${ecriture.id} ».`, `هذه السلسلة غير موجودة في التخطيط: سيحمل الطلب اسم «${ecriture.id}».`, `This line is not in Planning: the pedido will carry the name "${ecriture.id}".`)}
+                            {L(
+                                `« ${chaineForm.nom} » n’existe pas au Planning : le pedido n’apparaîtrait pas au Gantt. Ajoutez « CHAINE n » (n = numéro de la chaîne du Planning) comme alias de cette chaîne dans Régler les chaînes.`,
+                                `«${chaineForm.nom}» غير موجودة في التخطيط: لن يظهر الطلب في مخطط جانت. أضف «CHAINE n» (رقم سلسلة التخطيط) كاسم بديل لهذه السلسلة في ضبط السلاسل.`,
+                                `"${chaineForm.nom}" is not in Planning: the pedido would not show in the Gantt. Add "CHAINE n" (n = the Planning line number) as an alias of this line in Set lines.`,
+                            )}
                         </p>
+                    )}
+                    {erreur === 'chaine' && !(ecriture && !ecriture.connue) && (
+                        <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">{L('Choisissez une chaîne.', 'اختر سلسلة.', 'Choose a line.')}</p>
                     )}
                 </div>
 
@@ -241,8 +257,16 @@ export default function ChoixModeleChaine({ models, evenements, chaines, reglage
                     <label className="block min-w-0">
                         <span className={ETIQUETTE}>{L('Date d’export', 'تاريخ التصدير', 'Export date')}</span>
                         <input type="date" value={exportLe} min={debut || undefined} onChange={e => setExportLe(e.target.value)} className={`${CHAMP} w-full`} />
+                        {!nouvelle && pedidoCible?.export && (
+                            <span className="mt-1 block text-[11px] text-slate-500 dark:text-dk-muted">
+                                {L(`Laisser vide : la date du Planning (${jour(pedidoCible.export)}) est conservée.`, `إن تُرك فارغاً: يبقى تاريخ التخطيط (${jour(pedidoCible.export)}).`, `Leave empty: the Planning date (${jour(pedidoCible.export)}) is kept.`)}
+                            </span>
+                        )}
                     </label>
                 </div>
+                {erreur === 'debut' && (
+                    <p className="-mt-2 text-[11px] text-rose-600 dark:text-rose-400">{L('Indiquez la date de début sur la chaîne.', 'حدّد تاريخ البداية على السلسلة.', 'Enter the start date on the line.')}</p>
+                )}
                 {erreur === 'export' && (
                     <p className="-mt-2 text-[11px] text-rose-600 dark:text-rose-400">{L('La date d’export ne peut pas précéder le début.', 'تاريخ التصدير لا يسبق البداية.', 'The export date cannot be before the start.')}</p>
                 )}
@@ -265,6 +289,9 @@ export default function ChoixModeleChaine({ models, evenements, chaines, reglage
                                 ? L(`Reste à planifier : ${fmtN(reste)} pcs (commande ${fmtN(r.qte)} − déjà planifié ${fmtN(quantitePlanifiee(evenements, m.id))}).`, `المتبقي للبرمجة: ${fmtN(reste)} قطعة (الطلب ${fmtN(r.qte)} − مبرمج ${fmtN(quantitePlanifiee(evenements, m.id))}).`, `Left to plan: ${fmtN(reste)} pcs (order ${fmtN(r.qte)} − planned ${fmtN(quantitePlanifiee(evenements, m.id))}).`)
                                 : L('Toute la commande est déjà planifiée.', 'كل الطلب مبرمج مسبقاً.', 'The whole order is already planned.')}
                         </span>
+                        {erreur === 'quantite' && (
+                            <span className="mt-1 block text-[11px] text-rose-600 dark:text-rose-400">{L('Indiquez une quantité entière supérieure à 0.', 'أدخل كمية صحيحة أكبر من 0.', 'Enter a whole quantity above 0.')}</span>
+                        )}
                         {depasse && (
                             <span className="mt-1 flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-300">
                                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
@@ -388,7 +415,7 @@ export default function ChoixModeleChaine({ models, evenements, chaines, reglage
                                                     {setEvenements && p.statut !== 'termine' && (
                                                         <button
                                                             type="button"
-                                                            onClick={() => basculer(m, r.nom, p)}
+                                                            onClick={() => basculer(r.nom, p)}
                                                             aria-label={p.statut === 'pause' ? L('Reprendre ce pedido', 'استئناف هذا الطلب', 'Resume this pedido') : L('Mettre ce pedido en pause', 'إيقاف هذا الطلب مؤقتاً', 'Pause this pedido')}
                                                             title={p.statut === 'pause' ? L('Reprendre', 'استئناف', 'Resume') : L('Mettre en pause', 'إيقاف مؤقت', 'Pause')}
                                                             className="h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-text-soft hover:border-indigo-300"

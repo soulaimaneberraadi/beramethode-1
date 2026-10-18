@@ -128,7 +128,8 @@ export function usePlanningEvents({
         if (model?.ficheData?.typeMarche === 'Export') {
             const cleared: T = { ...ev };
             delete (cleared as PlanningEvent).materialShortages;
-            if (ev.status === 'BLOCKED_STOCK') {
+            // Une pause manuelle (`pausedFrom`, posee depuis La Coupe) n'est pas un blocage de stock : on la garde.
+            if (ev.status === 'BLOCKED_STOCK' && !ev.pausedFrom) {
                 (cleared as PlanningEvent).status = 'READY';
                 (cleared as PlanningEvent).blockedReason = undefined;
             }
