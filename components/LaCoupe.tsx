@@ -16,9 +16,10 @@ import ExcelInput from './ExcelInput';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import AnnotationPlt from './coupe/AnnotationPlt';
 import {
-    CartesAccueil, PageOrdres, PageTissu, PageGroupes, PageChaines, useAtelierCoupe, ChampHeure, ChoixGroupe,
+    CartesAccueil, PageTissu, PageGroupes, PageChaines, useAtelierCoupe, ChampHeure, ChoixGroupe,
     isoDepuisHeure, heureLocale, type PageAccueil,
 } from './coupe/AccueilCoupe';
+import { PageOrdres } from './coupe/PageOrdres';
 import { aujourdhui, commandeDe, matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../lib/coupeAtelier';
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
@@ -4756,7 +4757,7 @@ function EmptyDashboard({
     if (page) {
         return (
             <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto">
-                {page === 'ordres' && <PageOrdres models={ordres} onBack={() => setPage(null)} onOpen={onSuivre} chaines={chainesAccueil} />}
+                {page === 'ordres' && <PageOrdres models={ordres} evenements={evenements} onBack={() => setPage(null)} onOpen={onSuivre} chaines={chainesAccueil} />}
                 {page === 'tissu' && <PageTissu models={tousModeles} onBack={() => setPage(null)} onOpen={onOpen} />}
                 {page === 'chaines' && (
                     <PageChaines

@@ -247,7 +247,7 @@ const JOURS_CADENCE = 5;
 
 /** Le nom d'un OF du Planning s'ecrit « Article — L1 » : l'article, et le code du lot. */
 const SEP_LOT = ' — ';
-const codeLot = (nom: string | undefined): string => {
+export const codeLot = (nom: string | undefined): string => {
     const s = String(nom ?? ''), i = s.lastIndexOf(SEP_LOT);
     return i < 0 ? '' : s.slice(i + SEP_LOT.length).trim();
 };

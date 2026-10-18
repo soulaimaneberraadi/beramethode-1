@@ -78,7 +78,8 @@ export interface BilanOrdre {
     joursAvantLancement: number | null;
 }
 
-const joursEntre = (de: string, a: string) => Math.round((Date.parse(a + 'T00:00:00') - Date.parse(de + 'T00:00:00')) / 86400000);
+/** Jours entiers de `de` a `a` (AAAA-MM-JJ) ; negatif si `a` est avant `de`. */
+export const joursEntre = (de: string, a: string) => Math.round((Date.parse(a + 'T00:00:00') - Date.parse(de + 'T00:00:00')) / 86400000);
 
 export const bilanOrdre = (m: ModelData, evenements: PlanningEvent[] = [], jour = aujourdhui()): BilanOrdre => {
     const o = m.ordreCoupe;
@@ -223,4 +224,57 @@ export const detailCouleurTaille = (m: ModelData): LigneCouleurTaille[] => {
         });
     });
     return out;
+};
+
+/* ------------------------------------------------------------------ */
+/* Ecart du plan : ce qui est planifie face a la commande               */
+/* ------------------------------------------------------------------ */
+
+export interface EcartPlan {
+    /** Vide quand le plan se compare taille par taille (des matelas sans couleur). */
+    couleur: string;
+    taille: string;
+    commande: number;
+    planifie: number;
+    /** planifie - commande, sans borne : > 0 surplus planifie, < 0 pieces de cette taille sans matelas. Jamais 0 ici. */
+    ecart: number;
+}
+
+/**
+ * Ecart du plan couleur x taille, SANS borne (detailCouleurTaille, lui, ramene le reste a 0 au minimum).
+ * Les matelas ne se comparent couleur par couleur que si chacun dit la sienne, comme equilibreMatieres ;
+ * sinon la comparaison se fait taille par taille. Une taille que seuls les matelas portent compte en surplus.
+ * Rien a comparer sans repartition couleur x taille (commande saisie en bloc) ni sans matelas : un ordre
+ * pas encore planifie n'a pas d'ecart, il n'a pas de plan.
+ */
+export const ecartsPlan = (m: ModelData): EcartPlan[] => {
+    const fiche: any = m.ficheData || {};
+    const tailles: string[] = fiche.sizes || (m.meta_data as any)?.sizes || [];
+    const couleurs: any[] = fiche.colors || (m.meta_data as any)?.colors || [];
+    const grille: Record<string, number> = fiche.gridQuantities || {};
+    const lignes = lignesPieces(m);
+    if (!lignes.length || !Object.values(grille).some(v => Number(v) > 0)) return [];
+    const parCouleur = lignes.every(l => (l.couleur || '').trim() !== '');
+    const cases = new Map<string, EcartPlan>();
+    const caseDe = (couleur: string, taille: string): EcartPlan => {
+        const cle = JSON.stringify([parCouleur ? couleur.trim().toLowerCase() : '', taille]);
+        let c = cases.get(cle);
+        if (!c) { c = { couleur: parCouleur ? couleur.trim() : '', taille, commande: 0, planifie: 0, ecart: 0 }; cases.set(cle, c); }
+        return c;
+    };
+    for (const c of couleurs) {
+        const nom = nomCouleur(c), id = idCouleur(c);
+        tailles.forEach((t, ti) => { const q = Number(grille[`${id}_${ti}`]) || 0; if (q) caseDe(nom, t).commande += q; });
+    }
+    for (const l of lignes) {
+        for (const [t, r] of Object.entries(l.ratios || {})) {
+            const n = (Number(r) || 0) * (l.plis || 0);
+            if (n) caseDe(l.couleur || '', t).planifie += n;
+        }
+    }
+    const rang = (t: string) => { const i = tailles.indexOf(t); return i < 0 ? tailles.length : i; };
+    return [...cases.values()]
+        .map(c => ({ ...c, ecart: c.planifie - c.commande }))
+        .filter(c => c.ecart !== 0)
+        .sort((a, b) => rang(a.taille) - rang(b.taille) || a.couleur.localeCompare(b.couleur));
 };

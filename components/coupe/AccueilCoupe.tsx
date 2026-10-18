@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ArrowLeft, Scissors, Users, Layers, Search, Plus, Trash2, Edit3, Check, X,
-    Trophy, Clock, Building2, ChevronRight, AlertTriangle, Factory, CalendarDays, Activity,
+    Trophy, Clock, ChevronRight, AlertTriangle, Factory, CalendarDays, Activity,
 } from 'lucide-react';
 import type { AppSettings, GroupeCoupe, ModelData, OuvrierCoupe, PlanningEvent, PointageCoupe, ReglageChaineCoupe, SuiviData } from '../../types';
 import SheetModal from '../shared/SheetModal';
@@ -21,12 +21,12 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import {
     aujourdhui, consoTissu, estAuTravail, estOuvert, matelasExecutes, presenceAtelier, presenceGroupes,
-    resumerOrdre, statsGroupes, tempsStandard, minutesPrevues, texteDuree, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
+    statsGroupes, tempsStandard, minutesPrevues, texteDuree, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
 } from '../../lib/coupeAtelier';
-import { equilibrerOrdre } from '../../lib/equilibreMatieres';
-import { chainesDeCoupe, type ChaineCoupe, type EtatChaine, type ModeleSurChaine } from '../../lib/coupeChaines';
+import { bilanOrdre } from '../../lib/coupeVues';
+import { chainesDeCoupe, type ChaineCoupe, type EtatChaine } from '../../lib/coupeChaines';
 import ChoixModeleChaine from './ChoixModeleChaine';
-import { LignePlanChaine, PedidosChips, PlanDuJour, RythmeBloc } from './PlanJourChaine';
+import { PedidosChips, PlanDuJour, RythmeBloc } from './PlanJourChaine';
 
 export type PageAccueil = 'ordres' | 'groupes' | 'tissu' | 'chaines';
 
@@ -219,15 +219,7 @@ const STATUTS: Record<StatutPresence, { fr: string; ar: string; en: string; poin
     NON_POINTE: { fr: 'Non pointé', ar: 'لم يُسجَّل', en: 'Not clocked', point: 'bg-slate-300' },
 };
 
-const STATUTS_ORDRE: Record<string, { fr: string; ar: string; en: string; cls: string }> = {
-    EN_PREPARATION: { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', cls: 'bg-slate-100 text-slate-600 dark:bg-dk-elevated dark:text-dk-muted' },
-    EN_COURS: { fr: 'En cours', ar: 'قيد التنفيذ', en: 'In progress', cls: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-    SOUS_TRAITANCE: { fr: 'Sous-traitance', ar: 'مناولة', en: 'Subcontract', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
-    VALIDE: { fr: 'Soldé', ar: 'منتهٍ', en: 'Closed', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
-    REJETE: { fr: 'Rejeté', ar: 'مرفوض', en: 'Rejected', cls: 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' },
-};
-
-function EnTetePage({ titre, sousTitre, onBack, actions }: { titre: string; sousTitre?: string; onBack: () => void; actions?: React.ReactNode }) {
+export function EnTetePage({ titre, sousTitre, onBack, actions }: { titre: string; sousTitre?: string; onBack: () => void; actions?: React.ReactNode }) {
     const { lang } = useLang();
     return (
         <div className="flex items-center gap-2 mb-4">
@@ -262,7 +254,7 @@ function Resume({ items }: { items: { label: string; valeur: string; ton?: strin
     );
 }
 
-function Onglets<T extends string>({ valeur, options, onChange }: { valeur: T; options: { id: NoInfer<T>; label: string }[]; onChange: (v: NoInfer<T>) => void }) {
+export function Onglets<T extends string>({ valeur, options, onChange }: { valeur: T; options: { id: NoInfer<T>; label: string }[]; onChange: (v: NoInfer<T>) => void }) {
     return (
         <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 gap-0.5 overflow-x-auto no-scrollbar">
             {options.map(o => (
@@ -318,7 +310,8 @@ export function CartesAccueil({ models, groupes, presence, etatRh, onOuvrir, cha
 }) {
     const { lang } = useLang();
     const ouverts = models.filter(estOuvert);
-    const aCouper = ouverts.reduce((s, m) => s + resumerOrdre(m).aCouper, 0);
+    // Comme la page Ordres en cours : commande - coupe.
+    const aCouper = ouverts.reduce((s, m) => s + bilanOrdre(m).reste, 0);
     const conso = ouverts.map(consoTissu);
     const consomme = conso.reduce((s, c) => s + c.consommeM, 0);
     const prevu = conso.reduce((s, c) => s + c.prevuM, 0);
@@ -369,186 +362,6 @@ export function CartesAccueil({ models, groupes, presence, etatRh, onOuvrir, cha
                 icon={Factory} couleur={enRisque > 0 ? 'bg-rose-600' : 'bg-amber-500'}
                 onClick={() => onOuvrir('chaines')}
             />
-        </div>
-    );
-}
-
-/* ------------------------------------------------------------------ */
-/* Page : ordres en cours                                               */
-/* ------------------------------------------------------------------ */
-
-export function PageOrdres({ models, onBack, onOpen, chaines }: { models: ModelData[]; onBack: () => void; onOpen: (m: ModelData) => void; chaines?: ChaineCoupe[] }) {
-    const { lang } = useLang();
-    /** Pour chaque modele, ce que chaque chaine attend de la coupe (Planning + Suivi + serie). */
-    const parModele = useMemo(() => {
-        const t = new Map<string, { chaine: ChaineCoupe; x: ModeleSurChaine }[]>();
-        for (const c of chaines || []) for (const x of c.modeles) (t.get(x.modelId) || t.set(x.modelId, []).get(x.modelId)!).push({ chaine: c, x });
-        return t;
-    }, [chaines]);
-    const [filtre, setFiltre] = useState<'TOUS' | 'EN_PREPARATION' | 'EN_COURS' | 'SOUS_TRAITANCE'>('TOUS');
-    const [q, setQ] = useState('');
-    /** Ordre de la liste : le plus a couper, le plus en retard face aux autres matieres, ou le moins avance. */
-    const [tri, setTri] = useState<'aCouper' | 'retard' | 'avancement'>('aCouper');
-    const [seulRetard, setSeulRetard] = useState(false);
-
-    const lignes = useMemo(() => models.filter(estOuvert).map(m => {
-        // Plusieurs matieres : leur avancement cote a cote, et les lots dont le tissu est parti sans elles.
-        const eq = equilibrerOrdre(m.ordreCoupe, m.ficheData?.sizes || m.meta_data?.sizes || []);
-        const matieres = eq.matieres.filter(x => eq.parMatiere[x.id]?.nbMatelas > 0);
-        return {
-            m, r: resumerOrdre(m),
-            matieres: matieres.length > 1 ? matieres.map(x => ({ id: x.id, code: x.code, faits: eq.parMatiere[x.id].nbCoupes, total: eq.parMatiere[x.id].nbMatelas })) : [],
-            retards: eq.lots.filter(l => l.retard.length > 0).length,
-            prets: matieres.length > 1 ? eq.prets : null,
-            // Pret pour la chaine, taille par taille (couleurs additionnees) : le moins coupe de toutes les matieres.
-            tailles: matieres.length > 1 ? Object.values(eq.parTaille.reduce<Record<string, { taille: string; prevu: number; prets: number; limite: Set<string> }>>((acc, t) => {
-                const x = acc[t.taille] || (acc[t.taille] = { taille: t.taille, prevu: 0, prets: 0, limite: new Set() });
-                x.prevu += t.prevu; x.prets += t.prets;
-                t.limite.forEach(id => x.limite.add(eq.matieres.find(mt => mt.id === id)?.code || ''));
-                return acc;
-            }, {})).filter(x => x.prevu > 0) : [],
-        };
-    }), [models]);
-    const nbEnRetard = lignes.filter(x => x.retards > 0).length;
-    const visibles = lignes
-        .filter(x => filtre === 'TOUS' || x.r.statut === filtre)
-        .filter(x => !seulRetard || x.retards > 0)
-        .filter(x => !q.trim() || `${x.r.nom} ${x.r.client} ${x.r.type}`.toLowerCase().includes(q.trim().toLowerCase()))
-        .sort((a, b) =>
-            tri === 'retard' ? (b.retards - a.retards) || (b.r.aCouper - a.r.aCouper)
-            : tri === 'avancement' ? (a.r.avancement - b.r.avancement) || (b.r.aCouper - a.r.aCouper)
-            : b.r.aCouper - a.r.aCouper);
-    const totalACouper = lignes.reduce((s, x) => s + x.r.aCouper, 0);
-    const totalCoupees = lignes.reduce((s, x) => s + x.r.coupees, 0);
-
-    return (
-        <div>
-            <EnTetePage
-                titre={tx(lang, { fr: 'Ordres en cours', ar: 'الأوامر الجارية', en: 'Open orders' })}
-                sousTitre={tx(lang, { fr: 'Tous les ordres de coupe pas encore soldés', ar: 'كل أوامر القص التي لم تُصفَّ بعد', en: 'Every cutting order not closed yet' })}
-                onBack={onBack}
-            />
-            <Resume items={[
-                { label: tx(lang, { fr: 'Ordres', ar: 'أوامر', en: 'Orders' }), valeur: fmtN(lignes.length) },
-                { label: tx(lang, { fr: 'À couper', ar: 'للقص', en: 'To cut' }), valeur: fmtN(totalACouper), ton: 'text-rose-600 dark:text-rose-400' },
-                { label: tx(lang, { fr: 'Coupées', ar: 'مقصوصة', en: 'Cut' }), valeur: fmtN(totalCoupees), ton: 'text-emerald-600 dark:text-emerald-400' },
-            ]} />
-            <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                <Onglets valeur={filtre} onChange={setFiltre} options={[
-                    { id: 'TOUS', label: tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All' }) },
-                    { id: 'EN_PREPARATION', label: tx(lang, STATUTS_ORDRE.EN_PREPARATION) },
-                    { id: 'EN_COURS', label: tx(lang, STATUTS_ORDRE.EN_COURS) },
-                    { id: 'SOUS_TRAITANCE', label: tx(lang, STATUTS_ORDRE.SOUS_TRAITANCE) },
-                ]} />
-                <label className="flex-1 flex items-center gap-2 h-9 px-3 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border">
-                    <Search className="w-3.5 h-3.5 text-slate-400" />
-                    <input value={q} onChange={e => setQ(e.target.value)} placeholder={tx(lang, { fr: 'Modèle, client, type…', ar: 'موديل، زبون، نوع…', en: 'Model, client, type…' })} className="flex-1 min-w-0 bg-transparent text-[12px] outline-none" />
-                </label>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{tx(lang, { fr: 'Trier', ar: 'ترتيب', en: 'Sort' })}</span>
-                <Onglets valeur={tri} onChange={setTri} options={[
-                    { id: 'aCouper', label: tx(lang, { fr: 'Plus à couper', ar: 'الأكثر للقص', en: 'Most to cut' }) },
-                    { id: 'retard', label: tx(lang, { fr: 'Lots en retard', ar: 'الدفعات المتأخرة', en: 'Late lots' }) },
-                    { id: 'avancement', label: tx(lang, { fr: 'Moins avancé', ar: 'الأقل تقدّماً', en: 'Least advanced' }) },
-                ]} />
-                {nbEnRetard > 0 && (
-                    <button
-                        type="button"
-                        onClick={() => setSeulRetard(v => !v)}
-                        aria-pressed={seulRetard}
-                        className={`h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border text-[12px] font-bold ${seulRetard ? 'bg-rose-600 border-rose-600 text-white' : 'bg-white dark:bg-dk-surface border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400'}`}
-                    >
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        {tx(lang, { fr: 'Seulement en retard', ar: 'المتأخرة فقط', en: 'Late only' })} · {nbEnRetard}
-                    </button>
-                )}
-            </div>
-
-            <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border overflow-hidden">
-                {visibles.length === 0 && (
-                    <p className="text-center text-[12px] text-slate-400 py-10">{tx(lang, { fr: 'Aucun ordre ouvert', ar: 'لا توجد أوامر جارية', en: 'No open order' })}</p>
-                )}
-                {visibles.map(({ m, r, matieres, retards, prets, tailles }) => {
-                    const st = STATUTS_ORDRE[r.statut] || STATUTS_ORDRE.EN_PREPARATION;
-                    return (
-                        <button key={m.id} type="button" onClick={() => onOpen(m)} className="w-full text-left px-3 sm:px-4 py-3 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center">
-                                    {m.image || m.images?.front
-                                        ? <img src={m.image || m.images?.front || ''} alt="" className="w-full h-full object-cover" />
-                                        : <Scissors className="w-4 h-4 text-slate-300" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className="text-[13px] font-semibold text-slate-800 dark:text-dk-text truncate">{r.nom}</span>
-                                        <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold ${st.cls}`}>{tx(lang, st)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted min-w-0">
-                                        {r.client && <><Building2 className="w-3 h-3 shrink-0 opacity-60" /><span className="truncate">{r.client}</span></>}
-                                        {r.type && <span className="shrink-0 px-1 rounded bg-slate-100 dark:bg-dk-elevated text-[9px] font-bold uppercase">{r.type}</span>}
-                                    </div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <p className="text-[14px] font-bold tabular-nums text-rose-600 dark:text-rose-400">{fmtN(r.aCouper)}</p>
-                                    <p className="text-[9px] text-slate-400 uppercase font-bold">{tx(lang, { fr: 'à couper', ar: 'للقص', en: 'to cut' })}</p>
-                                </div>
-                            </div>
-                            <div className="mt-2 flex items-center gap-2">
-                                <div className="flex-1 h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
-                                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.round(r.avancement * 100)}%` }} />
-                                </div>
-                                <span className="text-[10px] tabular-nums text-slate-500 dark:text-dk-muted shrink-0">
-                                    {fmtN(r.coupees)} / {fmtN(r.qte || r.coupees + r.aCouper)} · {r.nbFaits}/{r.nbMatelas} {tx(lang, { fr: 'matelas', ar: 'مفرشة', en: 'lays' })}
-                                </span>
-                            </div>
-                            {matieres.length > 0 && (
-                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold tabular-nums">
-                                    {matieres.map(x => (
-                                        <span key={x.id} className={`px-1.5 h-5 inline-flex items-center gap-1 rounded ${x.faits === x.total ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-dk-elevated dark:text-dk-text-soft'}`}>
-                                            {x.code}<span className="font-semibold">{x.faits}/{x.total}</span>
-                                        </span>
-                                    ))}
-                                    {prets !== null && (
-                                        <span className="text-emerald-600 dark:text-emerald-400">{fmtN(prets)} {tx(lang, { fr: 'prêts', ar: 'جاهزة', en: 'ready' })}</span>
-                                    )}
-                                    {retards > 0 && (
-                                        <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                                            <AlertTriangle className="w-3 h-3" />
-                                            {retards} {tx(lang, { fr: 'lot(s) en retard', ar: 'دفعة متأخرة', en: 'late lot(s)' })}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                            {(parModele.get(m.id) || []).length > 0 && (
-                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{tx(lang, { fr: 'Aujourd’hui', ar: 'اليوم', en: 'Today' })}</span>
-                                    {(parModele.get(m.id) || []).map(e => <LignePlanChaine key={e.chaine.id} chaine={e.chaine} x={e.x} />)}
-                                </div>
-                            )}
-                            {tailles.length > 0 && (
-                                <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] tabular-nums">
-                                    <span className="font-bold uppercase tracking-wide text-slate-400 mr-0.5">{tx(lang, { fr: 'Chaîne', ar: 'للسلسلة', en: 'Line' })}</span>
-                                    {tailles.map(t => {
-                                        const plein = t.prets >= t.prevu;
-                                        const bloque = [...t.limite].filter(Boolean);
-                                        return (
-                                            <span
-                                                key={t.taille}
-                                                title={bloque.length ? tx(lang, { fr: `Retenu par ${bloque.join(', ')}`, ar: `تحبسه ${bloque.join('، ')}`, en: `Held by ${bloque.join(', ')}` }) : undefined}
-                                                className={`px-1.5 h-5 inline-flex items-center gap-1 rounded border ${plein ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : t.prets > 0 ? 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-300' : 'border-slate-200 bg-white text-slate-500 dark:border-dk-border dark:bg-dk-surface dark:text-dk-muted'}`}
-                                            >
-                                                <b>{t.taille}</b>{fmtN(t.prets)}/{fmtN(t.prevu)}
-                                                {bloque.length > 0 && <span className="font-bold text-rose-600 dark:text-rose-400">{bloque.join('·')}</span>}
-                                            </span>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </button>
-                    );
-                })}
-            </div>
         </div>
     );
 }
