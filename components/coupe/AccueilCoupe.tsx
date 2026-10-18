@@ -26,6 +26,7 @@ import {
 import { equilibrerOrdre } from '../../lib/equilibreMatieres';
 import { chainesDeCoupe, type ChaineCoupe, type EtatChaine, type ModeleSurChaine } from '../../lib/coupeChaines';
 import ChoixModeleChaine from './ChoixModeleChaine';
+import { LignePlanChaine, PedidosChips, PlanDuJour, RythmeBloc } from './PlanJourChaine';
 
 export type PageAccueil = 'ordres' | 'groupes' | 'tissu' | 'chaines';
 
@@ -519,15 +520,10 @@ export function PageOrdres({ models, onBack, onOpen, chaines }: { models: ModelD
                                     )}
                                 </div>
                             )}
-                            {(parModele.get(m.id) || []).filter(e => e.x.matelas.length > 0).length > 0 && (
-                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold tabular-nums">
-                                    <span className="font-bold uppercase tracking-wide text-slate-400">{tx(lang, { fr: 'À couper', ar: 'للقص', en: 'To cut' })}</span>
-                                    {(parModele.get(m.id) || []).filter(e => e.x.matelas.length > 0).map(e => (
-                                        <span key={e.chaine.id} className={`px-1.5 h-5 inline-flex items-center gap-1 rounded ${ORANGE_PLEIN}`}>
-                                            <Factory className="w-3 h-3" />{e.chaine.nom} · {e.x.matelas.length} {tx(lang, { fr: 'mat.', ar: 'مفرشة', en: 'lays' })} · N° {plageNumeros(e.x.matelas.map(l => l.numero || '?'))}
-                                            {e.x.autres.map(a => <span key={a.code} className="opacity-90">· {a.code} {plageNumeros(a.numeros)}</span>)}
-                                        </span>
-                                    ))}
+                            {(parModele.get(m.id) || []).length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{tx(lang, { fr: 'Aujourd’hui', ar: 'اليوم', en: 'Today' })}</span>
+                                    {(parModele.get(m.id) || []).map(e => <LignePlanChaine key={e.chaine.id} chaine={e.chaine} x={e.x} />)}
                                 </div>
                             )}
                             {tailles.length > 0 && (
@@ -573,37 +569,6 @@ const ETATS_CHAINE: Record<EtatChaine, { fr: string; ar: string; en: string; cls
 /** Orange partout : ce que la coupe doit couper. */
 const ORANGE_PLEIN = 'bg-orange-500 text-white border border-orange-500';
 const ORANGE_DOUX = 'bg-orange-50 text-orange-800 border border-orange-200 dark:bg-orange-900/25 dark:text-orange-200 dark:border-orange-800';
-
-/** « 5 → 9 » quand les numeros se suivent, sinon la liste. */
-const plageNumeros = (ns: string[]) => {
-    const v = ns.map(n => parseInt(n, 10));
-    if (v.length > 2 && v.every((x, i) => Number.isFinite(x) && (i === 0 || x === v[i - 1] + 1))) return `${ns[0]} → ${ns[ns.length - 1]}`;
-    return ns.join(', ');
-};
-
-/** Ce qu'il faut couper pour un modele sur une chaine : orange, numeros, serie, matieres en face. */
-function ACouper({ x, L, jour, large }: { x: ModeleSurChaine; L: (fr: string, ar: string, en: string) => string; jour: (iso: string | null) => string; large?: boolean }) {
-    if (!x.aUnOrdre) return <span className="inline-flex items-center h-7 px-2 rounded-lg bg-slate-100 dark:bg-dk-elevated text-[11px] font-semibold text-slate-500">{L('Pas d’ordre de coupe pour ce modèle', 'لا أمر قص لهذا الموديل', 'No cutting order for this model')}</span>;
-    if (x.plusTard) return <span className="inline-flex items-center h-7 px-2 rounded-lg bg-slate-100 dark:bg-dk-elevated text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{L('Rien avant le', 'لا شيء قبل', 'Nothing before')} {jour(x.commencerLe)}</span>;
-    if (x.serieAbsente) return <span className={`inline-flex items-center h-7 px-2 rounded-lg text-[11px] font-semibold ${ORANGE_DOUX}`}>{L('Attribuez des paquets à cette chaîne', 'أعطِ حزماً لهذه السلسلة', 'Assign bundles to this line')}</span>;
-    if (x.sansMatelas) return <span className={`inline-flex items-center h-7 px-2 rounded-lg text-[11px] font-bold ${ORANGE_DOUX}`}>{fmtN(x.aCouperPieces)} {L('pcs à couper · pas de matelas calculés', 'ق للقص · لا مفرشات محسوبة', 'pcs to cut · no lays')}</span>;
-    if (x.matelas.length === 0) return <span className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/25 text-[11px] font-bold text-emerald-700 dark:text-emerald-300"><Check className="w-3 h-3" />{x.resteACouper === 0 ? L('Tout coupé pour cette chaîne', 'كل شيء مقصوص لهذه السلسلة', 'All cut for this line') : L('Avance suffisante : rien à couper', 'التقدّم كافٍ: لا شيء للقص', 'Enough buffer: nothing to cut')}</span>;
-    return (
-        <div className={`flex flex-wrap items-center gap-1.5 text-[11px] ${large ? 'text-[12px]' : ''}`}>
-            <span className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg font-bold ${ORANGE_PLEIN}`}>
-                <Scissors className="w-3.5 h-3.5" />
-                {L(`${x.matelas.length} matelas`, `${x.matelas.length} مفرشة`, `${x.matelas.length} lays`)} · N° {plageNumeros(x.matelas.map(l => l.numero || '?'))}
-                <span className="font-semibold opacity-90">· {fmtN(x.matelas.reduce((t, l) => t + l.pieces, 0))} {L('pcs', 'ق', 'pcs')}</span>
-            </span>
-            {x.serieACouper && <span className={`inline-flex items-center h-8 px-2 rounded-lg font-semibold tabular-nums ${ORANGE_DOUX}`}>{L('série', 'سيري', 'series')} {fmtN(x.serieACouper.debut)}–{fmtN(x.serieACouper.fin)}</span>}
-            {x.autres.map(a => (
-                <span key={a.code} title={a.nom} className={`inline-flex items-center h-8 px-2 rounded-lg font-semibold tabular-nums ${ORANGE_DOUX}`}>
-                    <b className="mr-1">{a.code}</b>N° {plageNumeros(a.numeros)}
-                </span>
-            ))}
-        </div>
-    );
-}
 
 export function PageChaines({ models, evenements, setEvenements, suivis, settings, joursAvance, setJoursAvance, reglages, setReglages, onBack, onOpen, onNavigate, onMessage }: {
     models: ModelData[];
@@ -705,6 +670,7 @@ export function PageChaines({ models, evenements, setEvenements, suivis, setting
                     chaine={chaineOuverte}
                     reglage={reglages.find(r => r.id === chaineOuverte.id)}
                     joursAvance={joursAvance}
+                    settings={settings}
                     modeleDe={modeleDe}
                     jour={jour}
                     L={L}
@@ -802,6 +768,9 @@ export function PageChaines({ models, evenements, setEvenements, suivis, setting
                                 <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                             </button>
 
+                            {/* Ce que la salle coupe par jour face a la chaine, et l'avance en jours */}
+                            <RythmeBloc chaine={c} joursAvance={joursAvance} settings={settings} />
+
                             {c.modeles.length === 0 && (
                                 <p className="px-4 py-2.5 text-[12px] text-slate-400">{L('Aucun modèle planifié sur cette chaîne.', 'لا يوجد موديل مبرمج على هذه السلسلة.', 'No model planned on this line.')}</p>
                             )}
@@ -810,8 +779,6 @@ export function PageChaines({ models, evenements, setEvenements, suivis, setting
                                 {c.modeles.map(x => {
                                     const m = modeleDe(x.modelId);
                                     const lance = x.joursAvantLancement === null || x.joursAvantLancement <= 0;
-                                    const avance = x.joursAvance === null ? null : Math.round(x.joursAvance * 10) / 10;
-                                    const partAvance = x.joursAvance === null || joursAvance <= 0 ? 0 : Math.min(1, x.joursAvance / joursAvance);
                                     return (
                                         <div key={x.eventId} className="px-3 sm:px-4 py-2.5 space-y-1.5">
                                             {/* 1. Le modele */}
@@ -821,10 +788,13 @@ export function PageChaines({ models, evenements, setEvenements, suivis, setting
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-[13px] font-semibold text-slate-800 dark:text-dk-text truncate">{x.nom}</p>
-                                                    <p className="text-[11px] text-slate-500 dark:text-dk-muted truncate">{[x.client, !x.lancement ? '' : lance ? `${L('lancé', 'انطلق', 'started')} ${jour(x.lancement)}` : `${L('lancement', 'الانطلاق', 'start')} ${jour(x.lancement)} (${L('dans', 'بعد', 'in')} ${x.joursAvantLancement} ${L('j', 'ي', 'd')})`, x.dds ? `DDS ${jour(x.dds)}` : '', `${fmtN(x.commande)} ${L('pcs', 'قطعة', 'pcs')}`].filter(Boolean).join(' · ')}</p>
+                                                    <p className="text-[11px] text-slate-500 dark:text-dk-muted truncate">{[x.client, !x.lancement ? '' : lance ? `${L('lancé', 'انطلق', 'started')} ${jour(x.lancement)}` : `${L('lancement', 'الانطلاق', 'start')} ${jour(x.lancement)} (${L('dans', 'بعد', 'in')} ${x.joursAvantLancement} ${L('j', 'ي', 'd')})`, x.pedidos.length === 0 && x.dds ? `DDS ${jour(x.dds)}` : '', `${fmtN(x.commande)} ${L('pcs', 'قطعة', 'pcs')}`].filter(Boolean).join(' · ')}</p>
                                                 </div>
                                                 {m && x.aUnOrdre && <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />}
                                             </button>
+
+                                            {/* Ses pedidos sur cette chaine : L1, L2... avec quantite et export */}
+                                            <PedidosChips pedidos={x.pedidos} />
 
                                             <div className="grid grid-cols-[52px_1fr] gap-x-2 gap-y-1 items-center text-[11px]">
                                                 {/* 2. Son suivi, resume */}
@@ -835,14 +805,6 @@ export function PageChaines({ models, evenements, setEvenements, suivis, setting
                                                         {x.cadence > 0 && <> · <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.cadence)}</b> {x.sourceCadence === 'manuel' ? L('pcs/j (réglé)', 'ق/يوم (مضبوط)', 'pcs/d (set)') : x.sourceCadence === 'suivi' ? L('pcs/j réel', 'ق/يوم فعلي', 'pcs/d actual') : L('pcs/j plan', 'ق/يوم مخطط', 'pcs/d plan')}</>}
                                                         {x.aUnOrdre && <> · {L('prêts', 'جاهزة', 'ready')} <b className="text-slate-700 dark:text-dk-text-soft">{fmtN(x.prets)}</b></>}
                                                     </p>
-                                                    {x.aUnOrdre && !x.plusTard && (
-                                                        <div className="mt-1 flex items-center gap-2">
-                                                            <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-dk-elevated overflow-hidden">
-                                                                <div className={`h-full rounded-full ${partAvance < 0.5 ? 'bg-rose-500' : partAvance < 1 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.round(partAvance * 100)}%` }} />
-                                                            </div>
-                                                            <span className="text-[10px] tabular-nums text-slate-500 dark:text-dk-muted shrink-0">{L('avance', 'تقدّم', 'buffer')} {avance !== null ? `${avance} ${L('j', 'ي', 'd')}` : '—'} / {joursAvance} {L('j', 'ي', 'd')}</span>
-                                                        </div>
-                                                    )}
                                                 </div>
 
                                                 {/* 3. Sa serie : les paquets que la serie donne a cette chaine */}
@@ -853,11 +815,10 @@ export function PageChaines({ models, evenements, setEvenements, suivis, setting
                                                         : x.serieAbsente ? <span className="text-orange-700 dark:text-orange-300">{L('aucun paquet donné à cette chaîne', 'لم تُعطَ أي حزمة لهذه السلسلة', 'no bundle given to this line')}</span>
                                                             : '—'}
                                                 </p>
-
-                                                {/* 4. L'ordre de coupe : quoi couper, dans l'ordre de la production */}
-                                                <span className="font-bold uppercase tracking-wide text-slate-400 text-[9px]">{L('Coupe', 'القص', 'Cut')}</span>
-                                                <ACouper x={x} L={L} jour={jour} />
                                             </div>
+
+                                            {/* 4. Le plan de coupe du jour, dans l'ordre de la production */}
+                                            <PlanDuJour x={x} objectif={joursAvance} />
                                         </div>
                                     );
                                 })}
@@ -884,10 +845,11 @@ export function PageChaines({ models, evenements, setEvenements, suivis, setting
 }
 
 /** Toute la chaine : pour chaque modele, son suivi des derniers jours, sa serie par taille, et chaque matelas a couper. */
-function DetailChaine({ chaine, reglage, joursAvance, modeleDe, jour, L, onOpen, onCadence, onRetirer }: {
+function DetailChaine({ chaine, reglage, joursAvance, settings, modeleDe, jour, L, onOpen, onCadence, onRetirer }: {
     chaine: ChaineCoupe;
     reglage?: ReglageChaineCoupe;
     joursAvance: number;
+    settings?: AppSettings;
     modeleDe: (id: string) => ModelData | undefined;
     jour: (iso: string | null) => string;
     L: (fr: string, ar: string, en: string) => string;
@@ -913,6 +875,8 @@ function DetailChaine({ chaine, reglage, joursAvance, modeleDe, jour, L, onOpen,
                 ))}
             </div>
 
+            <RythmeBloc chaine={chaine} joursAvance={joursAvance} settings={settings} encadre />
+
             {chaine.modeles.length === 0 && (
                 <p className="px-4 py-6 text-center text-[12px] text-slate-400 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border">{L('Aucun modèle sur cette chaîne. Donnez-lui un modèle avec « Régler ».', 'لا موديل على هذه السلسلة. أعطها موديلاً عبر «ضبط».', 'No model on this line. Give it one with Edit.')}</p>
             )}
@@ -929,11 +893,13 @@ function DetailChaine({ chaine, reglage, joursAvance, modeleDe, jour, L, onOpen,
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-[14px] font-semibold text-slate-900 dark:text-dk-text truncate">{x.nom}</p>
-                                <p className="text-[11px] text-slate-500 dark:text-dk-muted truncate">{[x.client, x.lancement ? `${L('lancement', 'الانطلاق', 'start')} ${jour(x.lancement)}` : '', x.dds ? `DDS ${jour(x.dds)}` : '', `${fmtN(x.commande)} ${L('pcs', 'قطعة', 'pcs')}`].filter(Boolean).join(' · ')}</p>
+                                <p className="text-[11px] text-slate-500 dark:text-dk-muted truncate">{[x.client, x.lancement ? `${L('lancement', 'الانطلاق', 'start')} ${jour(x.lancement)}` : '', x.pedidos.length === 0 && x.dds ? `DDS ${jour(x.dds)}` : '', `${fmtN(x.commande)} ${L('pcs', 'قطعة', 'pcs')}`].filter(Boolean).join(' · ')}</p>
                             </div>
                             {donneAMain && <button type="button" onClick={() => onRetirer(x.modelId)} title={L('Retirer ce modèle de la chaîne', 'إزالة الموديل من السلسلة', 'Remove from the line')} className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><X className="w-4 h-4" /></button>}
                             {m && x.aUnOrdre && <button type="button" onClick={() => onOpen(m)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300 shrink-0">{L('Ouvrir l’ordre', 'فتح الأمر', 'Open order')}<ChevronRight className="w-3.5 h-3.5" /></button>}
                         </header>
+
+                        {x.pedidos.length > 0 && <div className="px-3 sm:px-4 pt-2.5"><PedidosChips pedidos={x.pedidos} /></div>}
 
                         <div className="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-3 gap-4 text-[12px]">
                             {/* Suivi */}
@@ -998,7 +964,7 @@ function DetailChaine({ chaine, reglage, joursAvance, modeleDe, jour, L, onOpen,
                             {/* Coupe */}
                             <div className="min-w-0">
                                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{L('Ordre de coupe', 'أمر القص', 'Cutting order')}</p>
-                                <ACouper x={x} L={L} jour={jour} large />
+                                <PlanDuJour x={x} objectif={joursAvance} />
                                 {x.aCouperTous.length > 0 && (
                                     <div className="mt-2">
                                         <p className="text-slate-500 dark:text-dk-muted mb-1">{L('Tous les matelas restants, dans l’ordre de la série', 'كل المفرشات المتبقية بترتيب السيري', 'All remaining lays, in series order')} ({x.aCouperTous.length})</p>

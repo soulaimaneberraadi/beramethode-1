@@ -204,6 +204,8 @@ const dixMatelas = (faits = 0, extra: (i: number) => Partial<MatelasLine> = () =
     assert.equal(x.matelas.length, 3, 'matelas entiers : 3 x 200 pour couvrir 500');
     assert.equal(x.planJour.pieces, 600);
     assert.equal(x.planJour.statut, 'manque', 'l’objectif (2000) n’est pas atteignable : seul le pedido actif est coupable');
+    assert.equal(x.planJour.manque, 1500, 'voulu 2000 - coupable 500');
+    assert.equal(x.planJour.attenteReprise, 1500, 'l’ordre fournirait 2000 : 1500 attendent la reprise du pedido en pause');
     assert.equal(c.etat, 'arret', 'rien de pret pour la chaine : elle va s’arreter, elle n’est pas en pause');
 
     // Deja 400 coupes pour ce modele sur la chaine : il ne reste que 100 a couper pour le pedido actif.
@@ -218,6 +220,8 @@ const dixMatelas = (faits = 0, extra: (i: number) => Partial<MatelasLine> = () =
     assert.equal(x3.aCouperPieces, 0);
     assert.equal(x3.matelas.length, 0);
     assert.equal(x3.planJour.statut, 'manque');
+    assert.equal(x3.planJour.manque, 1400, '2000 voulus - 600 deja pret');
+    assert.equal(x3.planJour.attenteReprise, 1400, 'tout ce qui reste attend la reprise');
 
     // Tous en pause : rien a proposer, la chaine est « en pause », pas « va s'arreter ».
     const toutes = dixMatelas();
@@ -314,6 +318,7 @@ const dixMatelas = (faits = 0, extra: (i: number) => Partial<MatelasLine> = () =
     // 600/jour : 800 prets, 1200 voulus, 400 a couper = 2 matelas ; chacun 103 m = 60 min.
     const x = chainesDeCoupe({ ...base, settings: avecCadence(600) })[0].modeles[0];
     assert.equal(x.planJour.statut, 'a_couper');
+    assert.equal(x.planJour.manque, undefined, 'rien ne manque quand le plan tient l’objectif');
     assert.equal(x.planJour.matelas.length, 2);
     assert.ok(Math.abs(x.planJour.metres - 206) < 1e-9);
     assert.ok(Math.abs((x.planJour.minutes || 0) - 120) < 1e-6, 'deux matelas de 60 min');
@@ -327,6 +332,8 @@ const dixMatelas = (faits = 0, extra: (i: number) => Partial<MatelasLine> = () =
     const z = chainesDeCoupe({ ...base, settings: avecCadence(2000) })[0].modeles[0];
     assert.equal(z.planJour.statut, 'manque');
     assert.equal(z.planJour.matelas.length, 6, 'tout ce qui reste');
+    assert.equal(z.planJour.manque, 2000, '3200 voulus (4000 - 800 prets) - 1200 coupables');
+    assert.equal(z.planJour.attenteReprise, 0, 'ici c’est l’ordre qui est trop court, pas une pause');
     // Longueur de trace inconnue : les metres ne sont pas comptes, les minutes non plus.
     for (const l of m.ordreCoupe!.matelasLines.filter(x => !x.fait).slice(0, 2)) l.longTracee = 0;
     const w = chainesDeCoupe({ ...base, settings: avecCadence(600) })[0].modeles[0];
@@ -356,6 +363,7 @@ const dixMatelas = (faits = 0, extra: (i: number) => Partial<MatelasLine> = () =
     assert.equal(c1.rythme.chaineParJour, 300);
     assert.equal(c1.rythme.source, 'manuel');
     assert.equal(c1.rythme.ecartJours, c1.modeles[0].joursAvance);
+    assert.equal(c1.rythme.modelId, 'R', 'le modele dont parlent cadence et avance');
     // La chaine 2 ne compte que ses modeles : 1000 pieces le 03/10, un seul jour actif.
     assert.equal(c2.rythme.coupeParJour, 1000);
     // Une chaine sans modele : rien a comparer.

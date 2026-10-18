@@ -109,6 +109,10 @@ export interface PlanJour {
     statut: StatutPlanJour;
     /** Matelas du plan dont la longueur du trace manque : leurs metres ne sont pas comptes. */
     sansLongueur: number;
+    /** Statut `manque` : pieces que la chaine voulait pour tenir l'objectif et qu'on ne peut pas couper. */
+    manque?: number;
+    /** Statut `manque` : part du manque que l'ordre pourrait fournir mais que la pause d'un pedido retient (se coupe a la reprise) ; 0 sans pause. */
+    attenteReprise?: number;
 }
 
 /** Cadence de la chaine face a ce que la coupe sait couper par jour. */
@@ -120,6 +124,8 @@ export interface RythmeChaine {
     source: 'manuel' | 'suivi' | 'planning';
     /** Jours d'avance du modele en cours (pret et pas encore entre / cadence). */
     ecartJours: number | null;
+    /** Le modele en cours dont parlent la cadence et l'avance (celui que la chaine coud) ; absent sans modele. */
+    modelId?: string;
 }
 
 export interface ModeleSurChaine {
@@ -530,6 +536,7 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
             minutes: choisis.length && sansLongueur === 0 ? minutesDe(matelasJour) : undefined,
             autres, couvreJusqua, sansLongueur,
             statut: enPause ? 'pause' : voulu === 0 ? 'rien' : besoin < voulu ? 'manque' : 'a_couper',
+            ...(!enPause && besoin < voulu ? { manque: voulu - besoin, attenteReprise: Math.max(0, Math.min(voulu, resteACouper) - besoin) } : {}),
         };
 
         const debuts = siens.map(p => p.debut), fins = siens.map(p => p.fin);
@@ -624,6 +631,7 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
                 chaineParJour: courant?.cadence ?? 0,
                 source: courant?.sourceCadence ?? 'planning',
                 ecartJours: courant?.joursAvance ?? null,
+                ...(courant ? { modelId: courant.modelId } : {}),
             },
         };
     });
