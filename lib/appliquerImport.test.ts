@@ -88,6 +88,27 @@ const repartos: FeuilleImportee = {
     assert.equal(r.ordre.placements!.length, 2, 'un placement par melange');
     assert.deepEqual(r.ordre.matelasLines!.map(l => [l.numero, l.plis]), [['1', 82], ['2', 82], ['3', 82]]);
     assert.equal(r.ordre.matelasLines![0].placementId, r.ordre.matelasLines![2].placementId);
+
+    // Reimporter la meme feuille : rien ne double.
+    const r2 = appliquerImport(r.ordre, atelier, { tailles: r.tailles, remplacer: false, maxPlis: 100 });
+    assert.equal(r2.ordre.matelasLines!.length, 3, 'feuille atelier reimportee : pas de doublon');
+    assert.equal(r2.resume.matelas, 0);
+}
+
+// REPARTOS reimporte : un placement deja planifie ne recoit que le complement.
+{
+    const r = appliquerImport(vide, repartos, { tailles: ['S', 'M'], couleur: 'Rouge', remplacer: false, maxPlis: 100 });
+    const r2 = appliquerImport(r.ordre, repartos, { tailles: r.tailles, couleur: 'Rouge', remplacer: false, maxPlis: 100 });
+    assert.equal(r2.ordre.matelasLines!.length, r.ordre.matelasLines!.length, 'meme classeur deux fois : memes matelas');
+    assert.equal(r2.ordre.matelasLines!.reduce((s, l) => s + l.plis, 0), 630 + 238 + 110);
+    // Le client passe TE-01 de 630 a 700 plis : seuls 70 s'ajoutent.
+    const plus = { ...repartos, matieres: repartos.matieres.map((m, i) => i ? m : { ...m, placements: m.placements.map(p => p.code === 'TE-01' ? { ...p, plis: 700 } : p) }) };
+    const r3 = appliquerImport(r.ordre, plus, { tailles: r.tailles, couleur: 'Rouge', remplacer: false, maxPlis: 100 });
+    const te01 = r3.ordre.placements!.find(p => p.code === 'TE-01')!.id;
+    assert.equal(r3.ordre.matelasLines!.filter(l => l.placementId === te01).reduce((s, l) => s + l.plis, 0), 700);
+    // Une autre couleur reste une commande a part.
+    const r4 = appliquerImport(r.ordre, repartos, { tailles: r.tailles, couleur: 'Bleu', remplacer: false, maxPlis: 100 });
+    assert.equal(r4.ordre.matelasLines!.reduce((s, l) => s + l.plis, 0), 2 * (630 + 238 + 110));
 }
 
 // Plusieurs feuilles a la suite (tissu, FO, EN) : aucune matiere, aucun placement, aucun matelas ne partage un id.

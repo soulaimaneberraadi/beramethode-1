@@ -107,6 +107,10 @@ export function appliquerImport(o: OrdreCoupe, f: FeuilleImportee, opt: OptionsI
     let nPlacements = 0, nMatelas = 0;
     const nouvelId = (prefixe: string) => `${prefixe}-${Date.now().toString(36)}-${(sequenceIds++).toString(36)}`;
     const matieresTouchees = new Set<string>();
+    // Matelas presents avant l'import (feuille de l'atelier reimportee).
+    const avant = new Set((o.matelasLines || []).map(l => l.id));
+    const utilises = new Set<string>();
+    let nDejaLa = 0;
 
     for (const m of f.matieres) {
         // La matiere de l'ordre qui recoit celle du classeur.
@@ -153,7 +157,16 @@ export function appliquerImport(o: OrdreCoupe, f: FeuilleImportee, opt: OptionsI
                     placements = [...placements, p];
                     nPlacements++;
                 }
-                const plis = Math.max(0, Math.round(pi.plis || 0));
+                // Les plis du classeur sont le besoin du placement : un placement deja
+                // planifie (meme couleur) n'en recoit que le complement. Reimporter le meme
+                // classeur ne double donc ni les matelas, ni les pieces, ni le tissu.
+                const deja = existant
+                    ? lignes.filter(l => l.placementId === p.id && (l.couleur || '') === (opt.couleur || '')).reduce((s, l) => s + (l.plis || 0), 0)
+                    : 0;
+                const plis = Math.max(0, Math.round(pi.plis || 0) - deja);
+                if (deja > 0 && pi.plis) alertes.push(plis > 0
+                    ? `${pi.code} : ${deja} plis deja planifies, ${plis} ajoutes.`
+                    : `${pi.code} : deja planifie (${deja} plis), aucun matelas ajoute.`);
                 if (plis > 0 && lisible) {
                     const nouveaux = matelasDuPlacement(p, opt.couleur, plis, opt.maxPlis, numeroSuivant(lignes, tid))
                         .map(l => ({ ...l, id: nouvelId('MAT'), tissu: tid === TISSU_PRINCIPAL ? undefined : tid }));
@@ -176,6 +189,13 @@ export function appliquerImport(o: OrdreCoupe, f: FeuilleImportee, opt: OptionsI
                     nPlacements++;
                 }
                 parMelange.set(cleM, p);
+                // Ce matelas est-il deja dans l'ordre (classeur reimporte) ? Meme numero,
+                // ou a defaut meme placement, couleur et plis ; chacun ne sert qu'une fois.
+                const pid = p.id;
+                const deja = lignes.find(l => avant.has(l.id) && !utilises.has(l.id) && tissuDe(l) === tid
+                    && l.placementId === pid && (l.couleur || '') === (opt.couleur || '')
+                    && (mi.numero ? String(l.numero) === String(mi.numero) : l.plis === Math.round(mi.plis)));
+                if (deja) { utilises.add(deja.id); nDejaLa++; continue; }
                 lignes = [...lignes, {
                     id: nouvelId('MAT'),
                     couleur: opt.couleur,
@@ -190,6 +210,8 @@ export function appliquerImport(o: OrdreCoupe, f: FeuilleImportee, opt: OptionsI
             }
         }
     }
+
+    if (nDejaLa) alertes.push(`${nDejaLa} matelas deja presents dans l'ordre : non ajoutes une deuxieme fois.`);
 
     return {
         ordre: {

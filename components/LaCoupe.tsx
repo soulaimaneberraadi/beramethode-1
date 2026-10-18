@@ -396,11 +396,28 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     };
 
     const changerStatut = async (id: string, status: string) => {
-        const modelToUpdate = models.find(m => m.id === id);
-        if (!modelToUpdate || (modelToUpdate.ordreCoupe?.status || 'EN_PREPARATION') === status) return;
+        const local = models.find(m => m.id === id);
+        if (!local || (local.ordreCoupe?.status || 'EN_PREPARATION') === status) return;
 
+        /*
+         * On ne change que le statut, sur la derniere version enregistree :
+         * la copie de cette fenetre peut etre plus ancienne qu'un ordre
+         * sauve ailleurs, et l'ecrire effacerait ses matelas et traces.
+         */
+        let modelToUpdate = local;
+        try {
+            const res = await fetch('/api/models', { credentials: 'include' });
+            if (res.ok) {
+                const liste = await res.json();
+                const serveur = Array.isArray(liste) ? (liste as ModelData[]).find(m => m && m.id === id) : undefined;
+                if (serveur) modelToUpdate = serveur;
+            }
+        } catch { /* serveur injoignable : on part de la copie locale */ }
+
+        const maintenant = new Date().toISOString();
         const updatedModel: ModelData = {
             ...modelToUpdate,
+            updatedAt: maintenant,
             ordreCoupe: {
                 ...(modelToUpdate.ordreCoupe || {
                     refModele: modelToUpdate.meta_data?.nom_modele || '',
@@ -408,13 +425,22 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     faisceaux: []
                 }),
                 status: status as any,
-                majLe: new Date().toISOString(),
+                majLe: maintenant,
             }
         };
 
         const success = await saveModelToServer(updatedModel);
         if (success) {
             setModels(prev => prev.map(m => m.id === id ? updatedModel : m));
+            // Ordre ouvert dans l'editeur : il prend le statut, et ce changement
+            // ne doit pas lui etre presente comme un conflit au prochain Enregistrer.
+            if (selectedModel?.id === id) {
+                const etaitPropre = empreinteOuverte.current !== '' && empreinteDe(ordre, selectedModel.ficheData) === empreinteOuverte.current;
+                const suivant = { ...ordre, status: status as any, majLe: maintenant };
+                setOrdre(prev => ({ ...prev, status: status as any, majLe: maintenant }));
+                baseOrdre.current = maintenant;
+                if (etaitPropre) empreinteOuverte.current = empreinteDe(suivant, selectedModel.ficheData);
+            }
             showToast(`${tx(lang, { fr: 'Statut modifié', ar: 'تم تغيير الحالة', en: 'Status changed', es: 'Estado modificado', pt: 'Status alterado', tr: 'Durum değiştirildi' })}: ${STATUS_MAP[status as keyof typeof STATUS_MAP]?.label}`, 'success');
         }
     };
@@ -554,7 +580,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }
 
         const maintenant = new Date().toISOString();
-        const finalQte = matelasCalculations.totalPieces > 0 ? matelasCalculations.totalPieces : ordre.qteTotale;
+        // La quantite du modele est la commande (grille), jamais les pieces planifiees :
+        // Planning, Magasin et Suivi la relisent. Les matelas ne servent que sans commande.
+        const finalQte = matrixStats.grandTotal > 0 ? matrixStats.grandTotal
+            : ordre.qteTotale > 0 ? ordre.qteTotale
+            : matelasCalculations.totalPieces;
         const updatedModel: ModelData = {
             ...selectedModel,
             // L'horodatage fait gagner cette version quand les fenetres se resynchronisent.
@@ -765,7 +795,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const handleDeleteMatelasLine = (id: string) => {
         setOrdre(prev => ({
             ...prev,
-            matelasLines: (prev.matelasLines || []).filter(line => line.id !== id)
+            // Comme supprimerLignes : un matelas deja coupe reste (ses paquets sont etiquetes).
+            matelasLines: (prev.matelasLines || []).filter(line => line.id !== id || line.fait)
         }));
         setDeleteLineConfirmId(null);
     };
@@ -2374,14 +2405,17 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         >
                                                                             <Printer className="w-3.5 h-3.5" />
                                                                         </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => setDeleteLineConfirmId(line.id)}
-                                                                            className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
-                                                                            title={tx(lang, { fr: 'Supprimer la ligne', ar: 'حذف السطر', en: 'Delete line', es: 'Eliminar línea', pt: 'Excluir linha', tr: 'Satırı sil' })}
-                                                                        >
-                                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                                        </button>
+                                                                        {/* Un matelas coupe ne se supprime pas : on le decoche d'abord. */}
+                                                                        {!line.fait && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setDeleteLineConfirmId(line.id)}
+                                                                                className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                                                                                title={tx(lang, { fr: 'Supprimer la ligne', ar: 'حذف السطر', en: 'Delete line', es: 'Eliminar línea', pt: 'Excluir linha', tr: 'Satırı sil' })}
+                                                                            >
+                                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        )}
                                                                     </>
     ), [lang]);
 
