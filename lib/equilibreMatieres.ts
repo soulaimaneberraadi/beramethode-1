@@ -447,6 +447,7 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
                     if (d > 0) reste[k] = d;
                 }
                 if (!Object.keys(reste).length) continue;
+                const besoin: Vecteur = { ...reste };
                 const ordre = [...sequence[id], ...parMat[id].map((_, i) => i).filter(i => !sequence[id].includes(i))];
                 const numeros: string[] = [], ailleurs: string[] = [];
                 for (const i of ordre) {
@@ -456,6 +457,13 @@ export function equilibrerOrdre(o: OrdreCoupe | undefined, tailles: string[]): E
                     for (const k in x.pieces) if (reste[k] !== undefined) { reste[k] -= x.pieces[k]; if (reste[k] <= 0) delete reste[k]; }
                     (dans.has(rangee[id][i]) ? numeros : ailleurs).push(x.numero);
                 }
+                // Aucun matelas a couper ne comble ce qui manque : ce n'est pas un retard de la
+                // coupe mais un plan trop court (tout est deja coupe). On le dit en ecart, pas en
+                // « il manque encore », qui envoyait chercher un matelas qui n'existe pas.
+                // Ce que meme ces matelas ne combleront pas reste lui aussi un manque du plan.
+                const nonCouvert = numeros.length || ailleurs.length ? reste : besoin;
+                for (const k in nonCouvert) if (!manque.some(e => e.matiere === id && e.cle === k)) manque.push(ecart(id, k, -nonCouvert[k]));
+                if (!numeros.length && !ailleurs.length) continue;
                 attente[id] = { numeros, autres: ailleurs };
             }
         }
