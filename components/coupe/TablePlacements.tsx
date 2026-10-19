@@ -6,7 +6,7 @@
  * maximum pour ce placement. Deposer le PLT remplit seul les tailles, la
  * laize, la longueur et l'efficience ecrites par Optitex dans l'en-tete.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type InputHTMLAttributes } from 'react';
 import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle, RotateCcw, Files } from 'lucide-react';
 import type { LaizeCoupe, MatelasFichier, PlacementCoupe } from '../../types';
 import type { PaireTaille } from '../../lib/correspondanceTailles';
@@ -53,6 +53,39 @@ interface Props {
     onSupprimer: (p: PlacementCoupe) => void;
     onApercu: (p: PlacementCoupe) => void;
     onMessage: (texte: string, type: 'success' | 'error' | 'info') => void;
+}
+
+/**
+ * Champ numerique a brouillon : ce qu'on tape reste affiche tel quel (« 0 », « 0. », « 0.8 ») ; la valeur
+ * enregistree ne suit que les nombres valides. Vide ou 0 : pas de valeur (`undefined`), jamais 0 par defaut —
+ * un champ rempli de 0 se re-ecrivait vide et faisait perdre le « 0 » de « 0.8 ».
+ * `entier` : arrondit a l'unite.
+ */
+function ChampNombre({ valeur, onValeur, entier, onBlur, onPaste, ...reste }: {
+    valeur: number | undefined;
+    onValeur: (n: number | undefined) => void;
+    entier?: boolean;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>) {
+    const [brouillon, setBrouillon] = useState<string | null>(null);
+    return (
+        <input
+            {...reste}
+            type="number"
+            value={brouillon ?? (valeur ? String(valeur) : '')}
+            onChange={e => {
+                const t = e.target.value;
+                // Texte en cours de frappe que le navigateur ne sait pas encore lire (« - », « 1e ») : on n'y touche pas.
+                if (t === '' && e.target.validity.badInput) return;
+                setBrouillon(t);
+                const n = t === '' ? NaN : Number(t);
+                const v = Number.isFinite(n) ? (entier ? Math.round(n) : n) : NaN;
+                onValeur(v > 0 ? v : undefined);
+            }}
+            onBlur={e => { setBrouillon(null); onBlur?.(e); }}
+            // Un bloc colle depuis Excel ecrit le modele sans passer par onChange : un brouillon ancien ne doit pas masquer les valeurs collees.
+            onPaste={e => { setBrouillon(null); onPaste?.(e); }}
+        />
+    );
 }
 
 const memesRatios = (a: Record<string, number>, b: Record<string, number>) => {
@@ -446,14 +479,14 @@ export default function TablePlacements({ placements, tailles, correspondance, n
                                     </td>
                                     {tailles.map((t, ti) => (
                                         <td key={t} className="py-1 px-1">
-                                            <input
+                                            <ChampNombre
                                                 {...cellule(i, ti + 1)}
-                                                type="number"
+                                                entier
                                                 min="0"
-                                                value={p.ratios?.[t] || ''}
-                                                onChange={e => {
-                                                    const ratios = { ...p.ratios, [t]: Math.max(0, Math.round(Number(e.target.value) || 0)) };
-                                                    if (!ratios[t]) delete ratios[t];
+                                                valeur={p.ratios?.[t]}
+                                                onValeur={n => {
+                                                    const ratios = { ...p.ratios };
+                                                    if (n) ratios[t] = n; else delete ratios[t];
                                                     onModifier(p.id, { ratios, nom: nomPlacement(ratios, tailles) });
                                                 }}
                                                 placeholder="·"
@@ -596,13 +629,12 @@ export default function TablePlacements({ placements, tailles, correspondance, n
                                         )}
                                     </td>
                                     <td className="py-1 px-1">
-                                        <input
+                                        <ChampNombre
                                             {...cellule(i, tailles.length + 1)}
-                                            type="number"
                                             step="0.01"
                                             min="0"
-                                            value={p.longueurM || ''}
-                                            onChange={e => onModifier(p.id, { longueurM: Number(e.target.value) || 0 })}
+                                            valeur={p.longueurM}
+                                            onValeur={n => onModifier(p.id, { longueurM: n ?? 0 })}
                                             placeholder="0.00"
                                             className={champNombre}
                                         />
@@ -611,12 +643,12 @@ export default function TablePlacements({ placements, tailles, correspondance, n
                                         {p.longueurM && pcs ? `${((p.longueurM / pcs) * 100).toFixed(1)} cm` : '—'}
                                     </td>
                                     <td className="py-1 px-1">
-                                        <input
+                                        <ChampNombre
                                             {...cellule(i, tailles.length + 2)}
-                                            type="number"
+                                            entier
                                             min="1"
-                                            value={p.maxPlis || ''}
-                                            onChange={e => onModifier(p.id, { maxPlis: Math.max(0, Math.round(Number(e.target.value) || 0)) || undefined })}
+                                            valeur={p.maxPlis}
+                                            onValeur={n => onModifier(p.id, { maxPlis: n })}
                                             placeholder={String(maxPlisDefaut)}
                                             className={champNombre}
                                         />

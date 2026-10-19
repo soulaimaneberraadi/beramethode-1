@@ -194,6 +194,23 @@ const purgeExpiredTombstones = () => {
 // ─── CRUD helpers ────────────────────────────────────────────────────────────
 
 /**
+ * Quel ordre de coupe garder quand un modèle arrive d'une fenêtre restée ouverte sur une version ancienne.
+ *
+ * Même règle que `saveModel` côté serveur (server/modelController.ts) : plusieurs écrans enregistrent le
+ * modèle ENTIER (sous-traitance, bibliothèque...), et venu d'une fenêtre périmée un tel enregistrement
+ * effaçait l'ordre de coupe fait entre-temps (placements, traces PLT, matelas). L'ordre de coupe le plus
+ * récent gagne : si l'ordre stocké porte un `majLe` et que celui qui arrive n'en a pas, ou un plus ancien,
+ * on garde le stocké — le reste du modèle s'enregistre quand même. Le serveur ne refuse rien et répond 200 ;
+ * l'écran de La Coupe détecte le conflit AVANT d'enregistrer (il relit `GET /api/models`, qui passe par ici).
+ * Les `majLe` sont des dates ISO : la comparaison de chaînes est celle du serveur.
+ */
+export const ordreCoupeRetenu = (stocke: any, recu: any): any => {
+  const majAvant = stocke?.majLe as string | undefined;
+  const majRecu = recu?.majLe as string | undefined;
+  return majAvant && (!majRecu || majRecu < majAvant) ? stocke : recu;
+};
+
+/**
  * Upsert d'un enregistrement.
  *
  * `merge=true` (PUT/PATCH partiels) : on FUSIONNE avec l'existant au lieu de le
@@ -209,6 +226,11 @@ const upsertItem = async (type: string, item: any, merge = false): Promise<any> 
   const idx = arr.findIndex((it: any) => String(it.id) === id);
   const existing = idx >= 0 ? arr[idx] : null;
   const next = merge && existing ? { ...existing, ...item, id } : { ...item, id };
+  // Un modèle supprimé (pierre tombale) n'a plus de version « stockée » : le serveur, lui, n'a plus la ligne.
+  if (type === 'models' && existing && !tombstonedIds('models').has(id)) {
+    const retenu = ordreCoupeRetenu(existing.ordreCoupe, next.ordreCoupe);
+    if (retenu !== next.ordreCoupe) next.ordreCoupe = retenu;
+  }
   if (idx >= 0) arr[idx] = next; else arr.push(next);
   // Un modèle arrive ici avec ses photos en clair (il vient d'une lecture
   // réhydratée). On les range dans IndexedDB avant d'écrire : sans cela, la

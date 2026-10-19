@@ -86,6 +86,12 @@ export interface MatiereJour {
     metres: number;
     /** Minutes prevues pour ces matelas ; absent sans temps standard ou si un trace n'a pas de longueur. */
     minutes?: number;
+    /**
+     * Matelas de cette matiere que le plan d'une chaine plus pressee coupe deja pour le meme modele : un matelas
+     * de doublure se coupe une fois, quelle que soit la chaine qui le reclame. Ils ne sont plus dans
+     * `numeros`, `matelas`, `metres` ni `minutes` ; `chaine` est le nom de la chaine (ou des chaines) qui les coupe.
+     */
+    dejaPrevu?: { chaine: string; numeros: string[] };
 }
 
 /**
@@ -351,6 +357,9 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         const std = standardSalle();
         return std && liste.length ? liste.reduce((s, x) => s + minutesPrevues(std, x.metres), 0) : undefined;
     };
+    // Matelas d'autres matieres dont la longueur du trace manque (cle `modele|matelas`) : leurs minutes ne se calculent pas.
+    // Gardes de cote pour recompter les minutes quand `partagerAutres` retire des matelas d'un plan.
+    const sansLongueurAutres = new Set<string>();
 
     // Evenements en cours, du plus tot au plus tard : le premier d'un modele donne sa chaine par defaut.
     const evs = e.evenements.filter(ev => ev.status !== 'DONE')
@@ -560,6 +569,7 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
                 const liste = (couv[mat.id] || []).slice().sort((a, b) => numeroTri(a.numero) - numeroTri(b.numero));
                 if (mat.principal || !liste.length) continue;
                 const refs: MatelasRef[] = liste.map(x => ({ id: x.id, numero: x.numero, pieces: x.total, metres: metresLigne(x.ligne) }));
+                for (const x of liste) if (longueurManquante(x.ligne)) sansLongueurAutres.add(cleMatelas(m.id, x.id));
                 autres.push({
                     id: mat.id, code: mat.code, nom: mat.nom, numeros: refs.map(x => x.numero), matelas: refs,
                     metres: refs.reduce((s, x) => s + x.metres, 0),
@@ -623,7 +633,7 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
         };
     };
 
-    return ids.map(id => {
+    const chaines: ChaineCoupe[] = ids.map(id => {
         // Les modeles de la chaine : ceux que le Planning y met, et ceux dont la serie lui donne des paquets.
         const lignes: ModeleSurChaine[] = [];
         const vus = new Set<string>();
@@ -695,20 +705,103 @@ export function chainesDeCoupe(e: EntreeChaines): ChaineCoupe[] {
             },
         };
     });
+    // Un matelas d'une autre matiere se coupe une fois : la chaine la plus pressee le garde dans son plan.
+    partagerAutres(chaines, minutesDe, sansLongueurAutres);
+    return chaines;
+}
+
+/** Cle d'un matelas dans le plan du jour : un modele, un matelas (l'id d'un matelas est unique dans un ordre). */
+const cleMatelas = (modelId: string, matelasId: string) => `${modelId}|${matelasId}`;
+
+/**
+ * Le meme matelas d'une autre matiere (doublure, entretoile...) peut revenir dans le plan de plusieurs chaines :
+ * un matelas qui couvre du tissu de deux chaines est reclame par chacune. On le coupe une seule fois. Les chaines
+ * sont prises de la plus pressee (le moins de jours d'avance ; sans cadence, en dernier) a la moins pressee, puis
+ * par nom ; pour chaque modele, la premiere qui le liste le garde. Les suivantes le retrouvent dans
+ * `dejaPrevu` et ne le comptent plus (numeros, matelas, metres, minutes).
+ * Modifie les plans en place ; `x.autres` suit `x.planJour.autres`.
+ */
+function partagerAutres(
+    chaines: ChaineCoupe[],
+    minutesDe: (liste: { metres: number }[]) => number | undefined,
+    sansLongueur: Set<string>,
+): void {
+    const parUrgence = [...chaines].sort((a, b) => {
+        const ja = a.rythme.ecartJours, jb = b.rythme.ecartJours;
+        if ((ja === null) !== (jb === null)) return ja === null ? 1 : -1;
+        if (ja !== null && jb !== null && Math.abs(ja - jb) > 1e-9) return ja - jb;
+        return a.nom.localeCompare(b.nom, undefined, { numeric: true }) || a.id.localeCompare(b.id, undefined, { numeric: true });
+    });
+    /** Matelas deja pris, avec le nom de la chaine qui le coupe. */
+    const pris = new Map<string, string>();
+    for (const c of parUrgence) {
+        for (const x of c.modeles) {
+            if (!x.planJour.autres.length) continue;
+            const autres = x.planJour.autres.map((a): MatiereJour => {
+                const siens: MatelasRef[] = [];
+                const dejaPar = new Map<string, string[]>(); // chaine -> numeros
+                for (const l of a.matelas) {
+                    const cle = cleMatelas(x.modelId, l.id);
+                    const chez = pris.get(cle);
+                    if (chez === undefined) { pris.set(cle, c.nom); siens.push(l); }
+                    else (dejaPar.get(chez) || dejaPar.set(chez, []).get(chez)!).push(l.numero);
+                }
+                if (dejaPar.size === 0) return a;
+                return {
+                    ...a,
+                    numeros: siens.map(l => l.numero),
+                    matelas: siens,
+                    metres: siens.reduce((s, l) => s + l.metres, 0),
+                    minutes: siens.some(l => sansLongueur.has(cleMatelas(x.modelId, l.id))) ? undefined : minutesDe(siens),
+                    dejaPrevu: { chaine: [...dejaPar.keys()].join(', '), numeros: [...dejaPar.values()].flat() },
+                };
+            });
+            x.planJour.autres = autres;
+            x.autres = autres;
+        }
+    }
 }
 
 /**
- * Totaux de la page Chaines : les matelas des plans du jour (un matelas dont les paquets vont a deux
+ * Totaux de la page Chaines : les matelas de tissu des plans du jour (un matelas dont les paquets vont a deux
  * chaines ne compte qu'une fois) et leurs pieces (la part de chaque chaine : la somme est le matelas entier).
+ * `autres` : les matelas des autres matieres (doublure, entretoile...), chacun une fois meme si plusieurs
+ * chaines le reclamaient (voir `partagerAutres`) ; ils ne font pas de pieces.
  */
-export function totauxPlanJour(chaines: ChaineCoupe[]): { matelas: number; pieces: number } {
+export function totauxPlanJour(chaines: ChaineCoupe[]): { matelas: number; pieces: number; autres: number } {
     const vus = new Set<string>();
+    const vusAutres = new Set<string>();
     let pieces = 0;
     for (const c of chaines) {
         for (const x of c.modeles) {
             pieces += x.planJour.pieces;
-            for (const l of x.planJour.matelas) vus.add(`${x.modelId}|${l.id}`);
+            for (const l of x.planJour.matelas) vus.add(cleMatelas(x.modelId, l.id));
+            for (const a of x.planJour.autres) for (const l of a.matelas) vusAutres.add(cleMatelas(x.modelId, l.id));
         }
     }
-    return { matelas: vus.size, pieces };
+    return { matelas: vus.size, pieces, autres: vusAutres.size };
+}
+
+/**
+ * Une plage de numeros de matelas, lisible : « 22, 23, 24, 30 » devient « 22–24, 30 ». Les numeros qui ne sont
+ * pas des entiers (« 3B ») restent tels quels ; l'ordre de la liste est celui de la sortie.
+ */
+export function plagesDeNumeros(numeros: string[]): string {
+    const sorties: string[] = [];
+    let debut: number | null = null, fin: number | null = null;
+    const vider = () => {
+        if (debut === null || fin === null) return;
+        sorties.push(debut === fin ? String(debut) : fin === debut + 1 ? `${debut}, ${fin}` : `${debut}–${fin}`);
+        debut = fin = null;
+    };
+    for (const brut of numeros) {
+        const t = String(brut ?? '').trim();
+        if (/^\d+$/.test(t)) {
+            const n = parseInt(t, 10);
+            if (fin !== null && n === fin + 1) { fin = n; continue; }
+            vider(); debut = fin = n;
+        } else { vider(); sorties.push(t || '?'); }
+    }
+    vider();
+    return sorties.join(', ');
 }

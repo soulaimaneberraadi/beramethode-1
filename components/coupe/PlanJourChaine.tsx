@@ -14,7 +14,7 @@ import { AlertTriangle, Check, Factory, Pause, Scissors } from 'lucide-react';
 import type { AppSettings } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
-import type { ChaineCoupe, MatiereJour, ModeleSurChaine, PedidoSurChaine } from '../../lib/coupeChaines';
+import { plagesDeNumeros, type ChaineCoupe, type MatiereJour, type ModeleSurChaine, type PedidoSurChaine } from '../../lib/coupeChaines';
 import { heuresParJour, modeleEnCours, numerosVisibles, verdictAvance, vuePlan } from '../../lib/coupeChainesVue';
 import { fmtN, jjmm, localeDe } from '../../lib/coupeFormat';
 
@@ -95,15 +95,28 @@ function Numeros({ liste }: { liste: string[] }) {
     );
 }
 
-/** Une autre matiere (doublure, entretoile...) : « FO N° 1, 2 · 18 m · ~12 min ». */
+/**
+ * Une autre matiere (doublure, entretoile...) : « FO N° 1, 2 · 18 m · ~12 min ». Les matelas qu'une chaine plus
+ * pressee coupe deja pour le meme modele ne sont pas recomptes : une ligne ardoise dit « FO N° 22–35 déjà prévus pour STAR1+2 ».
+ */
 function LigneMatiere({ a }: { a: MatiereJour }) {
     const { L } = useTextes();
     return (
-        <p className="leading-relaxed" title={a.nom}>
-            <b>{a.code}</b> {L('N°', 'رقم', 'No.')} <Numeros liste={a.numeros} />
-            {a.metres > 0 && <span className="opacity-80"> · {fmtM(a.metres)}</span>}
-            {a.minutes !== undefined && <span className="opacity-80"> · ~{fmtN(a.minutes)} min</span>}
-        </p>
+        <>
+            {a.numeros.length > 0 && (
+                <p className="leading-relaxed" title={a.nom}>
+                    <b>{a.code}</b> {L('N°', 'رقم', 'No.')} <Numeros liste={a.numeros} />
+                    {a.metres > 0 && <span className="opacity-80"> · {fmtM(a.metres)}</span>}
+                    {a.minutes !== undefined && <span className="opacity-80"> · ~{fmtN(a.minutes)} min</span>}
+                </p>
+            )}
+            {a.dejaPrevu && a.dejaPrevu.numeros.length > 0 && (
+                <p className="text-[11px] leading-relaxed text-slate-500 dark:text-dk-muted" title={a.nom}>
+                    <b>{a.code}</b> {L('N°', 'رقم', 'No.')} <span className="tabular-nums">{plagesDeNumeros(a.dejaPrevu.numeros)}</span>{' '}
+                    {L(`déjà prévus pour ${a.dejaPrevu.chaine}`, `مبرمجة مسبقاً لـ ${a.dejaPrevu.chaine}`, `already planned for ${a.dejaPrevu.chaine}`)}
+                </p>
+            )}
+        </>
     );
 }
 

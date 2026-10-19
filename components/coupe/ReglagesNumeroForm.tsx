@@ -3,6 +3,7 @@
  * (ecriture, gras, penche). Le meme formulaire sert dans l'apercu d'un trace
  * et dans les reglages par defaut de l'entreprise.
  */
+import { useState } from 'react';
 import type { ReglagesNumero } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -23,25 +24,49 @@ interface Props {
 
 const FORMATS: NonNullable<ReglagesNumero['format']>[] = ['nu', 'parentheses', 'crochets', 'no', 'tirets'];
 
+type CleNombre = 'hauteurCm' | 'largeurCm' | 'ecartMm' | 'repetitions';
+/** Ce qu'une saisie doit valoir pour etre enregistree : le zero n'est permis que pour l'ecart (hauteur ou largeur a 0 : plus rien ne s'ecrit). */
+const REGLES_NOMBRE: Record<CleNombre, { zeroOk?: boolean; entier?: boolean }> = {
+    hauteurCm: {}, largeurCm: {}, ecartMm: { zeroOk: true }, repetitions: { entier: true },
+};
+
 export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', avecOpacite = true, code = 'TE', etroit = false }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
     const maj = (patch: Partial<ReglagesNumero>) => onChange({ ...valeur, ...patch });
 
-    // number | '' : un champ vide reste vide (pas de « 040 » en tapant).
-    const champ = (label: string, cle: 'hauteurCm' | 'largeurCm' | 'ecartMm' | 'repetitions', pas: string, aide?: string) => (
-        <label className="block" title={aide}>
-            <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">{label}</span>
-            <input
-                type="number"
-                step={pas}
-                min="0"
-                value={valeur[cle] || ''}
-                onChange={e => maj({ [cle]: e.target.value === '' ? 0 : Number(e.target.value) } as Partial<ReglagesNumero>)}
-                className="w-full h-10 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-emerald-400"
-            />
-        </label>
-    );
+    // Ce que l'operateur tape, tel quel, tant que le champ a le focus : « 0 », « 0. », « 0.8 » s'ecrivent sans que la
+    // valeur enregistree ne reecrive le champ (avant, vider le champ ecrivait 0 et « 0.8 » perdait son zero).
+    const [brouillons, setBrouillons] = useState<Partial<Record<CleNombre, string>>>({});
+    const champ = (label: string, cle: CleNombre, pas: string, aide?: string) => {
+        const regle = REGLES_NOMBRE[cle];
+        const stocke = valeur[cle];
+        const affiche = brouillons[cle] ?? ((stocke || (stocke === 0 && regle.zeroOk)) ? String(stocke) : '');
+        return (
+            <label className="block" title={aide}>
+                <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">{label}</span>
+                <input
+                    type="number"
+                    step={pas}
+                    min="0"
+                    value={affiche}
+                    // Champ vide : la valeur en cours reste la reglee (jamais 0, qui eteindrait la numerotation).
+                    placeholder={Number.isFinite(stocke) ? String(stocke) : ''}
+                    onChange={e => {
+                        const t = e.target.value;
+                        // Texte en cours de frappe que le navigateur ne sait pas encore lire (« - », « 1e ») : on n'y touche pas.
+                        if (t === '' && e.target.validity.badInput) return;
+                        setBrouillons(b => ({ ...b, [cle]: t }));
+                        const n = t === '' ? NaN : Number(t);
+                        if (!Number.isFinite(n) || (regle.zeroOk ? n < 0 : n <= 0)) return;
+                        maj({ [cle]: regle.entier ? Math.max(1, Math.round(n)) : n } as Partial<ReglagesNumero>);
+                    }}
+                    onBlur={() => setBrouillons(b => { const { [cle]: _fini, ...reste } = b; return reste; })}
+                    className="w-full h-10 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-emerald-400"
+                />
+            </label>
+        );
+    };
 
     const puce = (actif: boolean) => `h-9 px-3 rounded-lg text-[12px] font-bold whitespace-nowrap border transition-colors ${actif
         ? 'bg-slate-900 dark:bg-dk-accent border-slate-900 dark:border-dk-accent text-white'

@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import type { AppSettings, MatelasLine, ModelData, PlanningEvent, SuiviData } from '../types';
-import { chainesDeCoupe, rythmeCoupe, totauxPlanJour } from './coupeChaines';
+import { chainesDeCoupe, plagesDeNumeros, rythmeCoupe, totauxPlanJour } from './coupeChaines';
 import { vuePlan } from './coupeChainesVue';
 import { equilibrerOrdre } from './equilibreMatieres';
 
@@ -470,7 +470,7 @@ const base5 = { suivis: [] as SuiviData[], joursAvance: 2, aujourdhui: '2026-10-
     const ev5 = evenement('evS5', 'S5', 'CHAINE 1', '2026-10-01', { qteTotal: 200 });
     const [p1, p2] = chainesDeCoupe({ ...base5, models: [partage], evenements: [ev5], settings: avecCadence(800) });
     assert.equal(p1.matelasACouper + p2.matelasACouper, 2, 'chaque chaine voit le matelas dans son plan');
-    assert.deepEqual(totauxPlanJour([p1, p2]), { matelas: 1, pieces: 200 }, 'un seul matelas, ses 200 pieces (100 + 100)');
+    assert.deepEqual(totauxPlanJour([p1, p2]), { matelas: 1, pieces: 200, autres: 0 }, 'un seul matelas, ses 200 pieces (100 + 100)');
 }
 
 // --- Jours ouvres : la semaine de travail et les exceptions du Planning ---
@@ -500,6 +500,171 @@ const base5 = { suivis: [] as SuiviData[], joursAvance: 2, aujourdhui: '2026-10-
     assert.equal(y.serie !== null, true);
     assert.equal(y.commande, 2000);
     assert.equal(c1.modeles[0].serieAbsente, true, 'la chaine de l’OF en pause n’a aucun paquet');
+}
+
+/* ------------------------------------------------------------------ */
+/* Pourquoi il manque : serie, ordre, pause                            */
+/* ------------------------------------------------------------------ */
+
+// --- raisonManque « serie » : la serie ne donne pas assez de paquets a la chaine, l'ordre en a encore ---
+{
+    // 6 matelas de 200 pieces (1200). Les matelas 1-3 vont a CHAINE 1, 4-6 a CHAINE 2.
+    const lignes = Array.from({ length: 6 }, (_, i) => ligne(String(i + 1), 100, { S: 1, M: 1 }));
+    const m = modele('Y1', lignes, 1200);
+    const saisies: Record<string, { chaine: string }> = {};
+    for (const [i, l] of lignes.entries()) for (const t of ['S', 'M']) saisies[`${l.id}:${t}:0`] = { chaine: i < 3 ? 'CHAINE 1' : 'CHAINE 2' };
+    (m.ordreCoupe as any).serie = { saisies };
+    // Le Planning demande 2000 pieces a CHAINE 1, 3 jours d'avance a 800/jour : elle voudrait 2000, la serie ne lui en donne que 600.
+    const ev = evenement('evY1', 'Y1', 'CHAINE 1', '2026-10-01', { qteTotal: 2000 });
+    const x = chainesDeCoupe({ ...base5, joursAvance: 3, models: [m], evenements: [ev], settings: reglages })[0].modeles[0];
+    assert.equal(x.planJour.statut, 'manque');
+    assert.equal(x.planJour.raisonManque, 'serie');
+    assert.equal(x.planJour.resteChaine, 600, 'ce que la serie donne encore a couper a cette chaine');
+    assert.equal(x.planJour.resteOrdre, 1200, 'l’ordre entier en a davantage : le manque vient de la serie');
+    assert.equal(x.planJour.voulu, 2000);
+    assert.equal(x.planJour.manque, 1400);
+    assert.equal(x.planJour.attenteReprise, 0);
+    assert.equal(x.matelas.length, 3, 'tout ce que la serie lui donne est quand meme propose');
+}
+
+// --- raisonManque « ordre » : l'ordre lui-meme n'a plus de quoi tenir (le Planning prevoit plus que la grille) ---
+{
+    const m = modele('Y2', dixMatelas(4), 2000);
+    const ev = evenement('evY2', 'Y2', 'CHAINE 1', '2026-10-01', { qteTotal: 3000 });
+    const x = chainesDeCoupe({ ...base5, models: [m], evenements: [ev], settings: avecCadence(2000) })[0].modeles[0];
+    assert.equal(x.planJour.statut, 'manque');
+    assert.equal(x.planJour.raisonManque, 'ordre');
+    assert.equal(x.planJour.resteChaine, 1200, 'les 6 matelas qui restent');
+    assert.equal(x.planJour.resteOrdre, 1200, 'toute la chaine, tout l’ordre : la serie n’y est pour rien');
+    assert.equal(x.planJour.attenteReprise, 0);
+    assert.equal(x.planJour.manque, 1000);
+    // Tout est coupe : l'ordre est epuise, meme raison, plus rien a proposer.
+    const fini = chainesDeCoupe({ ...base5, models: [modele('Y2', dixMatelas(10), 2000)], evenements: [ev], settings: avecCadence(2000) })[0].modeles[0];
+    assert.equal(fini.planJour.statut, 'manque');
+    assert.equal(fini.planJour.raisonManque, 'ordre');
+    assert.equal(fini.planJour.resteChaine, 0);
+    assert.equal(fini.matelas.length, 0);
+}
+
+// --- raisonManque « pause » : un pedido en pause retient le reste (il se coupera a la reprise) ---
+{
+    const evActif = evenement('evY3a', 'Y3', 'CHAINE 1', '2026-10-01', { modelName: 'Y3 — L1', qteTotal: 500 });
+    const evPause = evenement('evY3b', 'Y3', 'CHAINE 1', '2026-09-25', { modelName: 'Y3 — L2', qteTotal: 1500, status: 'BLOCKED_STOCK', isLocked: true });
+    const m = modele('Y3', dixMatelas(), 2000);
+    const x = chainesDeCoupe({ ...base5, models: [m], evenements: [evPause, evActif], settings: avecCadence(1000) })[0].modeles[0];
+    assert.equal(x.planJour.statut, 'manque');
+    assert.equal(x.planJour.raisonManque, 'pause');
+    assert.equal(x.planJour.attenteReprise, 1500);
+    assert.equal(x.planJour.manque, 1500);
+    // Quand rien ne manque, aucune raison n'est donnee.
+    const bien = chainesDeCoupe({ ...base5, models: [modele('Y3', dixMatelas(), 2000)], evenements: [evActif], settings: avecCadence(250) })[0].modeles[0];
+    assert.equal(bien.planJour.statut, 'a_couper');
+    assert.equal(bien.planJour.raisonManque, undefined);
+}
+
+/* ------------------------------------------------------------------ */
+/* Un matelas d'une autre matiere se coupe une fois                    */
+/* ------------------------------------------------------------------ */
+
+// --- Plages de numeros : « 22–35 » ---
+{
+    assert.equal(plagesDeNumeros(['22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35']), '22–35');
+    assert.equal(plagesDeNumeros(['1', '2', '3', '7', '9', '10']), '1–3, 7, 9, 10', 'deux numeros qui se suivent restent separes par une virgule');
+    assert.equal(plagesDeNumeros(['3', '5', '4']), '3, 5, 4', 'l’ordre de la liste est respecte, pas retrie');
+    assert.equal(plagesDeNumeros(['3', '3B', '4', '5']), '3, 3B, 4, 5');
+    assert.equal(plagesDeNumeros([]), '');
+    assert.equal(plagesDeNumeros(['', ' 7 ']), '?, 7');
+}
+
+/** Un ordre : tissu et doublure (FO) de 100 plis x (S + M) ; la serie donne `parChaine(i)` a chaque matelas de tissu. */
+const ordreAvecDoublure = (id: string, nbMatelas: number, parChaine: (i: number) => string, extra: (i: number, tissu: boolean) => Partial<MatelasLine> = () => ({})) => {
+    const tissu = Array.from({ length: nbMatelas }, (_, i) => ligne(String(i + 1), 100, { S: 1, M: 1 }, extra(i, true)));
+    const fo = Array.from({ length: nbMatelas }, (_, i) => ligne(String(i + 1), 100, { S: 1, M: 1 }, { tissu: 'FO', ...extra(i, false) }));
+    const m = modele(id, [...tissu, ...fo], nbMatelas * 200);
+    (m.ordreCoupe as any).tissus = [{ id: 'principal', nom: 'Tissu' }, { id: 'FO', nom: 'Doublure', code: 'FO' }];
+    const saisies: Record<string, { chaine: string }> = {};
+    tissu.forEach((l, i) => { for (const t of ['S', 'M']) saisies[`${l.id}:${t}:0`] = { chaine: parChaine(i) }; });
+    (m.ordreCoupe as any).serie = { saisies };
+    return m;
+};
+const troisChaines = (noms: [string, string, string], capacites: [number, number, number]) => ({
+    chainsCount: 3,
+    chainNames: { 'CHAINE 1': noms[0], 'CHAINE 2': noms[1], 'CHAINE 3': noms[2] },
+    chainCapacityPerDay: { 'CHAINE 1': capacites[0], 'CHAINE 2': capacites[1], 'CHAINE 3': capacites[2] },
+}) as unknown as AppSettings;
+const autresDe = (c: { modeles: { planJour: { autres: any[] } }[] }) => c.modeles[0].planJour.autres;
+
+// --- La chaine la plus pressee garde le matelas ; les autres le retrouvent dans « deja prevu » ---
+{
+    // Tissu 1 et doublure 1 coupes : la chaine 1 a de l'avance (200 / 400 = 0,5 j) ; les chaines 2 et 3 n'en ont pas (0 j).
+    const m = ordreAvecDoublure('X1', 6, i => (i < 2 ? 'CHAINE 1' : i < 4 ? 'CHAINE 2' : 'CHAINE 3'), i => (i === 0 ? { fait: true } : {}));
+    const ev = evenement('evX1', 'X1', 'CHAINE 1', '2026-10-01', { qteTotal: 1200 });
+    const [c1, c2, c3] = chainesDeCoupe({ models: [m], evenements: [ev], suivis: [], settings: troisChaines(['STAR1+2', 'STAR3', 'STAR4'], [400, 400, 400]), joursAvance: 1, aujourdhui: '2026-10-05' });
+    assert.deepEqual(c1.modeles[0].planJour.matelas.map(l => l.numero), ['2']);
+    assert.deepEqual(c2.modeles[0].planJour.matelas.map(l => l.numero), ['3', '4']);
+    assert.deepEqual(c3.modeles[0].planJour.matelas.map(l => l.numero), ['5', '6']);
+    assert.equal(c1.rythme.ecartJours, 0.5);
+    assert.equal(c2.rythme.ecartJours, 0);
+    // STAR3 et STAR4 sont les plus pressees (0 j), a egalite le nom decide : STAR3 garde les doublures 2 et 3.
+    const [a2] = autresDe(c2);
+    assert.deepEqual([a2.code, a2.numeros, a2.matelas.map((l: any) => l.numero)], ['FO', ['2', '3'], ['2', '3']]);
+    assert.equal(a2.dejaPrevu, undefined);
+    assert.ok(Math.abs(a2.metres - 206) < 1e-9);
+    // STAR4 : les memes doublures, deja prevues pour STAR3 ; plus rien a elle.
+    const [a3] = autresDe(c3);
+    assert.deepEqual([a3.numeros, a3.matelas, a3.metres, a3.minutes], [[], [], 0, undefined]);
+    assert.deepEqual(a3.dejaPrevu, { chaine: 'STAR3', numeros: ['2', '3'] });
+    // STAR1+2 a de l'avance, donc passe apres, meme si son nom vient avant STAR3 : la doublure 2 est deja prevue pour STAR3.
+    const [a1] = autresDe(c1);
+    assert.deepEqual(a1.numeros, []);
+    assert.deepEqual(a1.dejaPrevu, { chaine: 'STAR3', numeros: ['2'] });
+    // L'ancien champ `autres` suit le plan du jour, ligne par ligne.
+    for (const c of [c1, c2, c3]) assert.equal(c.modeles[0].autres, c.modeles[0].planJour.autres);
+    // Totaux : deux matelas de doublure (2 et 3) en tout, pas 5 ; le tissu garde ses 5 matelas et 1000 pieces.
+    assert.deepEqual(totauxPlanJour([c1, c2, c3]), { matelas: 5, pieces: 1000, autres: 2 });
+    assert.equal([c1, c2, c3].reduce((s, c) => s + autresDe(c).reduce((t: number, a: any) => t + a.numeros.length, 0), 0), 2, 'chaque doublure n’est listee que sous une chaine');
+    assert.equal([c1, c2, c3].reduce((s, c) => s + autresDe(c).reduce((t: number, a: any) => t + a.metres, 0), 0), 206, 'metres comptes une fois');
+
+    // Le nom decide a egalite d'avance : sans l'avance de la chaine 1, STAR1+2 passe la premiere.
+    const sansAvance = ordreAvecDoublure('X1b', 6, i => (i < 2 ? 'CHAINE 1' : i < 4 ? 'CHAINE 2' : 'CHAINE 3'));
+    const [d1, d2] = chainesDeCoupe({ models: [sansAvance], evenements: [{ ...ev, modelId: 'X1b' }], suivis: [], settings: troisChaines(['STAR1+2', 'STAR3', 'STAR4'], [400, 400, 400]), joursAvance: 1, aujourdhui: '2026-10-05' });
+    assert.deepEqual(autresDe(d1)[0].numeros, ['1', '2']);
+    assert.equal(autresDe(d1)[0].dejaPrevu, undefined);
+    assert.deepEqual(autresDe(d2)[0].dejaPrevu, { chaine: 'STAR1+2', numeros: ['1', '2'] });
+}
+
+// --- Partage en partie : la chaine suivante garde ses propres matelas, les minutes suivent ---
+{
+    // Tissu 1-2 et doublure 1-2 coupes et chronometres (60 min pour 103 m) : le temps standard de la salle existe.
+    const chrono = (i: number) => ({ fait: true, groupe: 'g1', debut: `2026-09-2${i + 1}T08:00:00`, fin: `2026-09-2${i + 1}T09:00:00` });
+    const m = ordreAvecDoublure('X2', 7, i => (i < 2 ? 'CHAINE 1' : i < 4 ? 'CHAINE 2' : 'CHAINE 3'), (i, tissu) => (i < 2 ? chrono(i + (tissu ? 0 : 2)) : {}));
+    const ev = evenement('evX2', 'X2', 'CHAINE 1', '2026-10-01', { qteTotal: 1400 });
+    // B : 400 pieces voulues (2 matelas de tissu, 3-4) ; C : 600 (3 matelas, 5-6-7). Meme avance (0 j) : B, avant C par son nom, garde ses doublures.
+    const [, b, c] = chainesDeCoupe({ models: [m], evenements: [ev], suivis: [], settings: troisChaines(['A', 'B', 'C'], [400, 400, 600]), joursAvance: 1, aujourdhui: '2026-10-05' });
+    assert.deepEqual(b.modeles[0].planJour.matelas.map(l => l.numero), ['3', '4']);
+    assert.deepEqual(c.modeles[0].planJour.matelas.map(l => l.numero), ['5', '6', '7']);
+    const [ab] = autresDe(b), [ac] = autresDe(c);
+    assert.deepEqual(ab.numeros, ['3', '4']);
+    assert.ok(Math.abs((ab.minutes || 0) - 120) < 1e-6, 'deux doublures de 60 min');
+    // C aurait liste les doublures 3, 4 et 5 : les deux premieres sont deja prevues pour B, la 5 reste a elle.
+    assert.deepEqual(ac.numeros, ['5']);
+    assert.deepEqual(ac.matelas.map((l: any) => l.numero), ['5']);
+    assert.deepEqual(ac.dejaPrevu, { chaine: 'B', numeros: ['3', '4'] });
+    assert.ok(Math.abs(ac.metres - 103) < 1e-9, 'les metres ne comptent que la doublure 5');
+    assert.ok(Math.abs((ac.minutes || 0) - 60) < 1e-6, 'et ses minutes aussi');
+    assert.deepEqual(totauxPlanJour([b, c]), { matelas: 5, pieces: 1000, autres: 3 });
+}
+
+// --- Deux modeles differents ont des matelas differents, meme avec les memes numeros : rien n'est retire ---
+{
+    const m1 = ordreAvecDoublure('X3', 2, () => 'CHAINE 1');
+    const m2 = ordreAvecDoublure('X4', 2, () => 'CHAINE 2');
+    const evs = [evenement('evX3', 'X3', 'CHAINE 1', '2026-10-01', { qteTotal: 400 }), evenement('evX4', 'X4', 'CHAINE 2', '2026-10-01', { qteTotal: 400 })];
+    const [c1, c2] = chainesDeCoupe({ models: [m1, m2], evenements: evs, suivis: [], settings: troisChaines(['A', 'B', 'C'], [400, 400, 400]), joursAvance: 1, aujourdhui: '2026-10-05' });
+    assert.deepEqual(autresDe(c1)[0].numeros, autresDe(c2)[0].numeros);
+    assert.equal(autresDe(c1)[0].dejaPrevu, undefined);
+    assert.equal(autresDe(c2)[0].dejaPrevu, undefined);
+    assert.equal(totauxPlanJour([c1, c2]).autres, autresDe(c1)[0].numeros.length * 2);
 }
 
 console.log('coupeChaines : OK');

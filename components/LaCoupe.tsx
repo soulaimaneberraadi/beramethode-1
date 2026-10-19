@@ -2497,7 +2497,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     const refDistincte = !!ref && ref !== model.meta_data?.nom_modele;
                     const client = clientDe(model);
                     const type = typeDe(model);
-                    const progress = st === 'EN_PREPARATION' ? 25 : st === 'EN_COURS' ? 60 : st === 'SOUS_TRAITANCE' ? 75 : st === 'VALIDE' ? 100 : st === 'REJETE' ? 0 : 0;
+                    const progress = getProgress(model);
                     return (
                         <div
                             key={model.id}
