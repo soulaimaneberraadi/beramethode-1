@@ -21,6 +21,7 @@ import ExcelJS from 'exceljs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { construireClasseurCoupe, nomFichierExcel, type DonneesExcelCoupe } from './coupeExcel';
+import { AMORCE_PAR_PLI_M, metresPlis } from './coupeAtelier';
 
 const presque = (a: number, b: number, msg?: string) => assert.ok(Math.abs(a - b) < 1e-9, `${msg ?? ''} ${a} != ${b}`);
 
@@ -176,7 +177,12 @@ async function main() {
     assert.equal(ws.getCell(r1, 2).value, 'S*2', 'notation fournie');
     assert.equal(ws.getCell(r1, 3).value, 1, "numero '1' -> nombre");
     assert.equal(ws.getCell(r1, 4).value, 82);
-    assert.equal(ws.getCell(r1, 6).formula, `D${r1}*E${r1}`);
+    // M.Gastado = plis x (longueur + amorce), comme metresPlis dans l'app ; 0 sans longueur de trace.
+    assert.equal(ws.getCell(r1, 6).formula, `IF(E${r1}>0,D${r1}*(E${r1}+${AMORCE_PAR_PLI_M}),0)`);
+    presque(Number(ws.getCell(r1, 6).result), metresPlis(82, 3.6));
+    presque(Number(ws.getCell(r1, 6).result), 82 * (3.6 + AMORCE_PAR_PLI_M), 'amorce comptee dans les metres du matelas');
+    presque(Number(ws.getCell(r2, 6).result), 82 * (3.65 + AMORCE_PAR_PLI_M));
+    presque(Number(ws.getCell(r3, 6).result), 0, 'sans longueur de trace : 0, pas l\'amorce seule');
 
     const colXS = colValeurTaille(0), colS = colValeurTaille(1);
     assert.equal(ws.getCell(r1, colXS).formula, `D${r1}*0`, 'ratio XS = 0 sur ce matelas');
@@ -203,6 +209,12 @@ async function main() {
     assert.equal((ws.getCell(T, 2).font as any).color?.argb, 'FFFF0000', 'TOTAL CUT en rouge');
     assert.equal(ws.getCell(T, 4).formula, `SUM(D${r1}:D${r3})`);
     assert.equal(ws.getCell(T, 4).result, 82 + 82 + 86);
+    // « Te, necesari » (D12) = total M.Gastado (F19) ; « (-/+) Mtrs » = recu/vivo - necessaire.
+    const necessaire = metresPlis(82, 3.6) + metresPlis(82, 3.65) + metresPlis(86, undefined);
+    presque(Number(ws.getCell(T, 6).result), necessaire, 'TOTAL CUT M.Gastado = somme des metres de l\'app');
+    presque(Number(cD.result), necessaire, 'Te necesari = somme des metres de l\'app');
+    presque(Number(cF.result), -necessaire, '(-/+) Mtrs = Total vivo (vide) - necesari');
+    presque(necessaire - (82 * 3.6 + 82 * 3.65), (82 + 82) * AMORCE_PAR_PLI_M, 'l\'ecart avec l\'ancien calcul = amorce des plis a longueur connue');
     assert.equal(ws.getCell(T, colXS).formula, `SUM(${colLetter(colXS)}${r1}:${colLetter(colXS)}${r3})`);
     assert.equal(ws.getCell(T, colXS).result, 0 + 0 + 172); // XS : matelas 3 seulement
     assert.equal(ws.getCell(T, colS).result, 164 + 0 + 0); // S : matelas 1 seulement

@@ -7,8 +7,45 @@
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { REGLAGES_NUMERO_DEFAUT, alertesPoses, analyserOctets, numeroterPlt, posesNumero } from './numerotationPlt';
+import { REGLAGES_NUMERO_DEFAUT, alertesPoses, analyserOctets, numeroterPlt, posesNumero, texteNumero } from './numerotationPlt';
 import { lireEntete } from './ordreCoupe';
+
+/* ------------------------------------------------------------------ */
+/* texteNumero : les tirets ecrits expres restent, seuls les orphelins partent */
+/* ------------------------------------------------------------------ */
+{
+    const t = (modele: string, ctx: { code?: string; placement?: string } = {}, format: 'nu' | 'tirets' | 'parentheses' = 'nu') =>
+        texteNumero('77', { format, modele }, ctx);
+
+    // Tirets ecrits autour de {n} : ils restent.
+    assert.equal(t('-{n}-'), '-77-', 'tirets litteraux autour du numero conserves');
+    assert.equal(t('-{n}-', { code: 'TE' }), '-77-', 'un code fourni mais non utilise ne change rien');
+    assert.equal(t('{n}', {}, 'tirets'), '-77-', 'format tirets : -77-');
+    assert.equal(t('{n} {code}', { code: 'TE' }, 'tirets'), '-77- TE');
+    assert.equal(t('{n}-{code}', {}, 'tirets'), '-77-', 'tirets du format conserves, separateur orphelin retire');
+
+    // Marque absente : seul le separateur colle a elle part.
+    assert.equal(t('{n}-{code}'), '77', 'code vide : le tiret orphelin part');
+    assert.equal(t('{n}-{code}', { code: '  ' }), '77', 'code fait uniquement d espaces = absent');
+    assert.equal(t('{n}-{code}', { code: 'TE' }), '77-TE');
+    assert.equal(t('{n} {code}'), '77', 'espace orphelin retire');
+    assert.equal(t('{code} {n}'), '77', 'code absent en tete : espace orphelin retire');
+    assert.equal(t('{code}-{n}'), '77', 'code absent en tete : tiret orphelin retire');
+    assert.equal(t('{code}-{n}', { code: 'FO' }, 'parentheses'), 'FO-(77)');
+    assert.equal(t('{n}-{code}-{pl}', { placement: 'XS-M' }), '77-XS-M', 'code absent au milieu : un seul tiret');
+    assert.equal(t('{n}-{code}-{pl}', { code: 'TE' }), '77-TE', 'placement absent en fin');
+    assert.equal(t('{n}-{code}-{pl}'), '77', 'code et placement absents');
+    assert.equal(t('{code}{pl} {n}'), '77', 'deux marques absentes en tete');
+
+    // Tiret litteral en tete + code absent derriere : seul le tiret du code part.
+    assert.equal(t('-{n}-{code}'), '-77', 'tiret ecrit devant {n} conserve, tiret du code retire');
+    assert.equal(t('-{n}-{code}', { code: 'TE' }), '-77-TE');
+
+    // Cas inchanges.
+    assert.equal(t('{n}'), '77');
+    assert.equal(t('{n} {code}', { code: 'VSLIN' }), '77 VSLIN');
+    console.log('numerotationPlt: texteNumero OK');
+}
 
 const CHEMIN = 'C:/Users/HP/Desktop/SOULAIMANE HPGL/201-SHIRT-40000.PLT';
 

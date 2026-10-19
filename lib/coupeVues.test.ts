@@ -53,6 +53,30 @@ const modele = (id: string, status: any, lignes: MatelasLine[], fiche: any = {},
     assert.equal(v.enRetard, false, 'ordre clos : jamais en retard');
 }
 
+// --- Efficience : chaque matelas garde le trace de SA laize (placement a deux laizes) ---
+{
+    // Laize en cours L2 (efficience 90) ; le trace de L1 (efficience 80) est range dans tracesLaize.
+    const tissus = [{ id: 'principal', nom: 'Tissu', laizes: [{ id: 'L1', cm: 150, creeLe: '' }, { id: 'L2', cm: 160, creeLe: '' }], laizeActive: 'L2' }];
+    const placements = [{
+        id: 'p1', tissu: 'principal', nom: '1S', ratios: { S: 1 }, efficience: 90, longueurM: 3, laizeCm: 160,
+        tracesLaize: { L1: { efficience: 80, longueurM: 4, laizeCm: 150 } },
+    }];
+    const lignes = [
+        ligne({ plis: 10, longTracee: 4, ratios: { S: 1 }, fait: true, placementId: 'p1', laizeId: 'L1' }),
+        ligne({ plis: 10, longTracee: 3, ratios: { S: 1 }, placementId: 'p1', laizeId: 'L2' }),
+    ];
+    const m = modele('LZ', 'EN_COURS', lignes, { quantity: 20 }, { tissus, placements });
+    const b = bilanOrdre(m);
+    const mL1 = 10 * (4 + AMORCE_PAR_PLI_M), mL2 = 10 * (3 + AMORCE_PAR_PLI_M);
+    presque(b.efficience!, (80 * mL1 + 90 * mL2) / (mL1 + mL2), 'L1 pondere avec 80, L2 avec 90');
+    assert.ok(Math.abs(b.efficience! - 90) > 1, 'plus l efficience du trace en cours pour tous les matelas');
+
+    // Matiere sans laizes (jamais changee) : le placement sert tel quel, comme avant.
+    const simple = modele('LZ3', 'EN_COURS', [ligne({ plis: 10, longTracee: 4, ratios: { S: 1 }, placementId: 'p1' })], { quantity: 10 },
+        { tissus: [{ id: 'principal', nom: 'Tissu' }], placements: [{ id: 'p1', tissu: 'principal', nom: '1S', ratios: { S: 1 }, efficience: 85 }] });
+    assert.equal(bilanOrdre(simple).efficience, 85);
+}
+
 // --- Journal : par jour de fin, sans la vlieseline ---
 {
     const m1 = modele('D', 'EN_COURS', [

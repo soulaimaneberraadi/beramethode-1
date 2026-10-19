@@ -60,12 +60,35 @@ export function texteNumero(numero: string, r: Pick<ReglagesNumero, 'format' | '
     }
     const brut = (r.modele || '{n}').trim() || '{n}';
     const modele = brut.includes('{n}') ? brut : `{n} ${brut}`;
-    return modele
-        .replace(/\{n\}/g, seul)
-        .replace(/\{code\}/g, (ctx.code || '').trim())
-        .replace(/\{pl\}/g, (ctx.placement || '').trim())
-        // Un code absent ne laisse ni tiret ni espace orphelin.
-        .replace(/^[\s-]+|[\s-]+$/g, '')
+
+    /*
+     * Un {code} ou un {pl} absent ne laisse ni tiret ni espace orphelin : on ne
+     * retire que le separateur litteral colle a la valeur absente. Retirer les
+     * tirets en bout de chaine apres coup effacait aussi ceux qu'on ecrit
+     * expres autour du numero (« -{n}- », format « tirets »).
+     */
+    const morceaux = modele.split(/(\{n\}|\{code\}|\{pl\})/); // rang impair = marque, pair = texte litteral
+    const sortie: Array<{ t: string; litteral: boolean }> = [];
+    let orphelinDeTete = false; // une valeur absente ouvre le texte : le separateur qui la suit est orphelin
+    morceaux.forEach((m, i) => {
+        if (i % 2 === 0) {
+            const t = orphelinDeTete ? m.replace(/^[\s-]+/, '') : m;
+            sortie.push({ t, litteral: true });
+            if (t) orphelinDeTete = false;
+            return;
+        }
+        const valeur = m === '{n}' ? seul : (m === '{code}' ? ctx.code : ctx.placement)?.trim() || '';
+        if (valeur) {
+            sortie.push({ t: valeur, litteral: false });
+            orphelinDeTete = false;
+            return;
+        }
+        // Valeur absente : le separateur litteral qui la precede devient orphelin.
+        const precedent = sortie[sortie.length - 1];
+        if (precedent?.litteral) precedent.t = precedent.t.replace(/[\s-]+$/, '');
+        if (sortie.every(p => !p.t)) orphelinDeTete = true;
+    });
+    return sortie.map(p => p.t).join('')
         .replace(/\s{2,}/g, ' ')
         .replace(/-{2,}/g, '-')
         // Le traceur ne connait que les caracteres d'un octet (latin-1).

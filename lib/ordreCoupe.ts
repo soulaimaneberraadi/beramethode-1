@@ -268,11 +268,14 @@ const piecesDe = (l: MatelasLine) => (l.plis || 0) * Object.values(l.ratios || {
 /**
  * Numerote les matelas d'une matiere a partir de `depart`. La plupart des
  * clients commencent par le plus gros matelas, certains par le plus petit ;
- * « tableau » garde l'ordre des lignes. Les matelas deja coupes gardent leur numero.
+ * « tableau » garde l'ordre des lignes. Un matelas deja coupe, ou dont le trace
+ * est deja parti chez le traceur (envoyeLe), garde son numero : il est ecrit sur
+ * les pieces ou sur le papier. Les autres sont numerotes autour, sans doublon.
  */
 export function renumeroter(lignes: MatelasLine[], tissu: string, depart: number, sens: SensNumerotation): MatelasLine[] {
-    const concernes = lignes.map((l, i) => ({ l, i })).filter(x => tissuDe(x.l) === tissu && !x.l.fait);
-    const pris = new Set(lignes.filter(l => tissuDe(l) === tissu && l.fait && l.numero).map(l => String(l.numero)));
+    const fige = (l: MatelasLine) => !!l.fait || !!l.envoyeLe;
+    const concernes = lignes.map((l, i) => ({ l, i })).filter(x => tissuDe(x.l) === tissu && !fige(x.l));
+    const pris = new Set(lignes.filter(l => tissuDe(l) === tissu && fige(l) && l.numero).map(l => String(l.numero)));
     if (sens !== 'tableau') concernes.sort((a, b) => (sens === 'grand' ? piecesDe(b.l) - piecesDe(a.l) : piecesDe(a.l) - piecesDe(b.l)) || a.i - b.i);
     const numeros = new Map<number, string>();
     let n = Math.max(0, Math.floor(depart));

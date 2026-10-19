@@ -16,6 +16,7 @@
  */
 import type { MatelasLine, ModelData, PlanningEvent } from '../types';
 import { aujourdhui, commandeDe, estDuTissuPrincipal, metresLigne, piecesLigne, sommeRatios } from './coupeAtelier';
+import { placementPourLigne } from './ordreCoupe';
 
 const statutDe = (m: ModelData) => m.ordreCoupe?.status || 'EN_PREPARATION';
 const ouvert = (m: ModelData) => { const s = statutDe(m); return s !== 'VALIDE' && s !== 'REJETE'; };
@@ -88,6 +89,11 @@ export const bilanOrdre = (m: ModelData, evenements: PlanningEvent[] = [], jour 
     let derniere: number | null = null;
     let effM = 0, effSomme = 0;
     const placements = new Map((o?.placements || []).map(p => [p.id, p]));
+    /** Laize en cours de la matiere ; rien tant que la matiere n'a jamais change de laize. */
+    const laizeActiveDe = (tissuId: string) => {
+        const t = o?.tissus?.find(x => x.id === tissuId);
+        return t?.laizes?.length ? (t.laizeActive || t.laizes[0].id) : undefined;
+    };
     for (const l of lignes) {
         const pcs = piecesLigne(l);
         const mt = metresLigne(l);
@@ -101,7 +107,10 @@ export const bilanOrdre = (m: ModelData, evenements: PlanningEvent[] = [], jour 
             const t = Date.parse(l.fin || '');
             if (Number.isFinite(t) && (derniere === null || t > derniere)) derniere = t;
         } else if (l.envoyeLe) nbEnvoyes++;
-        const p = l.placementId ? placements.get(l.placementId) : undefined;
+        // Le placement tel que CE matelas l'a coupe : un matelas coupe sur une
+        // ancienne laize garde l'efficience de son trace, pas celle du trace en cours.
+        const brut = l.placementId ? placements.get(l.placementId) : undefined;
+        const p = brut ? placementPourLigne(brut, l, laizeActiveDe(brut.tissu)) : undefined;
         if (p?.efficience && p.efficience > 0 && mt > 0) { effSomme += p.efficience * mt; effM += mt; }
     }
     // Pas encore de matelas etale : l'efficience des traces charges du tissu principal.

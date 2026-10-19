@@ -18,6 +18,7 @@
 // Import de type seulement : effacé à la compilation, n'alourdit pas le bundle
 // (la valeur réelle est chargée en dynamique dans construireClasseurCoupe).
 import type ExcelJS from 'exceljs';
+import { AMORCE_PAR_PLI_M, metresPlis } from './coupeAtelier';
 
 export interface DonneesExcelCoupe {
     entreprise?: string;
@@ -341,7 +342,10 @@ function construireFeuilleMatiere(wb: Classeur, d: DonneesExcelCoupe, tissu: Tis
         const notation = construireNotation(m, tailles);
         const D = m.plis || 0;
         const E = typeof m.longueurM === 'number' ? m.longueurM : 0;
-        const F = D * E;
+        // Metres du matelas comme partout dans l'app : plis x (longueur + amorce par pli),
+        // 0 sans longueur de trace (voir metresPlis). Un « necesari » sans amorce
+        // sous-estimait le tissu a prevoir et faussait « recu - necessaire ».
+        const F = metresPlis(D, E);
         const valeurs = tailles.map(t => D * (Number(ratios[t]) || 0));
         const paires = valeurs.map((v, k) => { cumulRunning[k] += v; return cumulRunning[k]; });
         const sommeLigne = valeurs.reduce((s, v) => s + v, 0);
@@ -457,7 +461,7 @@ function construireFeuilleMatiere(wb: Classeur, d: DonneesExcelCoupe, tissu: Tis
         ec(3, numOuTexte(m.numero));
         ec(4, c.D, { numFmt: FMT_ENTIER });
         ec(5, c.E, { numFmt: FMT_METRES });
-        ec(6, { formula: `${colLetter(4)}${r}*${colLetter(5)}${r}`, result: c.F }, { numFmt: FMT_METRES });
+        ec(6, { formula: `IF(${colLetter(5)}${r}>0,${colLetter(4)}${r}*(${colLetter(5)}${r}+${AMORCE_PAR_PLI_M}),0)`, result: c.F }, { numFmt: FMT_METRES });
 
         tailles.forEach((t, k) => {
             const ratio = Number(c.ratios[t]) || 0;

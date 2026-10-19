@@ -139,6 +139,30 @@ const groupes: GroupeCoupe[] = [
     assert.equal(statsGroupes(ex, groupes, depuis).find(x => x.groupeId === 'A')!.nb, 0, 'periode respectee');
 }
 
+// --- Groupes : les pieces ne viennent que du tissu principal ---
+{
+    const m = modele('gp', 'EN_COURS', [
+        // Tissu principal, ecrit en toutes lettres ou absent : 20 + 10 pieces de vetement.
+        ligne({ plis: 20, longTracee: 3 - AMORCE_PAR_PLI_M, ratios: { S: 1 }, fait: true, groupe: 'A', debut: '2026-09-25T08:00:00Z', fin: '2026-09-25T08:30:00Z', tissu: 'principal' }),
+        ligne({ plis: 10, longTracee: 3 - AMORCE_PAR_PLI_M, ratios: { M: 1 }, fait: true, groupe: 'A' }),
+        // Vlieseline et doublure : se coupent EN PLUS du vetement, 5 plis x 3 tailles et 8 plis x 1.
+        ligne({ plis: 5, longTracee: 2 - AMORCE_PAR_PLI_M, ratios: { S: 1, M: 1, L: 1 }, fait: true, groupe: 'A', tissu: 'TIS-vlies', debut: '2026-09-25T09:00:00Z', fin: '2026-09-25T09:15:00Z' }),
+        ligne({ plis: 8, longTracee: 1 - AMORCE_PAR_PLI_M, ratios: { S: 1 }, fait: true, groupe: 'A', tissu: 'TIS-doublure' }),
+    ]);
+    const ex = matelasExecutes([m]);
+    assert.equal(ex.length, 4);
+    assert.deepEqual(ex.map(x => x.principal).sort(), [false, false, true, true]);
+    const a = statsGroupes(ex, groupes).find(x => x.groupeId === 'A')!;
+    assert.equal(a.pieces, 30, 'vlieseline et doublure ne comptent pas comme vetements coupes');
+    assert.equal(a.nb, 4, 'le groupe a bien etale les 4 matelas');
+    // Les metres et le temps restent ceux de tout ce que le groupe a etale (meme base que le m/h).
+    presque(a.metres, 60 + 30 + 10 + 8);
+    assert.equal(a.nbChronometres, 2);
+    presque(a.metresParHeure!, (60 + 10) / ((30 + 15) / 60), 'm/h = metres chronometres / heures chronometrees');
+    // Coherent avec le total du vetement dans l'ordre.
+    assert.equal(a.pieces, resumerOrdre(m).coupees, 'pieces du groupe = pieces coupees de l ordre');
+}
+
 // --- Presence : pointage du jour, par groupe ---
 {
     const ouvriers = [

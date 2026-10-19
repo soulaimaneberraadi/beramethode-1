@@ -201,7 +201,14 @@ export interface MatelasExecute {
     longueurM: number;
     /** Tissu etale (plis x longueur, amorce comprise). */
     metres: number;
+    /** Pieces du matelas, de n'importe quelle matiere (le journal les affiche telles quelles). */
     pieces: number;
+    /**
+     * Matelas du tissu principal. Seul lui fait des vetements : la vlieseline,
+     * la doublure se coupent en plus, leurs pieces ne rentrent pas dans les
+     * pieces d'un groupe (les metres et le temps, eux, comptent : on les etale aussi).
+     */
+    principal: boolean;
     debut: string | null;
     fin: string | null;
     minutes: number | null;
@@ -224,6 +231,7 @@ export const matelasExecutes = (models: ModelData[]): MatelasExecute[] => {
                 longueurM: l.longTracee || 0,
                 metres: metresLigne(l),
                 pieces: piecesLigne(l),
+                principal: estDuTissuPrincipal(l),
                 debut: l.debut || null,
                 fin: l.fin || null,
                 minutes: dureeMinutes(l),
@@ -236,8 +244,11 @@ export const matelasExecutes = (models: ModelData[]): MatelasExecute[] => {
 
 export interface StatGroupe {
     groupeId: string;
+    /** Matelas coupes, toutes matieres : le groupe les a etales. */
     nb: number;
+    /** Tissu etale, toutes matieres (meme base que le temps et le classement m/h). */
     metres: number;
+    /** Pieces de vetement : matelas du tissu principal seulement. */
     pieces: number;
     /** Matelas dont on connait debut ET fin : seuls eux comptent dans les moyennes. */
     nbChronometres: number;
@@ -269,7 +280,8 @@ export const statsGroupes = (executes: MatelasExecute[], groupes: GroupeCoupe[],
         parGroupe.set(x.groupeId, s);
         s.nb++;
         s.metres += x.metres;
-        s.pieces += x.pieces;
+        // La vlieseline, la doublure se coupent en plus du vetement : leurs pieces doubleraient la quantite coupee.
+        if (x.principal) s.pieces += x.pieces;
         if (x.minutes !== null) {
             s.nbChronometres++;
             s.minutes += x.minutes;

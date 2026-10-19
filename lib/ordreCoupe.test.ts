@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import type { MatelasLine, OrdreCoupe } from '../types';
 import {
     associerTailles, avecCodes, changerLaize, creerLaize, estPrincipal, laizesDe, placementPourLigne, lireEntete, lireNotation, matelasDuPlacement, migrerOrdre,
-    nomFichierMatelas, numeroSuivant, plisPourPlacements, renumeroter, TISSU_PRINCIPAL,
+    nomFichierMatelas, numeroSuivant, plisPourPlacements, renumeroter, TISSU_PRINCIPAL, tissuDe,
 } from './ordreCoupe';
 
 const T = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
@@ -105,6 +105,28 @@ const T = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
     assert.equal(numeroSuivant(lignes, TISSU_PRINCIPAL), 4);
     assert.equal(numeroSuivant(lignes, 'vlies'), 2);
     assert.ok(estPrincipal(lignes[0]) && !estPrincipal(lignes[3]));
+
+    // Un trace deja parti chez le traceur (envoye, pas encore coupe) garde son numero, comme un matelas coupe.
+    const avecEnvoi: MatelasLine[] = [
+        { id: 'a', plis: 10, longTracee: 1, ratios: { S: 1 }, numero: '1' },
+        { id: 'e', plis: 20, longTracee: 1, ratios: { S: 1 }, numero: '2', envoyeLe: '2026-10-05T10:00:00Z' },
+        { id: 'c', plis: 30, longTracee: 1, ratios: { S: 2 }, numero: '3' },
+        { id: 'f', plis: 5, longTracee: 1, ratios: { S: 1 }, numero: '4', fait: true },
+        { id: 'v', plis: 5, longTracee: 1, ratios: { S: 1 }, numero: '1', tissu: 'vlies', envoyeLe: '2026-10-05T10:00:00Z' },
+    ];
+    const e = renumeroter(avecEnvoi, TISSU_PRINCIPAL, 1, 'grand');
+    assert.equal(e.find(l => l.id === 'e')!.numero, '2', 'envoye : numero inchange');
+    assert.equal(e.find(l => l.id === 'f')!.numero, '4', 'coupe : numero inchange');
+    assert.equal(e.find(l => l.id === 'c')!.numero, '1', 'le plus gros des matelas libres prend le premier numero libre');
+    assert.equal(e.find(l => l.id === 'a')!.numero, '3', '2 (envoye) et 4 (coupe) sont pris : on saute');
+    assert.equal(e.find(l => l.id === 'v')!.numero, '1', 'une autre matiere n est pas touchee');
+    const nums = e.filter(l => tissuDe(l) === TISSU_PRINCIPAL).map(l => l.numero);
+    assert.equal(new Set(nums).size, nums.length, 'aucun doublon');
+    // Depart au-dela d un numero envoye : il est saute lui aussi.
+    const e2 = renumeroter(avecEnvoi, TISSU_PRINCIPAL, 2, 'tableau');
+    assert.deepEqual(['a', 'c'].map(id => e2.find(l => l.id === id)!.numero), ['3', '5']);
+    // Le nouveau tableau ne modifie pas l entree.
+    assert.equal(avecEnvoi.find(l => l.id === 'a')!.numero, '1');
 }
 
 // --- Migration d'un ordre d'avant ---

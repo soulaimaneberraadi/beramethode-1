@@ -20,7 +20,7 @@ import {
     isoDepuisHeure, heureLocale, type PageAccueil,
 } from './coupe/AccueilCoupe';
 import { PageOrdres } from './coupe/PageOrdres';
-import { aujourdhui, commandeDe, matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../lib/coupeAtelier';
+import { aujourdhui, commandeDe, matelasExecutes, metresPlis, presenceGroupes, resumerOrdre, tempsStandard } from '../lib/coupeAtelier';
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
     TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
@@ -341,14 +341,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }
     };
 
+    /**
+     * Avancement reel de la coupe, en % entier : pieces des matelas coupes sur la
+     * commande (grille). Valide = 100. L'arrondi est vers le bas : 100 ne
+     * s'affiche que lorsque tout est coupe, jamais pour 99,6 %.
+     */
     const getProgress = (model: ModelData): number => {
-        const st = model.ordreCoupe?.status || 'EN_PREPARATION';
-        if (st === 'EN_PREPARATION') return 25;
-        if (st === 'EN_COURS') return 60;
-        if (st === 'SOUS_TRAITANCE') return 75;
-        if (st === 'VALIDE') return 100;
-        if (st === 'REJETE') return 0;
-        return 0;
+        if (model.ordreCoupe?.status === 'VALIDE') return 100;
+        const av = resumerOrdre(model).avancement;
+        return Math.max(0, Math.min(100, Math.floor(av * 100 + 1e-9)));
     };
 
     const handleExportExcel = async () => {
@@ -492,7 +493,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             empreinteOuverte.current = empreinteDe(ouvert, model.ficheData);
             setTissuActif(TISSU_PRINCIPAL);
         } else {
-            setOrdre({
+            const vide: OrdreCoupe = {
                 refModele: model.meta_data?.nom_modele || tx(lang, { fr: 'Sans Nom', ar: 'بدون اسم', en: 'Unnamed', es: 'Sin Nombre', pt: 'Sem Nome', tr: 'İsimsiz' }),
                 longueurMatelas: 0,
                 consommation: 0,
@@ -503,7 +504,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 faisceaux: [],
                 matelasLines: [],
                 tissuRecu: 0
-            });
+            };
+            setOrdre(vide);
+            // Base de comparaison propre a cet ordre vide : sans elle, l'empreinte du modele
+            // precedemment ouvert restait et « modifications non enregistrees » s'affichait a tort.
+            empreinteOuverte.current = empreinteDe(vide, model.ficheData);
+            setTissuActif(TISSU_PRINCIPAL);
         }
         if (isMobile) setSidebarOpen(false);
     };
@@ -822,7 +828,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             if (i < 0) return prev;
             const line = lignes[i];
             if (line.fait) {
-                lignes[i] = { ...line, fait: false, fin: undefined };
+                // Les metres mesures au rouleau sont une donnee de coupe : decoche, ils ne comptent plus.
+                lignes[i] = { ...line, fait: false, fin: undefined, metresReels: undefined };
                 return { ...prev, matelasLines: lignes, serie: figerSerie(prev.serie, lignes, sizes, [id], false) };
             }
             // Rouleau fini, defaut : on note ce qui a vraiment ete coupe, et le reste repart en matelas.
@@ -849,6 +856,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     fin: undefined,
                     numero: String(numeroSuivant(lignes, tissuDe(line))),
                     metresReels: undefined,
+                    // Nouveau numero : son trace n'est pas parti chez le traceur (le placement reste le meme).
+                    envoyeLe: undefined,
                 });
             }
             // Ses paquets gardent desormais leur plage : les etiquettes sont collees.
@@ -877,7 +886,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 if (!ids.includes(l.id) || !!l.fait === fait) return l;
                 return fait
                     ? { ...l, fait: true, groupe: l.groupe || dernierGroupe, debut: l.debut || l.envoyeLe, fin: maintenant }
-                    : { ...l, fait: false, fin: undefined };
+                    : { ...l, fait: false, fin: undefined, metresReels: undefined };
             });
             return { ...prev, matelasLines, serie: figerSerie(prev.serie, matelasLines, sizes, ids, fait) };
         });
@@ -1057,6 +1066,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 ...o,
                 id: `MAT-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`,
                 fait: false, groupe: undefined, debut: undefined, fin: undefined, metresReels: undefined,
+                // Une copie a un nouveau numero : elle n'est pas « envoyee » au traceur (placement et fichier restent).
+                envoyeLe: undefined,
                 numero: String(numeroSuivant(lignes, tissuDe(o))),
             });
         }
@@ -3454,7 +3465,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     >
                                         {tx(lang, { fr: 'Renumeroter', ar: 'إعادة الترقيم', en: 'Renumber' })}
                                     </button>
-                                    <span className="text-[10px] text-slate-400 max-w-sm">{tx(lang, { fr: 'Les matelas deja coupes gardent leur numero.', ar: 'المفرشات المقصوصة تحتفظ برقمها.', en: 'Lays already cut keep their number.' })}</span>
+                                    <span className="text-[10px] text-slate-400 max-w-sm">{tx(lang, { fr: 'Les matelas deja coupes ou envoyes au traceur gardent leur numero.', ar: 'المفرشات المقصوصة أو المرسلة إلى الـ traceur تحتفظ برقمها.', en: 'Lays already cut or sent to the plotter keep their number.' })}</span>
                                     <button
                                         type="button"
                                         onClick={() => setReglagesDefautOuverts(true)}
