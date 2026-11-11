@@ -1501,6 +1501,7 @@ const DICT: Record<string, { ar: string, en: string, es?: string, pt?: string, t
     'Articles > 90 Jours': { ar: 'عناصر > 90 يوم', en: 'Items > 90 Days', es: 'Artículos > 90 Días', pt: 'Itens > 90 Dias', tr: 'Ürünler > 90 Gün' },
     'Unités immobiles': { ar: 'وحدات غير متحركة', en: 'Immobile Units', es: 'Unidades Inmóviles', pt: 'Unidades Imóveis', tr: 'Hareketsiz Birimler' },
     'Valeur Gelée': { ar: 'القيمة المجمدة', en: 'Frozen Value', es: 'Valor Congelado', pt: 'Valor Congelado', tr: 'Donmuş Değer' },
+    'Gestion des Surplus': { ar: 'إدارة الفائض', en: 'Surplus Management', es: 'Gestión de Excedentes', pt: 'Gestão de Excedentes', tr: 'Fazla Yönetimi' },
     'Anticipation Production': { ar: 'توقع الإنتاج', en: 'Production Anticipation', es: 'Anticipación de Producción', pt: 'Antecipação da Produção', tr: 'Üretim Öngörüsü' },
     'Préparation des Modèles Imminents': { ar: 'تحضير النماذج الوشيكة', en: 'Preparation of Imminent Models', es: 'Preparación de Modelos Inminentes', pt: 'Preparação de Modelos Iminentes', tr: 'Yaklaşan Modellerin Hazırlığı' },
     'Besoins / Fournitures': { ar: 'الإحتياجات / اللوازم', en: 'Needs / Supplies', es: 'Necesidades / Suministros', pt: 'Necessidades / Insumos', tr: 'İhtiyaçlar / Malzemeler' },
@@ -4327,7 +4328,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300 max-w-7xl mx-auto">
                             <div className="bg-gradient-to-r from-slate-800 to-indigo-900 p-6 rounded-3xl text-white shadow-lg dark:shadow-dk-lg relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8 opacity-10"><Scale className="w-48 h-48" /></div>
-                                <h2 className="text-2xl font-black mb-1 flex items-center gap-3"><Scale className="w-6 h-6 text-indigo-400 dark:text-indigo-300" /> {t('Gestion des Surplus ( الفائض )')}</h2>
+                                <h2 className="text-2xl font-black mb-1 flex items-center gap-3"><Scale className="w-6 h-6 text-indigo-400 dark:text-indigo-300" /> {t('Gestion des Surplus')}</h2>
                                 <p className="text-indigo-100 dark:text-indigo-200 font-bold max-w-xl">{t("Gérez le reste des matières et fournitures (Temykou) après la clôture des commandes. Transférez-les à un autre modèle ou intégrez-les au stock propre du magasin.")}</p>
                             </div>
 
